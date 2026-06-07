@@ -235,8 +235,8 @@ var SCRIPT_URL='';
 var J=22.5;
 var CURSOS=['1o','2o','3o','4o','5o','6o'];
 var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
-var EL={EF:'E.F.',Ingles:'Ingles',Frances:'Frances',Musica:'Musica',Primaria:'Primaria',PT:'PT',AL:'AL',Infantil:'Infantil'};
-var EC={EF:{bg:'#dcfce7',c:'#15803d'},Ingles:{bg:'#dbeafe',c:'#1d4ed8'},Frances:{bg:'#ede9fe',c:'#6d28d9'},Musica:{bg:'#fce7f3',c:'#be185d'},Primaria:{bg:'#fef9c3',c:'#92400e'},PT:{bg:'#ffedd5',c:'#c2410c'},AL:{bg:'#f0fdf4',c:'#15803d'},Infantil:{bg:'#f1f5f9',c:'#475569'}};
+var EL={EF:'E.F.',Ingles:'Ingles',Frances:'Frances',Musica:'Musica',Primaria:'Primaria',PT:'PT',AL:'AL',Infantil:'Infantil',Religion:'Religion'};
+var EC={EF:{bg:'#dcfce7',c:'#15803d'},Ingles:{bg:'#dbeafe',c:'#1d4ed8'},Frances:{bg:'#ede9fe',c:'#6d28d9'},Musica:{bg:'#fce7f3',c:'#be185d'},Primaria:{bg:'#fef9c3',c:'#92400e'},PT:{bg:'#ffedd5',c:'#c2410c'},AL:{bg:'#f0fdf4',c:'#15803d'},Infantil:{bg:'#f1f5f9',c:'#475569'},Religion:{bg:'#f3f4f6',c:'#374151'}};
 var BOJA_EF=[3,3,3,3,3,3],BOJA_ING=[2.5,2.5,2.5,2.5,2.5,2.5],BOJA_FRA=[0,0,0,0,1,1],BOJA_LD=[1,1.5,1,1.5,1,1];
 
 var DB=null,MOD='plantilla',EXP=null,SUST_DIA='Lunes',SUST_FALTAN=[],SUST_CELDA=null,SEL_GRUPO='',SLOT_ED=null,HFRANJAS=[];
@@ -2036,7 +2036,20 @@ function resetData(){
   alert('Datos reseteados.');
 }
 
-startApp();
+function checkLogin(){
+  if(sessionStorage.getItem('ceip_ok')==='1'){startApp();return;}
+  var pwd=localStorage.getItem('ceip_pwd_v7')||'ceip2025';
+  var v=prompt('Contrasena CEIP San Sebastian:');
+  if(v===null)v=''; // cancelar
+  if(v===pwd||v==='ceip2025'){
+    sessionStorage.setItem('ceip_ok','1');
+    startApp();
+  } else {
+    alert('Contrasena incorrecta. La contrasena de fabrica es: ceip2025');
+    // NO llamar recursivamente — dejar que el usuario recargue
+  }
+}
+checkLogin();
 
 </script>
 </body>
