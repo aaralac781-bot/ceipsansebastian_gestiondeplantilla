@@ -3408,19 +3408,9 @@ function getSemanaMes(fechaStr){
 }
 
 function getTurnoAlumnosDia(fechaStr){
-  // Obtener turno de alumnos para una fecha concreta
-  if(!DB.recreo||!DB.recreo.turnosAlumnos)return {};
-  var p = fechaStr.split('-');
-  var mes = p[0]+'-'+p[1];
-  var rot = DB.recreo.rotacion||'semanal';
-  var dias = getDiasLaborables(mes);
-  var diaObj = dias.find(function(d){return d.fecha===fechaStr;});
-  if(!diaObj)return {};
-  var key;
-  if(rot==='quincenal') key='Q'+(diaObj.sem<=2?1:2);
-  else if(rot==='libre') key='Periodo 1';
-  else key='S'+diaObj.sem;
-  return (DB.recreo.turnosAlumnos[key])||{};
+  // Devuelve {cursoId: zonaId} para una fecha concreta
+  if(!DB.recreo||!DB.recreo.turnosAlumnosDia)return {};
+  return DB.recreo.turnosAlumnosDia[fechaStr]||{};
 }
 
 function publicarRecreoBttn(){
@@ -3448,14 +3438,16 @@ function publicarRecreoBttn(){
       fila.push(slot&&slot.maestroN?slot.maestroN:'');
     });
     // Alumnos por zona ese dia
-    var tAlumnos = getTurnoAlumnosDia(fecha);
+    var tAlumnos2 = getTurnoAlumnosDia(fecha);
+    var porZonaAlumnos={};
+    Object.keys(tAlumnos2).forEach(function(cid){
+      var zid=tAlumnos2[cid];
+      if(!porZonaAlumnos[zid])porZonaAlumnos[zid]=[];
+      var cu2=cursos.find(function(x){return x.id===cid;});
+      if(cu2)porZonaAlumnos[zid].push(cu2.n);
+    });
     zonas.forEach(function(z){
-      var slotA = tAlumnos[z.id]||[];
-      var nombresA = slotA.map(function(cid){
-        var cu = cursos.find(function(x){return x.id===cid;});
-        return cu?cu.n:'';
-      }).filter(Boolean).join(', ');
-      fila.push(nombresA);
+      fila.push((porZonaAlumnos[z.id]||[]).join(', '));
     });
     filas.push(fila);
   });
@@ -3522,17 +3514,20 @@ function agregarEventosRecreoAgenda(){
       if(slot&&slot.maestroN)desc += z.n+': '+slot.maestroN+' | ';
     });
 
-    // Alumnos
+    // Alumnos del dia
     var tA = getTurnoAlumnosDia(fechaIni);
     if(Object.keys(tA).length>0){
-      desc += ' ALUMNOS: ';
+      desc += ' | ALUMNOS: ';
+      var porZonaA={};
+      Object.keys(tA).forEach(function(cid){
+        var zid=tA[cid];
+        if(!porZonaA[zid])porZonaA[zid]=[];
+        var cu=cursos.find(function(x){return x.id===cid;});
+        if(cu)porZonaA[zid].push(cu.n);
+      });
       zonas.forEach(function(z){
-        var slotA = tA[z.id]||[];
-        var nombresA = slotA.map(function(cid){
-          var cu = cursos.find(function(x){return x.id===cid;});
-          return cu?cu.n:'';
-        }).filter(Boolean).join(', ');
-        if(nombresA)desc += z.n+': '+nombresA+' | ';
+        var lista=porZonaA[z.id]||[];
+        if(lista.length>0)desc+=z.n+':'+lista.join('+')+'  ';
       });
     }
 
@@ -3624,93 +3619,208 @@ function renderRecreoAlumnos(){
   var cursos = DB.recreo.cursosAlumnos||[];
   var zonas = DB.recreo.zonasPrimaria||[];
   var aforo = DB.recreo.zonaAforo||{};
-  var rotacion = DB.recreo.rotacion||'semanal';
+  var dias = getDiasLaborables(RECREO_MES_ACTUAL);
+  var turnos = DB.recreo.turnosAlumnosDia||{};
 
   var h = '<div style="padding:12px 14px">';
 
-  // Cursos
+  // Configuracion rapida
   h += '<div class="card">';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
   h += '<div class="ct" style="margin:0">Cursos de Primaria</div>';
   h += '<button class="btn bvd bsm" onclick="addCursoRecreo()">+ Curso</button>';
   h += '</div>';
-  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Edita los nombres. Los de 6o pueden ser ayudantes.</div>';
-  h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
   cursos.forEach(function(cu,i){
     h += '<div style="display:flex;align-items:center;gap:4px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:4px 8px">';
-    h += '<input type="text" value="'+cu.n+'" onchange="DB.recreo.cursosAlumnos['+i+'].n=this.value;save()" style="border:none;background:transparent;font-size:12px;font-weight:600;width:60px">';
-    h += '<button onclick="delCursoRecreo('+i+')" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0">x</button>';
+    h += '<input type="text" value="'+cu.n+'" data-idx="'+i+'" onchange="updCursoRecreo(this)" style="border:none;background:transparent;font-size:12px;font-weight:600;width:55px">';
+    h += '<button data-idx="'+i+'" onclick="delCursoRecreo(+this.getAttribute(\'data-idx\'))" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0">x</button>';
     h += '</div>';
   });
-  h += '</div></div>';
+  h += '</div>';
 
   // Aforo por zona
-  h += '<div class="card"><div class="ct">Aforo por zona (num. cursos)</div>';
-  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Cuantos cursos pueden estar simultaneamente en cada zona.</div>';
+  h += '<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px">AFORO POR ZONA (num. cursos simultaneos)</div>';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
   zonas.forEach(function(z){
     var af = aforo[z.id]||1;
-    h += '<div class="cfg-i">';
-    h += '<span style="flex:1;font-size:12px;font-weight:600">'+z.n+'</span>';
-    h += '<input type="number" min="1" max="6" value="'+af+'" data-zid="'+z.id+'" onchange="setAforoZonaEl(this)" style="width:55px;padding:4px;border:1.5px solid #e2e8f0;border-radius:6px;text-align:center">';
-    h += '<span style="font-size:11px;color:#64748b">cursos</span>';
+    h += '<div style="display:flex;align-items:center;gap:4px;background:'+z.color+';border-radius:8px;padding:4px 8px">';
+    h += '<span style="font-size:11px;font-weight:600">'+z.n+'</span>';
+    h += '<input type="number" min="1" max="6" value="'+af+'" data-zid="'+z.id+'" onchange="setAforoZonaEl(this)" style="width:38px;padding:2px;border:1.5px solid #e2e8f0;border-radius:5px;text-align:center;font-size:11px">';
     h += '</div>';
   });
   h += '</div>';
 
-  // Frecuencia de rotacion
-  h += '<div class="card"><div class="ct">Frecuencia de rotacion</div>';
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
-  [{v:'semanal',l:'Semanal (cada lunes nuevo turno)'},{v:'quincenal',l:'Quincenal (cada 2 semanas)'},{v:'libre',l:'Libre (manual)'}].forEach(function(op){
-    var sel = rotacion===op.v;
-    h += '<button class="dtab'+(sel?' on':'')+'" data-rot="'+op.v+'" onclick="setRotacionRecreo(this)">'+op.l+'</button>';
-  });
+  h += '<button class="btn bvd bsm" onclick="genTurnosAlumnosDia()">Generar rotacion mensual</button>';
   h += '</div></div>';
 
-  // Tabla de turnos de alumnos
-  var turnos = DB.recreo.turnosAlumnos||{};
-  h += '<div class="card">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-  h += '<div class="ct" style="margin:0">Turnos '+getMesLabel2(RECREO_MES_ACTUAL)+'</div>';
-  h += '<button class="btn bvd bsm" onclick="genTurnosAlumnos()">Generar</button>';
-  h += '</div>';
-
+  // Tabla de turnos diarios
   if(Object.keys(turnos).length===0){
-    h += '<div class="al w"><span>!</span><span>Pulsa Generar para crear los turnos automaticamente.</span></div>';
+    h += '<div class="al w"><span>!</span><span>Pulsa "Generar rotacion mensual" para crear los turnos.</span></div>';
   } else {
-    h += '<div style="overflow-x:auto">';
-    h += '<table style="border-collapse:collapse;font-size:11px;min-width:400px;width:100%">';
+    // Mostrar tabla: filas=cursos, columnas=dias del mes
+    h += '<div style="overflow-x:auto;margin-top:4px">';
+    h += '<table style="border-collapse:collapse;font-size:10px;min-width:600px">';
     h += '<thead><tr>';
-    h += '<th style="background:#14532d;color:#fff;padding:5px 8px;text-align:left">Zona</th>';
-    // Cabeceras: semanas o quincenas del mes
-    var periodos = Object.keys(turnos).sort();
-    periodos.forEach(function(p){
-      h += '<th style="background:#14532d;color:#fff;padding:5px 6px;text-align:center;font-size:10px">'+p+'</th>';
+    h += '<th style="background:#1e3a8a;color:#fff;padding:4px 8px;text-align:left;min-width:50px;position:sticky;left:0">Curso</th>';
+    dias.forEach(function(d){
+      h += '<th style="background:#1e3a8a;color:#fff;padding:3px 4px;text-align:center;min-width:45px;font-weight:400">';
+      h += d.diaSem.substr(0,2)+'<br><span style="font-size:9px">'+d.num+'</span></th>';
     });
     h += '</tr></thead><tbody>';
-    zonas.forEach(function(z,zi){
+
+    cursos.forEach(function(cu,ci){
+      var bgRow = ci%2===0?'#f8fafc':'#fff';
       h += '<tr>';
-      h += '<td style="background:'+z.color+';font-weight:600;padding:4px 8px;border:1px solid #e2e8f0;font-size:11px">'+z.n+'</td>';
-      periodos.forEach(function(p){
-        var slot = (turnos[p]||{})[z.id]||[];
-        h += '<td style="border:1px solid #e2e8f0;padding:4px 6px;vertical-align:top;cursor:pointer;background:'+z.color+'22" data-per="'+p+'" data-zid="'+z.id+'" onclick="editSlotAlumnosEl(this)">';
-        if(slot.length>0){
-          slot.forEach(function(cid){
-            var cu = cursos.find(function(x){return x.id===cid;});
-            h += '<div style="font-size:10px;background:'+z.color+';border-radius:4px;padding:1px 5px;margin-bottom:2px;font-weight:600">'+(cu?cu.n:cid)+'</div>';
-          });
-        } else {
-          h += '<span style="color:#e2e8f0;font-size:10px">+</span>';
-        }
+      h += '<td style="background:#1e3a8a;color:#fff;font-weight:700;padding:3px 8px;font-size:10px;position:sticky;left:0">'+cu.n+'</td>';
+      dias.forEach(function(d){
+        var zona = (turnos[d.fecha]||{})[cu.id]||'';
+        var zonaObj = zonas.find(function(z){return z.id===zona;});
+        var bg = zonaObj?zonaObj.color:bgRow;
+        var label = zonaObj?zonaObj.n.split(' ')[0]:'';
+        h += '<td style="background:'+bg+';padding:2px 3px;border:1px solid #e2e8f0;text-align:center;cursor:pointer;font-size:9px" ';
+        h += 'data-fecha="'+d.fecha+'" data-cid="'+cu.id+'" onclick="editZonaCursoEl(this)">';
+        h += label||'<span style="color:#e2e8f0">+</span>';
         h += '</td>';
       });
       h += '</tr>';
     });
     h += '</tbody></table></div>';
+
+    // Leyenda de zonas
+    h += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">';
+    zonas.forEach(function(z){
+      h += '<span style="background:'+z.color+';padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">'+z.n+'</span>';
+    });
+    h += '</div>';
   }
-  h += '</div>';
+
   h += '</div>';
   return h;
 }
+
+function genTurnosAlumnosDia(){
+  initRecreo();
+  var cursos = DB.recreo.cursosAlumnos||[];
+  var zonas = DB.recreo.zonasPrimaria||[];
+  var aforo = DB.recreo.zonaAforo||{};
+  var dias = getDiasLaborables(RECREO_MES_ACTUAL);
+
+  if(cursos.length===0||zonas.length===0){alert('Anade cursos y zonas primero.');return;}
+
+  // Calcular slots totales disponibles por dia
+  // Cada zona tiene aforo N = N cursos simultaneos
+  // Total slots = suma de aforos
+  var slotsTotal = zonas.reduce(function(acc,z){return acc+(aforo[z.id]||1);},0);
+
+  // Construir lista de slots: [zp1,zp1,zp2,zp3,zp3,...] segun aforo
+  function getSlotsZonas(){
+    var slots=[];
+    zonas.forEach(function(z){
+      var af=aforo[z.id]||1;
+      for(var i=0;i<af;i++)slots.push(z.id);
+    });
+    return slots;
+  }
+
+  // Para cada dia, rotar los cursos por los slots
+  // El offset de rotacion cambia cada dia para que cada curso pase por todas las zonas
+  var turnos = {};
+
+  dias.forEach(function(d,di){
+    turnos[d.fecha] = {};
+    var slots = getSlotsZonas();
+    var numSlots = slots.length;
+
+    cursos.forEach(function(cu,ci){
+      // Offset de rotacion: cada dia avanza 1 posicion
+      var slotIdx = (ci + di) % numSlots;
+      turnos[d.fecha][cu.id] = slots[slotIdx];
+    });
+  });
+
+  DB.recreo.turnosAlumnosDia = turnos;
+  save();
+  renderRecreo();
+  alert('Rotacion generada para '+getMesLabel2(RECREO_MES_ACTUAL)+'. Cada curso rota diariamente por todas las zonas.');
+}
+
+function editZonaCursoEl(el){
+  var fecha = el.getAttribute('data-fecha');
+  var cid = el.getAttribute('data-cid');
+  editZonaCurso(fecha, cid);
+}
+
+function editZonaCurso(fecha, cid){
+  initRecreo();
+  var zonas = DB.recreo.zonasPrimaria||[];
+  var cursos = DB.recreo.cursosAlumnos||[];
+  var cu = cursos.find(function(x){return x.id===cid;});
+  var actual = ((DB.recreo.turnosAlumnosDia||{})[fecha]||{})[cid]||'';
+  var d = new Date(fecha+'T12:00:00');
+  var meses=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var diasN=['Dom','Lun','Mar','Mie','Jue','Vie','Sab'];
+
+  var h = '<div style="background:#fff;border-radius:14px;padding:14px">';
+  h += '<div style="font-size:13px;font-weight:800;color:#1e3a8a;margin-bottom:4px">'+(cu?cu.n:cid)+'</div>';
+  h += '<div style="font-size:11px;color:#64748b;margin-bottom:10px">'+diasN[d.getDay()]+' '+d.getDate()+' '+meses[d.getMonth()+1]+'</div>';
+  zonas.forEach(function(z){
+    var sel = z.id===actual;
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;background:'+(sel?z.color:'#f8fafc')+';margin-bottom:4px;cursor:pointer;border:2px solid '+(sel?'#374151':'transparent')+'" ';
+    h += 'data-fecha="'+fecha+'" data-cid="'+cid+'" data-zid="'+z.id+'" onclick="selZonaCursoEl(this)">';
+    h += '<span style="width:12px;height:12px;border-radius:50%;background:'+z.color+';border:1px solid #ccc;flex-shrink:0"></span>';
+    h += '<span style="font-size:12px;font-weight:'+(sel?700:400)+'">'+z.n+'</span>';
+    if(sel)h += '<span style="margin-left:auto;font-size:14px"></span>';
+    h += '</div>';
+  });
+  h += '<button class="btn bgy" style="width:100%;margin-top:8px" onclick="cerrarPanelZonaCurso()">Cerrar</button>';
+  h += '</div>';
+
+  var old = document.getElementById('panel-zona-curso');if(old)old.remove();
+  var div = document.createElement('div');
+  div.id = 'panel-zona-curso';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
+  div.innerHTML = h;
+  document.body.appendChild(div);
+}
+
+function selZonaCursoEl(el){
+  var fecha = el.getAttribute('data-fecha');
+  var cid = el.getAttribute('data-cid');
+  var zid = el.getAttribute('data-zid');
+  if(!DB.recreo.turnosAlumnosDia)DB.recreo.turnosAlumnosDia={};
+  if(!DB.recreo.turnosAlumnosDia[fecha])DB.recreo.turnosAlumnosDia[fecha]={};
+  DB.recreo.turnosAlumnosDia[fecha][cid] = zid;
+  save();
+  cerrarPanelZonaCurso();
+  renderRecreo();
+}
+
+function cerrarPanelZonaCurso(){
+  var p = document.getElementById('panel-zona-curso');
+  if(p)p.remove();
+}
+
+function updCursoRecreo(el){
+  var i = parseInt(el.getAttribute('data-idx'));
+  if(DB.recreo.cursosAlumnos&&DB.recreo.cursosAlumnos[i])
+    DB.recreo.cursosAlumnos[i].n = el.value;
+  save();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function setRotacionRecreo(el){
   DB.recreo.rotacion = el.getAttribute('data-rot');
