@@ -712,7 +712,7 @@ function parseCSV(csv){
   var lin=csv.split('\n').filter(function(l){return l.trim();});
   if(lin.length<2)return null;
   var cab=parseLine(lin[0]).map(function(h){return h.toLowerCase().replace(/[_\s]/g,'');});
-  function ci(n){var i=cab.indexOf(n.toLowerCase().replace(/[_\s]/g,''));return i>=0?i:-1;}
+  
   var IX={id:ci('id')||0,n:ci('nombre')||1,e:ci('especialidad')||2,cargo:ci('cargo')||3,
     rC:ci('redcargo')||4,rE:ci('rededad')||5,rJ:ci('redjornada')||6,
     coord:ci('coordinacion')||7,hC:ci('horascoord')||13,t:ci('estudor')||8,g:ci('grupotutor')||9,
@@ -754,7 +754,7 @@ function goMod(mod,btn){
 }
 
 function goSec(mod,sec,titulo,sub){
-  // si se llama con 2 args: goSec('balance','Balance') -> mod='plantilla'
+  // si se llama con 2 args: goSec('balance','Balance') -> mod='plantilla' +
   if(titulo===undefined){titulo=sec;sec=mod;mod='plantilla';}
   var homeEl=document.getElementById(mod==='plantilla'?'ph':'hh');
   var secEl=document.getElementById(mod==='plantilla'?'ps':'hs2');
@@ -1195,6 +1195,274 @@ function rTutorias(){
   document.getElementById('s-tutorias').innerHTML=h;
 }
 
+var ALUMNOS_FILTRO={curso:'',letra:''};
+var ORDEN_CURSOS=['3anos','4anos','5anos','1o','2o','3o','4o','5o','6o'];
+
+function cursoLabel(cv){
+  var map={'3anos':'3 Anos','4anos':'4 Anos','5anos':'5 Anos',
+    '1o':'1o Primaria','2o':'2o Primaria','3o':'3o Primaria',
+    '4o':'4o Primaria','5o':'5o Primaria','6o':'6o Primaria'};
+  return map[cv]||cv;
+}
+
+function getCursoSiguiente(curso,letra){
+  var map={'3anos':'4anos','4anos':'5anos','5anos':'1o',
+    '1o':'2o','2o':'3o','3o':'4o','4o':'5o','5o':'6o','6o':'INSTITUTO'};
+  var sig=map[curso]||'';
+  if(sig==='INSTITUTO')return null;
+  if(curso==='2o'||curso==='4o')return{curso:sig,letra:'',pendiente:true};
+  return{curso:sig,letra:letra,pendiente:false};
+}
+
+function getGrupoAlumnos(curso,letra){
+  return DB.alumnos.filter(function(a){
+    return a.curso===curso&&(letra?a.letra===letra:true);
+  }).sort(function(a,b){return a.apellidos.localeCompare(b.apellidos);});
+}
+
+function getCursosActivos(){
+  var cl={};
+  DB.alumnos.forEach(function(a){
+    var k=a.curso+'_'+a.letra;
+    if(!cl[k])cl[k]={curso:a.curso,letra:a.letra,n:0};
+    cl[k].n++;
+  });
+  return Object.values(cl).sort(function(a,b){
+    var oa=ORDEN_CURSOS.indexOf(a.curso),ob=ORDEN_CURSOS.indexOf(b.curso);
+    if(oa!==ob)return oa-ob;
+    return a.letra.localeCompare(b.letra);
+  });
+}
+
+function setFiltroAlumnos(curso,letra){
+  ALUMNOS_FILTRO={curso:curso,letra:letra};
+  renderAlumnos();
+}
+
+function renderAlumnos(){
+  var grupos=getCursosActivos();
+  var total=DB.alumnos.length;
+  var h='<div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:20px 16px 24px">';
+  h+='<div style="font-size:22px;font-weight:900;margin-bottom:2px">Alumnado</div>';
+  h+='<div style="font-size:12px;opacity:.8">'+total+' alumnos/as en total</div></div>';
+  h+='<div style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;background:#fff;border-bottom:1px solid #e2e8f0">';
+  h+='<button class="btn bvd bsm" onclick="showAddAlumno()">+ Anadir</button>';
+  h+='<button class="btn bgy bsm" onclick="document.getElementById(\'imp-xl\').click()">Importar Excel</button>';
+  h+='<input type="file" id="imp-xl" accept=".xlsx,.xls" style="display:none" onchange="importarExcel(this)">';
+  h+='<button class="btn" style="background:#f59e0b;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="showPromocion()">Promocionar curso</button>';
+  h+='<button class="btn bgy bsm" onclick="imprimirLista()">Imprimir lista</button>';
+  h+='</div>';
+  h+='<div style="padding:8px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;gap:5px;flex-wrap:wrap">';
+  h+='<button class="dtab'+(ALUMNOS_FILTRO.curso===''?' on':'')+'" onclick="setFiltroAlumnos(\'\',\'\')">Todos</button>';
+  grupos.forEach(function(g){
+    var sel=ALUMNOS_FILTRO.curso===g.curso&&ALUMNOS_FILTRO.letra===g.letra;
+    h+='<button class="dtab'+(sel?' on':'')+'" data-c="'+g.curso+'" data-l="'+g.letra+'" onclick="setFiltroAlumnos(this.getAttribute(\'data-c\'),this.getAttribute(\'data-l\'))">'+g.curso+(g.letra?g.letra:'')+' ('+g.n+')</button>';
+  });
+  h+='</div>';
+  var alumnos=ALUMNOS_FILTRO.curso
+    ?getGrupoAlumnos(ALUMNOS_FILTRO.curso,ALUMNOS_FILTRO.letra)
+    :DB.alumnos.slice().sort(function(a,b){
+        var oa=ORDEN_CURSOS.indexOf(a.curso),ob=ORDEN_CURSOS.indexOf(b.curso);
+        if(oa!==ob)return oa-ob;
+        if(a.letra!==b.letra)return a.letra.localeCompare(b.letra);
+        return a.apellidos.localeCompare(b.apellidos);
+      });
+  h+='<div style="padding:10px 14px">';
+  var cursoActual='';
+  alumnos.forEach(function(a,idx){
+    var gc=a.curso+a.letra;
+    if(!ALUMNOS_FILTRO.curso&&gc!==cursoActual){
+      cursoActual=gc;
+      var ng=getGrupoAlumnos(a.curso,a.letra).length;
+      h+='<div style="font-size:13px;font-weight:800;color:#1e3a8a;margin:10px 0 5px;padding-bottom:3px;border-bottom:2px solid #1e3a8a">';
+      h+=cursoLabel(a.curso)+(a.letra?' '+a.letra:'')+' <span style="font-weight:400;font-size:11px;color:#94a3b8">('+ng+')</span></div>';
+    }
+    var realIdx=DB.alumnos.indexOf(a);
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f8fafc">';
+    h+='<div style="flex:1"><div style="font-size:13px;font-weight:700">'+a.apellidos+', '+a.nombre+'</div>';
+    h+='<div style="display:flex;gap:4px;margin-top:2px">';
+    if(a.atencion)h+='<span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 6px;border-radius:10px">Aten.Educ.</span>';
+    if(a.repetidor)h+='<span style="background:#fee2e2;color:#b91c1c;font-size:10px;padding:1px 6px;border-radius:10px">Repite</span>';
+    h+='</div></div>';
+    h+='<button class="btn bgy bsm" style="padding:3px 8px" data-idx="'+realIdx+'" onclick="editAlumno(+this.getAttribute(\'data-idx\'))">Edit</button>';
+    h+='<button class="btn brd bsm" style="padding:3px 8px" data-idx="'+realIdx+'" onclick="delAlumno(+this.getAttribute(\'data-idx\'))">x</button>';
+    h+='</div>';
+  });
+  if(alumnos.length===0)h+='<div class="al i"><span>i</span><span>No hay alumnos/as.</span></div>';
+  h+='</div>';
+  h+='<div id="panel-alumno" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:16px"><div style="background:#fff;border-radius:14px;padding:18px;width:100%;max-width:360px;max-height:85vh;overflow-y:auto"><div id="panel-alumno-inner"></div></div></div>';
+  document.getElementById('pg-alumnos-inner').innerHTML=h;
+}
+
+function showAddAlumno(idx){
+  var a=idx!==undefined?DB.alumnos[idx]:{nombre:'',apellidos:'',curso:'1o',letra:'A',atencion:false,repetidor:false,fnac:''};
+  var esEdit=idx!==undefined;
+  var h='<div style="font-size:15px;font-weight:800;color:#1e3a8a;margin-bottom:12px">'+(esEdit?'Editar':'Nuevo alumno/a')+'</div>';
+  h+='<div class="fr"><span class="fl">Apellidos</span><input class="fi" type="text" id="al-ape" value="'+a.apellidos+'"></div>';
+  h+='<div class="fr"><span class="fl">Nombre</span><input class="fi" type="text" id="al-nom" value="'+a.nombre+'"></div>';
+  h+='<div class="fg2">';
+  h+='<div class="fr"><span class="fl">Curso</span><select class="fi" id="al-cur">';
+  ORDEN_CURSOS.forEach(function(cv){h+='<option value="'+cv+'"'+(a.curso===cv?' selected':'')+'>'+cursoLabel(cv)+'</option>';});
+  h+='</select></div>';
+  h+='<div class="fr"><span class="fl">Letra</span><input class="fi" type="text" id="al-let" value="'+(a.letra||'')+'" maxlength="2" style="text-transform:uppercase"></div>';
+  h+='</div>';
+  h+='<div class="fr"><span class="fl">Fecha nacimiento</span><input class="fi" type="date" id="al-fnac" value="'+(a.fnac||'')+'"></div>';
+  h+='<div class="ck"><input type="checkbox" id="al-aten"'+(a.atencion?' checked':'')+' style="width:16px;height:16px"><span>Atencion Educativa</span></div>';
+  h+='<div class="ck"><input type="checkbox" id="al-rep"'+(a.repetidor?' checked':'')+' style="width:16px;height:16px"><span>Repite curso</span></div>';
+  h+='<div style="display:flex;gap:8px;margin-top:12px">';
+  h+='<button class="btn bvd" style="flex:1" data-idx="'+(esEdit?idx:'x')+'" onclick="guardarAlumnoEl(this)">Guardar</button>';
+  h+='<button class="btn bgy" onclick="cerrarPanelAlumno()">Cancelar</button>';
+  h+='</div>';
+  document.getElementById('panel-alumno-inner').innerHTML=h;
+  document.getElementById('panel-alumno').style.display='flex';
+}
+
+function editAlumno(idx){showAddAlumno(idx);}
+
+function cerrarPanelAlumno(){
+  document.getElementById('panel-alumno').style.display='none';
+}
+
+function guardarAlumnoEl(el){
+  var idxStr=el.getAttribute('data-idx');
+  var idx=idxStr==='x'?undefined:parseInt(idxStr);
+  var ape=(document.getElementById('al-ape')||{}).value||'';
+  var nom=(document.getElementById('al-nom')||{}).value||'';
+  var cur=(document.getElementById('al-cur')||{}).value||'1o';
+  var let2=((document.getElementById('al-let')||{}).value||'').toUpperCase();
+  var fnac=(document.getElementById('al-fnac')||{}).value||'';
+  var aten=(document.getElementById('al-aten')||{}).checked||false;
+  var rep=(document.getElementById('al-rep')||{}).checked||false;
+  if(!ape||!nom){alert('Apellidos y nombre obligatorios');return;}
+  var alumno={nombre:nom,apellidos:ape,curso:cur,letra:let2,fnac:fnac,atencion:aten,repetidor:rep};
+  if(idx!==undefined&&idx<DB.alumnos.length){DB.alumnos[idx]=alumno;}
+  else{DB.alumnos.push(alumno);}
+  save();cerrarPanelAlumno();renderAlumnos();
+}
+
+function guardarAlumno(idx){
+  var el=document.querySelector('[data-idx]');
+  if(el)guardarAlumnoEl(el);
+}
+
+function delAlumno(idx){
+  if(!confirm('Eliminar alumno/a?'))return;
+  DB.alumnos.splice(idx,1);save();renderAlumnos();
+}
+
+function showPromocion(){
+  var grupos=getCursosActivos();
+  var h='<div style="font-size:15px;font-weight:800;color:#f59e0b;margin-bottom:10px">Promocionar curso</div>';
+  h+='<div style="font-size:12px;color:#374151;margin-bottom:10px;line-height:1.6">2o a 3o y 4o a 5o sin letra (pendiente de mezcla). 6o va al instituto.</div>';
+  grupos.forEach(function(g){
+    var sig=getCursoSiguiente(g.curso,g.letra);
+    var col=sig===null?'#b91c1c':sig.pendiente?'#d97706':'#15803d';
+    h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px">';
+    h+='<span>'+g.curso+(g.letra?' '+g.letra:'')+'</span>';
+    h+='<span style="color:'+col+';font-weight:700">'+(sig===null?'Instituto':sig.pendiente?sig.curso+' (letra pendiente)':sig.curso+' '+sig.letra)+'</span></div>';
+  });
+  h+='<div style="display:flex;gap:8px;margin-top:12px">';
+  h+='<button class="btn" style="flex:1;background:#f59e0b;color:#fff" onclick="ejecutarPromocion()">Promocionar ahora</button>';
+  h+='<button class="btn bgy" onclick="cerrarPanelAlumno()">Cancelar</button>';
+  h+='</div>';
+  document.getElementById('panel-alumno-inner').innerHTML=h;
+  document.getElementById('panel-alumno').style.display='flex';
+}
+
+function ejecutarPromocion(){
+  if(!confirm('Confirmar promocion de todos los alumnos/as?'))return;
+  var nuevos=[];
+  DB.alumnos.forEach(function(a){
+    var sig=getCursoSiguiente(a.curso,a.letra);
+    if(sig===null)return;
+    nuevos.push({nombre:a.nombre,apellidos:a.apellidos,curso:sig.curso,letra:sig.pendiente?'':sig.letra,fnac:a.fnac||'',atencion:a.atencion||false,repetidor:false});
+  });
+  DB.alumnos=nuevos;save();cerrarPanelAlumno();
+  ALUMNOS_FILTRO={curso:'',letra:''};renderAlumnos();
+  alert('Promocion completada. Recuerda asignar letra a los alumnos de 3o y 5o.');
+}
+
+function importarExcel(input){
+  var file=input.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:'array'});
+      var nuevos=[];
+      wb.SheetNames.forEach(function(sheetName){
+        var detected=detectarCurso(sheetName);
+        if(!detected)return;
+        var sheet=wb.Sheets[sheetName];
+        var rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+        rows.forEach(function(row){
+          var nombreCompleto='';
+          row.forEach(function(cell){
+            var val=String(cell).trim();
+            if(val.indexOf(',')>0&&val.length>3&&isNaN(val))nombreCompleto=val;
+          });
+          if(!nombreCompleto)return;
+          var partes=nombreCompleto.split(',',2);
+          var apellidos=partes[0].trim();
+          var nombre=partes[1]?partes[1].trim():'';
+          if(!apellidos||apellidos.length<2)return;
+          nuevos.push({nombre:nombre,apellidos:apellidos,curso:detected.curso,letra:detected.letra,fnac:'',atencion:false,repetidor:false});
+        });
+      });
+      if(nuevos.length===0){alert('No se encontraron alumnos.');return;}
+      var reemplazar=confirm('Se encontraron '+nuevos.length+' alumnos.\n\nAceptar = Reemplazar todo\nCancelar = Anadir a los existentes');
+      if(reemplazar)DB.alumnos=nuevos;
+      else DB.alumnos=DB.alumnos.concat(nuevos);
+      save();ALUMNOS_FILTRO={curso:'',letra:''};renderAlumnos();
+      alert('Importacion completada: '+nuevos.length+' alumnos.');
+    }catch(ex){alert('Error al leer el archivo: '+ex.message);}
+  };
+  reader.readAsArrayBuffer(file);
+  input.value='';
+}
+
+function detectarCurso(nombreHoja){
+  var n=nombreHoja.toLowerCase().replace(/infantil/g,'').replace(/primaria/g,'').replace(/anos/g,'anos').replace(/o/g,'o').trim();
+  var m=n.match(/(\d+)\s*([ab]?)/i);
+  if(!m)return null;
+  var num=m[1];
+  var let2=(m[2]||'').toUpperCase();
+  var esInf=nombreHoja.toLowerCase().indexOf('infantil')>=0||nombreHoja.toLowerCase().indexOf('anos')>=0;
+  if(esInf){var ci={'3':'3anos','4':'4anos','5':'5anos'};return{curso:ci[num]||num+'anos',letra:let2};}
+  var cp={'1':'1o','2':'2o','3':'3o','4':'4o','5':'5o','6':'6o'};
+  return{curso:cp[num]||num+'o',letra:let2};
+}
+
+function imprimirLista(){
+  var grupos=ALUMNOS_FILTRO.curso?[{curso:ALUMNOS_FILTRO.curso,letra:ALUMNOS_FILTRO.letra}]:getCursosActivos();
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Listado alumnos</title>';
+  html+='<style>body{font-family:Arial,sans-serif;margin:15mm;font-size:10pt}';
+  html+='h2{font-size:13pt;color:#1e3a8a;border-bottom:2pt solid #1e3a8a;padding-bottom:4pt}';
+  html+='table{width:100%;border-collapse:collapse;margin-bottom:20pt}';
+  html+='th{background:#1e3a8a;color:#fff;padding:5pt 7pt;text-align:left;font-size:9pt}';
+  html+='td{border:0.5pt solid #ccc;padding:5pt 7pt;font-size:9pt}';
+  html+='tr:nth-child(even)td{background:#f5f5f5}';
+  html+='@page{size:A4 portrait;margin:10mm}@media print{.salto{page-break-before:always}}</style></head><body>';
+  grupos.forEach(function(g,gi){
+    var alumnos=getGrupoAlumnos(g.curso,g.letra);
+    if(alumnos.length===0)return;
+    html+='<div class="'+(gi>0?'salto':'')+'">';
+    html+='<h2>'+cursoLabel(g.curso)+(g.letra?' '+g.letra:'')+'</h2>';
+    html+='<table><thead><tr><th>N</th><th>Apellidos, Nombre</th><th>Fecha Nac.</th><th>Religion/AE</th><th>Obs.</th></tr></thead><tbody>';
+    alumnos.forEach(function(a,i){
+      html+='<tr><td>'+(i+1)+'</td><td><strong>'+a.apellidos+'</strong>, '+a.nombre+'</td>';
+      html+='<td>'+(a.fnac||'')+'</td><td>'+(a.atencion?'Aten.Educativa':'Religion')+'</td>';
+      html+='<td>'+(a.repetidor?'Repite':'')+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  });
+  html+='</body></html>';
+  var w=window.open('','_blank','width=900,height=700');
+  w.document.write(html);w.document.close();
+  setTimeout(function(){w.print();},500);
+}
+
 function setFechaSust(dateStr){
   var d=new Date(dateStr+'T12:00:00');
   var diasMap={1:'Lunes',2:'Martes',3:'Miercoles',4:'Jueves',5:'Viernes'};
@@ -1221,6 +1489,200 @@ function priSust(m,gid,cicloD){
   if(cM&&cicloD&&(adj[cicloD]||[]).indexOf(cM)>=0)return 2;
   return 3;
 }
+
+
+
+function getFechaDeSust(){
+  var hoy=new Date();
+  if(window.SUST_FECHA==='hoy')return hoy.toISOString().split('T')[0];
+  if(window.SUST_FECHA==='pasado'){var d=new Date(hoy);d.setDate(d.getDate()+2);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);return d.toISOString().split('T')[0];}
+  if(window.SUST_FECHA_CUSTOM)return window.SUST_FECHA_CUSTOM;
+  var d=new Date(hoy);d.setDate(d.getDate()+1);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);
+  return d.toISOString().split('T')[0];
+}
+
+function publicarSustSSN(){
+  var url=DB.scriptUrl;
+  if(!url){alert('Configura la URL del script en Config.');return;}
+  var tbl=loadSust(SUST_DIA);
+  if(!tbl||Object.keys(tbl).length===0){alert('Genera primero la tabla.');return;}
+  var filas=[['Maestro/a ausente','Hora','Grupo','Sustituye','Observaciones']];
+  SUST_FALTAN.forEach(function(mFId){
+    var mF=DB.maestros.find(function(m){return m.id===mFId;});
+    if(!mF)return;
+    (DB.tramos||[]).forEach(function(t,ti){
+      if(t.r)return;
+      var key=String(mFId)+'_'+ti;
+      var cel=tbl[key];
+      if(!cel)return;
+      filas.push([mF.n,fmt(t.ini||0),cel.grupo||'',cel.sust||cel.txt||'Sin cubrir','']);
+    });
+  });
+  if(filas.length<=1){alert('No hay sustituciones asignadas.');return;}
+  var cb='_ssn'+Date.now();
+  window[cb]=function(r){delete window[cb];if(r&&r.ok)alert('Publicado en SSN.');else alert('Error: '+(r?r.error:''));};
+  var datos=JSON.stringify({sustDia:SUST_DIA,fecha:getFechaDeSust(),filas:filas,limpiarAnterior:true});
+  var s=document.createElement('script');
+  s.src=url+'?accion=publicarSust&callback='+cb+'&datos='+encodeURIComponent(datos);
+  s.onerror=function(){delete window[cb];alert('Error de conexion.');};
+  document.head.appendChild(s);
+  setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout.');}},10000);
+}
+
+var SUST_DIA='Lunes';
+var SUST_FALTAN=[];
+
+function renderSust(){
+  var hoy=new Date();
+  if(!window.SUST_FECHA)window.SUST_FECHA='manana';
+  var fechaSust=new Date(hoy);
+  if(window.SUST_FECHA==='hoy'){}
+  else if(window.SUST_FECHA==='pasado'){fechaSust.setDate(hoy.getDate()+2);}
+  else if(window.SUST_FECHA_CUSTOM){fechaSust=new Date(window.SUST_FECHA_CUSTOM+'T12:00:00');}
+  else{fechaSust.setDate(hoy.getDate()+1);}
+  while(fechaSust.getDay()===0||fechaSust.getDay()===6)fechaSust.setDate(fechaSust.getDate()+1);
+  var diasMap={1:'Lunes',2:'Martes',3:'Miercoles',4:'Jueves',5:'Viernes'};
+  if(diasMap[fechaSust.getDay()])SUST_DIA=diasMap[fechaSust.getDay()];
+  var meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+
+  var h='<div style="background:linear-gradient(135deg,#7f1d1d,#b91c1c);color:#fff;padding:16px">';
+  h+='<div style="font-size:20px;font-weight:900">Sustituciones</div>';
+  h+='<div style="font-size:12px;opacity:.8">Para el '+fechaSust.getDate()+' '+meses[fechaSust.getMonth()]+' ('+SUST_DIA+')</div></div>';
+
+  h+='<div style="padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0">';
+  h+='<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px">GENERAR PARA:</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  var opsFecha=[{v:'hoy',l:'Hoy'},{v:'manana',l:'Manana'},{v:'pasado',l:'Pasado'}];
+  opsFecha.forEach(function(op){
+    var sel=window.SUST_FECHA===op.v;
+    h+='<button class="dtab'+(sel?' on':'')+'" data-v="'+op.v+'" onclick="setSustFecha(this)">'+op.l+'</button>';
+  });
+  h+='<input type="date" value="'+fechaSust.toISOString().split('T')[0]+'" onchange="setFechaSust(this.value)" style="padding:5px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px">';
+  h+='</div></div>';
+
+  h+='<div style="padding:8px 14px;display:flex;flex-wrap:wrap;gap:4px">';
+  DIAS.forEach(function(d){
+    h+='<button class="dtab'+(d===SUST_DIA?' on':'')+'" data-d="'+d+'" onclick="setSustDia(this)">'+d.substr(0,3)+'</button>';
+  });
+  h+='</div>';
+
+  h+='<div style="padding:10px 14px">';
+  h+='<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px">MAESTROS QUE FALTAN:</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
+  DB.maestros.forEach(function(m){
+    var falta=SUST_FALTAN.indexOf(m.id)>=0;
+    h+='<button style="padding:4px 10px;border-radius:20px;border:2px solid '+(falta?'#b91c1c':'#e2e8f0')+';background:'+(falta?'#fee2e2':'#fff')+';font-size:11px;font-weight:600;color:'+(falta?'#b91c1c':'#64748b')+';cursor:pointer" data-mid="'+m.id+'" onclick="togFalta(this)">'+m.n.split(' ')[0]+'</button>';
+  });
+  h+='</div>';
+
+  h+='<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">';
+  h+='<button class="btn bvd bsm" onclick="genTabla()">Generar tabla</button>';
+  h+='<button class="btn bgy bsm" onclick="limpTabla()">Limpiar</button>';
+  h+='<button class="btn" style="background:#0f9d58;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="publicarSustSSN()">Publicar en SSN</button>';
+  h+='</div>';
+
+  // Recreo del dia
+  var fechaStr=getFechaDeSust();
+  if(SUST_FALTAN.length>0)reasignarRecreoAuto(fechaStr,SUST_FALTAN);
+  h+=renderRecreoDia(fechaStr);
+
+  // Tabla
+  var tbl=loadSust(SUST_DIA);
+  var tramos=DB.tramos||[];
+  if(SUST_FALTAN.length>0){
+    h+='<div style="margin-top:8px;overflow-x:auto">';
+    h+='<table style="border-collapse:collapse;font-size:11px;width:100%">';
+    h+='<tr style="background:#7f1d1d">';
+    h+='<th style="color:#fff;padding:4px 8px;text-align:left">Maestro/a</th>';
+    h+='<th style="color:#fff;padding:4px 8px">Hora</th>';
+    h+='<th style="color:#fff;padding:4px 8px">Grupo</th>';
+    h+='<th style="color:#fff;padding:4px 8px">Sustituye</th>';
+    h+='</tr>';
+    SUST_FALTAN.forEach(function(mFId){
+      var mF=DB.maestros.find(function(m){return m.id===mFId;});
+      if(!mF)return;
+      tramos.forEach(function(t,ti){
+        if(t.r)return;
+        var key=String(mFId)+'_'+ti;
+        var cel=tbl[key]||{};
+        var sust=cel.sust||'';
+        h+='<tr style="background:'+(sust?'#f0fdf4':'#fff')+'">';
+        h+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-weight:600">'+mF.n.split(' ')[0]+'</td>';
+        h+='<td style="padding:3px 8px;border:1px solid #e2e8f0;text-align:center">'+fmt(t.ini||0)+'</td>';
+        h+='<td style="padding:3px 8px;border:1px solid #e2e8f0">'+(cel.grupo||'-')+'</td>';
+        h+='<td style="padding:3px 8px;border:1px solid #e2e8f0;cursor:pointer" data-key="'+key+'" data-dia="'+SUST_DIA+'" onclick="abrirCelda(this)">'+(sust||cel.txt||'<span style="color:#94a3b8">Asignar...</span>')+'</td>';
+        h+='</tr>';
+      });
+    });
+    h+='</table></div>';
+  } else {
+    h+='<div class="al i"><span>i</span><span>Marca los maestros que faltan y pulsa Generar tabla.</span></div>';
+  }
+  h+='</div>';
+  document.getElementById('pg-sust-inner').innerHTML=h;
+}
+
+function setSustFecha(el){
+  window.SUST_FECHA=el.getAttribute('data-v');
+  window.SUST_FECHA_CUSTOM='';
+  SUST_FALTAN=[];renderSust();
+}
+function setSustDia(el){SUST_DIA=el.getAttribute('data-d');renderSust();}
+function togFalta(el){
+  var mid=parseInt(el.getAttribute('data-mid'));
+  var i=SUST_FALTAN.indexOf(mid);
+  if(i>=0)SUST_FALTAN.splice(i,1);else SUST_FALTAN.push(mid);
+  renderSust();
+}
+function genTabla(){
+  var tbl=loadSust(SUST_DIA);
+  SUST_FALTAN.forEach(function(mFId){
+    var mF=DB.maestros.find(function(m){return m.id===mFId;});
+    if(!mF)return;
+    (DB.tramos||[]).forEach(function(t,ti){
+      if(t.r)return;
+      var key=String(mFId)+'_'+ti;
+      if(tbl[key]&&tbl[key].sust)return;
+      var candidatos=DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0;});
+      tbl[key]={tipo:'sust',sust:candidatos.length>0?candidatos[0].n:'',grupo:'',txt:''};
+    });
+  });
+  saveSust(SUST_DIA,tbl);renderSust();
+}
+function limpTabla(){saveSust(SUST_DIA,{});SUST_FALTAN=[];renderSust();}
+function abrirCelda(el){
+  var key=el.getAttribute('data-key');
+  var dia=el.getAttribute('data-dia');
+  var tbl=loadSust(dia);
+  var cel=tbl[key]||{};
+  var opts='<option value="">Sin cubrir</option>';
+  DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0;}).forEach(function(m){
+    opts+='<option value="'+m.n+'"'+(cel.sust===m.n?' selected':'')+'>'+m.n+'</option>';
+  });
+  var h='<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,.15);position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:90%;max-width:320px;z-index:300">';
+  h+='<select id="sel-sc" class="fi">'+opts+'</select>';
+  h+='<input class="fi" type="text" id="txt-sc" placeholder="O escribe..." value="'+(cel.txt||'')+'" style="margin-top:6px">';
+  h+='<div style="display:flex;gap:8px;margin-top:8px">';
+  h+='<button class="btn bvd" style="flex:1" data-key="'+key+'" data-dia="'+dia+'" onclick="guardarCeldaEl(this)">Guardar</button>';
+  h+='<button class="btn bgy" onclick="cerrarCelda()">Cancelar</button>';
+  h+='</div></div>';
+  var old=document.getElementById('psc');if(old)old.remove();
+  var div=document.createElement('div');div.id='psc';div.innerHTML=h;
+  document.body.appendChild(div);
+}
+function guardarCeldaEl(el){
+  var key=el.getAttribute('data-key');
+  var dia=el.getAttribute('data-dia');
+  var sust=(document.getElementById('sel-sc')||{}).value||'';
+  var txt=(document.getElementById('txt-sc')||{}).value||'';
+  var tbl=loadSust(dia);
+  if(!tbl[key])tbl[key]={};
+  tbl[key].sust=sust;tbl[key].txt=txt||sust;
+  saveSust(dia,tbl);cerrarCelda();renderSust();
+}
+function cerrarCelda(){var p=document.getElementById('psc');if(p)p.remove();}
+
 
 function renderHorariosHome(){
   var h='<div class="mhero" style="background:linear-gradient(135deg,#1e3a8a,#2563eb)">';
@@ -1404,7 +1866,7 @@ function getBojaH(gid,mid){
     'Plastica':'plas','Artistica':'plas','Lengua':'len','Matematicas':'mat',
     'Cono.Medio':'cono','Religion':'rel','Religion/AE':'rel',
     'Aten.Educativa':'aten','AtencionEducativa':'aten','Atencion':'aten',
-    'Ed.Valores':'val','Autonomia':'aut','Libre Disp.':'aut'
+    'Libre Disp.':'aut'
   };
   var key=null;
   Object.keys(keyMap).forEach(function(k){
@@ -1768,37 +2230,11 @@ var SLOT_TIPOS={
   libre:{bg:'#f1f5f9',c:'#64748b',label:'Libre'}
 };
 
-function timeToMin(t){
-  var p=(t||'09:00').split(':');
-  return parseInt(p[0])*60+parseInt(p[1]);
-}
 
-function getHorGrupo(gid){
-  if(!DB.hHor)DB.hHor={};
-  if(!DB.hHor[gid]){
-    DB.hHor[gid]={};
-    ['Lunes','Martes','Miercoles','Jueves','Viernes'].forEach(function(d){
-      DB.hHor[gid][d]=DB.tramos.map(function(t){
-        return{mId:null,pId:null,fij:false,r:t.r,tipo:'clase',txt:''};
-      });
-    });
-  }
-  return DB.hHor[gid];
-}
 
-function getHorMaePropio(mid){
-  var k='mae_'+mid;
-  if(!DB.hHor)DB.hHor={};
-  if(!DB.hHor[k]){
-    DB.hHor[k]={};
-    ['Lunes','Martes','Miercoles','Jueves','Viernes'].forEach(function(d){
-      DB.hHor[k][d]=DB.tramos.map(function(t){
-        return{mId:null,pId:null,fij:false,r:t.r,tipo:'libre',txt:''};
-      });
-    });
-  }
-  return DB.hHor[k];
-}
+
+
+
 
 function getMaestroSlot(mid,dia,ti){
   // Buscar slot del maestro: primero en grupos, luego en su horario propio
@@ -2413,1328 +2849,6 @@ function rHResumen(){
 
 // 
 // SUSTITUCIONES
-// 
-function setFechaSust(dateStr){
-  var d=new Date(dateStr+'T12:00:00');
-  var diasMap={1:'Lunes',2:'Martes',3:'Miercoles',4:'Jueves',5:'Viernes'};
-  if(diasMap[d.getDay()]){
-    SUST_DIA=diasMap[d.getDay()];
-    window.SUST_FECHA='custom';
-    window.SUST_FECHA_CUSTOM=dateStr;
-    SUST_FALTAN=[];
-    renderSust();
-  } else {
-    alert('Selecciona un dia laborable (lunes a viernes)');
-  }
-}
-
-function getSustKey(dia){return 'sust_'+dia;}
-function loadSust(dia){try{var r=localStorage.getItem(getSustKey(dia));return r?JSON.parse(r):{};}catch(e){return{};}}
-function saveSust(dia,t){try{localStorage.setItem(getSustKey(dia),JSON.stringify(t));}catch(e){}}
-
-function priSust(m,gid,cicloD){
-  if((m.asig||[]).some(function(a){return a.gid===gid;}))return 0;
-  var cM=getCiclo((m.gRef||m.g||'').replace(/[A-Fa-f]/g,''));
-  if(cM===cicloD)return 1;
-  var adj={Primero:['Segundo','Infantil'],Segundo:['Primero','Tercero'],Tercero:['Segundo'],Infantil:['Primero']};
-  if(cM&&cicloD&&(adj[cicloD]||[]).indexOf(cM)>=0)return 2;
-  return 3;
-}
-
-// CURSOS para ordenar
-var ORDEN_CURSOS=['3anos','4anos','5anos','1o','2o','3o','4o','5o','6o'];
-
-function cursoLabel(c){
-  var map={'3anos':'3 Anos','4anos':'4 Anos','5anos':'5 Anos',
-    '1o':'1o Primaria','2o':'2o Primaria','3o':'3o Primaria',
-    '4o':'4o Primaria','5o':'5o Primaria','6o':'6o Primaria'};
-  return map[c]||c;
-}
-
-function getCursoSiguiente(curso,letra){
-  // Reglas de promocion
-  // 6o -> Instituto (eliminar)
-  // 2o -> 3o sin letra definida (pendiente de mezcla)
-  // 4o -> 5o sin letra definida (pendiente de mezcla)
-  // Resto -> mismo curso+1 misma letra
-  var map={'3anos':'4anos','4anos':'5anos','5anos':'1o',
-    '1o':'2o','2o':'3o','3o':'4o','4o':'5o','5o':'6o','6o':'INSTITUTO'};
-  var siguiente=map[curso]||'';
-  if(siguiente==='INSTITUTO')return null;
-  // 2o->3o y 4o->5o: letra pendiente de asignacion
-  if(curso==='2o'||curso==='4o')return{curso:siguiente,letra:'',pendiente:true};
-  return{curso:siguiente,letra:letra,pendiente:false};
-}
-
-function getGrupoAlumnos(curso,letra){
-  return DB.alumnos.filter(function(a){
-    return a.curso===curso&&(letra?a.letra===letra:true);
-  }).sort(function(a,b){
-    return a.apellidos.localeCompare(b.apellidos);
-  });
-}
-
-function getCursosActivos(){
-  var cursosLetras={};
-  DB.alumnos.forEach(function(a){
-    var k=a.curso+'_'+a.letra;
-    if(!cursosLetras[k])cursosLetras[k]={curso:a.curso,letra:a.letra,n:0};
-    cursosLetras[k].n++;
-  });
-  return Object.values(cursosLetras).sort(function(a,b){
-    var oa=ORDEN_CURSOS.indexOf(a.curso),ob=ORDEN_CURSOS.indexOf(b.curso);
-    if(oa!==ob)return oa-ob;
-    return a.letra.localeCompare(b.letra);
-  });
-}
-
-var ALUMNOS_FILTRO={curso:'',letra:''};
-
-function renderAlumnos(){
-  var grupos=getCursosActivos();
-  var total=DB.alumnos.length;
-  var h='<div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:20px 16px 24px">';
-  h+='<div style="font-size:22px;font-weight:900;margin-bottom:2px">Alumnado</div>';
-  h+='<div style="font-size:12px;opacity:.8">'+total+' alumnos/as en total</div></div>';
-
-  // Barra de acciones
-  h+='<div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;background:#fff;border-bottom:1px solid #e2e8f0">';
-  h+='<button class="btn bvd bsm" onclick="showAddAlumno()">+ Anadir alumno/a</button>';
-  h+='<button class="btn bgy bsm" onclick="document.getElementById(\'import-xlsx\').click()">Importar Excel</button>';
-  h+='<input type="file" id="import-xlsx" accept=".xlsx,.xls" style="display:none" onchange="importarExcel(this)">';
-  h+='<button class="btn" style="background:#f59e0b;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="showPromocion()">Promocionar curso</button>';
-  h+='<button class="btn bgy bsm" onclick="imprimirLista()">Imprimir lista</button>';
-  h+='</div>';
-
-  // Filtro por grupo
-  h+='<div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap">';
-  h+='<button class="dtab'+(ALUMNOS_FILTRO.curso===''?' on':'')+'" onclick="setFiltroAlumnos(\'\',\'\')">Todos</button>';
-  grupos.forEach(function(g){
-    var k=g.curso+'_'+g.letra;
-    var sel=ALUMNOS_FILTRO.curso===g.curso&&ALUMNOS_FILTRO.letra===g.letra;
-    h+='<button class="dtab'+(sel?' on':'')+'" onclick="ALUMNOS_FILTRO={curso:\''+g.curso+'\',letra:\''+g.letra+'\'};renderAlumnos()">';
-    h+=g.curso+(g.letra?g.letra:'')+' ('+g.n+')</button>';
-  });
-  h+='</div>';
-
-  // Lista de alumnos
-  var alumnos=ALUMNOS_FILTRO.curso
-    ?getGrupoAlumnos(ALUMNOS_FILTRO.curso,ALUMNOS_FILTRO.letra)
-    :DB.alumnos.slice().sort(function(a,b){
-        var oa=ORDEN_CURSOS.indexOf(a.curso),ob=ORDEN_CURSOS.indexOf(b.curso);
-        if(oa!==ob)return oa-ob;
-        if(a.letra!==b.letra)return a.letra.localeCompare(b.letra);
-        return a.apellidos.localeCompare(b.apellidos);
-      });
-
-  h+='<div style="padding:10px 14px">';
-
-  // Agrupar por curso/letra si mostramos todos
-  var cursoActual='';
-  alumnos.forEach(function(a,idx){
-    var grupoClave=a.curso+a.letra;
-    if(!ALUMNOS_FILTRO.curso&&grupoClave!==cursoActual){
-      cursoActual=grupoClave;
-      var ng=getGrupoAlumnos(a.curso,a.letra).length;
-      h+='<div style="font-size:13px;font-weight:800;color:#1e3a8a;margin:12px 0 6px;padding-bottom:3px;border-bottom:2px solid #1e3a8a">';
-      h+=cursoLabel(a.curso)+(a.letra?' '+a.letra:'')+' <span style="font-weight:400;font-size:11px;color:#94a3b8">('+ng+' alumnos/as)</span></div>';
-    }
-
-    var numLista=alumnos.filter(function(x){return x.curso===a.curso&&x.letra===a.letra;}).indexOf(a)+1;
-    h+='<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f8fafc">';
-    h+='<span style="font-size:12px;color:#94a3b8;min-width:20px;text-align:right">'+numLista+'.</span>';
-    h+='<div style="flex:1">';
-    h+='<div style="font-size:13px;font-weight:700">'+a.apellidos+', '+a.nombre+'</div>';
-    h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">';
-    if(a.atencion)h+=bdg('Aten.Educativa','am');
-    if(a.repetidor)h+=bdg('Repetidor','rd');
-    h+='</div></div>';
-    h+='<div style="display:flex;gap:4px">';
-    h+='<button class="btn bgy bsm" style="padding:3px 7px" onclick="editAlumno('+idx+')">edit</button>';
-    h+='<button class="btn brd bsm" style="padding:3px 7px" onclick="delAlumno('+idx+')">x</button>';
-    h+='</div></div>';
-  });
-
-  if(alumnos.length===0){
-    h+='<div class="al i"><span>i</span><span>No hay alumnos/as. Usa el boton "Anadir alumno/a" o importa desde Excel.</span></div>';
-  }
-
-  h+='</div>';
-
-  // Panel de anadir/editar (oculto por defecto)
-  h+='<div id="panel-alumno" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:16px">';
-  h+='<div style="background:#fff;border-radius:14px;padding:18px;width:100%;max-width:360px;max-height:85vh;overflow-y:auto">';
-  h+='<div id="panel-alumno-inner"></div>';
-  h+='</div></div>';
-
-  document.getElementById('pg-alumnos-inner').innerHTML=h;
-}
-
-function setFiltroAlumnos(curso,letra){
-  ALUMNOS_FILTRO={curso:curso,letra:letra};
-  renderAlumnos();
-}
-
-function importarExcel(input){
-  var file=input.files[0];
-  if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      // Leer el Excel usando SheetJS (XLSX)
-      var data=new Uint8Array(e.target.result);
-      var workbook=XLSX.read(data,{type:'array'});
-      var nuevos=[];
-      var errores=[];
-
-      // Mapeo automatico de nombre de hoja a curso/letra
-      var mapaHojas={
-        '3 a': {curso:'3anos',letra:'A'},
-        '3anos a': {curso:'3anos',letra:'A'},
-        '3 b': {curso:'3anos',letra:'B'},
-        '3anos b': {curso:'3anos',letra:'B'},
-        '4 a': {curso:'4anos',letra:''},
-        '4anos': {curso:'4anos',letra:''},
-        '5 a': {curso:'5anos',letra:''},
-        '5anos': {curso:'5anos',letra:''},
-        '1': {curso:'1o',letra:'A'},
-        '1o': {curso:'1o',letra:'A'},
-        '1o a': {curso:'1o',letra:'A'},
-        '2o a': {curso:'2o',letra:'A'},
-        '2 a': {curso:'2o',letra:'A'},
-        '2o b': {curso:'2o',letra:'B'},
-        '2 b': {curso:'2o',letra:'B'},
-        '3o a': {curso:'3o',letra:'A'},
-        '3 a': {curso:'3o',letra:'A'},
-        '3o b': {curso:'3o',letra:'B'},
-        '3 b': {curso:'3o',letra:'B'},
-        '4o a': {curso:'4o',letra:'A'},
-        '4 a': {curso:'4o',letra:'A'},
-        '4o b': {curso:'4o',letra:'B'},
-        '4 b': {curso:'4o',letra:'B'},
-        '5o a': {curso:'5o',letra:'A'},
-        '5 a': {curso:'5o',letra:'A'},
-        '5o b': {curso:'5o',letra:'B'},
-        '5 b': {curso:'5o',letra:'B'},
-        '6o a': {curso:'6o',letra:'A'},
-        '6 a': {curso:'6o',letra:'A'},
-        '6o b': {curso:'6o',letra:'B'},
-        '6 b': {curso:'6o',letra:'B'},
-      };
-
-      function detectarCurso(nombreHoja){
-        var n=nombreHoja.toLowerCase()
-          .replace(/infantil/g,'')
-          .replace(/primaria/g,'')
-          .replace(/anos/g,'anos')
-          .replace(/o/g,'o')
-          .replace(/\.$/g,'')
-          .trim();
-        // Buscar patron numerico + letra
-        var m=n.match(/(\d+)\s*([ab]?)/i);
-        if(!m)return null;
-        var num=m[1];
-        var let2=(m[2]||'').toUpperCase();
-        // Detectar si es Infantil
-        var esInfantil=nombreHoja.toLowerCase().indexOf('infantil')>=0||
-                       nombreHoja.toLowerCase().indexOf('anos')>=0||
-                       nombreHoja.toLowerCase().indexOf('anos')>=0;
-        if(esInfantil){
-          var cursos3={'3':'3anos','4':'4anos','5':'5anos'};
-          return{curso:cursos3[num]||num+'anos',letra:let2};
-        }
-        var cursosPrim={'1':'1o','2':'2o','3':'3o','4':'4o','5':'5o','6':'6o'};
-        return{curso:cursosPrim[num]||num+'o',letra:let2};
-      }
-
-      workbook.SheetNames.forEach(function(sheetName){
-        var detected=detectarCurso(sheetName);
-        if(!detected){errores.push('Hoja sin reconocer: '+sheetName);return;}
-        var sheet=workbook.Sheets[sheetName];
-        var rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
-        rows.forEach(function(row){
-          // Buscar celda con formato "Apellidos, Nombre"
-          var nombreCompleto='';
-          row.forEach(function(cell){
-            var val=String(cell).trim();
-            if(val.indexOf(',')>0&&val.length>3&&isNaN(val)){
-              nombreCompleto=val;
-            }
-          });
-          if(!nombreCompleto)return;
-          var partes=nombreCompleto.split(',',2);
-          var apellidos=partes[0].trim();
-          var nombre=partes[1]?partes[1].trim():'';
-          if(!apellidos||apellidos.length<2)return;
-          nuevos.push({
-            nombre:nombre,apellidos:apellidos,
-            curso:detected.curso,letra:detected.letra,
-            fnac:'',atencion:false,repetidor:false
-          });
-        });
-      });
-
-      if(nuevos.length===0){
-        alert('No se encontraron alumnos en el archivo.\nAsegurate de que el formato es: Apellidos, Nombre');
-        return;
-      }
-
-      var msg='Se encontraron '+nuevos.length+' alumnos.\n';
-      if(errores.length>0)msg+='Hojas sin reconocer: '+errores.join(', ')+'\n';
-      msg+='\nQue quieres hacer?';
-      var opcion=confirm(msg+'\n\nAceptar = Reemplazar todo el alumnado\nCancelar = Anadir a los existentes');
-      if(opcion){
-        DB.alumnos=nuevos;
-      }else{
-        DB.alumnos=DB.alumnos.concat(nuevos);
-      }
-      save();
-      ALUMNOS_FILTRO={curso:'',letra:''};
-      renderAlumnos();
-      alert('Importacion completada: '+nuevos.length+' alumnos.');
-    }catch(ex){
-      alert('Error al leer el archivo: '+ex.message+'\nAsegurate de que es un archivo Excel (.xlsx)');
-    }
-  };
-  reader.readAsArrayBuffer(file);
-  input.value=''; // reset para poder importar de nuevo
-}
-
-function showAddAlumno(idx){
-  var a=idx!==undefined?DB.alumnos[idx]:{nombre:'',apellidos:'',curso:'1o',letra:'A',atencion:false,repetidor:false,fnac:''};
-  var esEdit=idx!==undefined;
-  var grupos=getCursosActivos();
-
-  var h='<div style="font-size:15px;font-weight:800;color:#1e3a8a;margin-bottom:14px">'+(esEdit?'Editar alumno/a':'Nuevo alumno/a')+'</div>';
-  h+='<div class="fr"><span class="fl">Apellidos</span><input class="fi" type="text" id="al-ape" value="'+a.apellidos+'" placeholder="Apellidos..."></div>';
-  h+='<div class="fr"><span class="fl">Nombre</span><input class="fi" type="text" id="al-nom" value="'+a.nombre+'" placeholder="Nombre..."></div>';
-  h+='<div class="fg2">';
-  h+='<div class="fr"><span class="fl">Curso</span><select class="fi" id="al-cur">';
-  ORDEN_CURSOS.forEach(function(cv){h+='<option value="'+cv+'"'+(a.curso===cv?' selected':'')+'>'+cursoLabel(cv)+'</option>';});
-  h+='</select></div>';
-  h+='<div class="fr"><span class="fl">Letra grupo</span><input class="fi" type="text" id="al-let" value="'+(a.letra||'')+'" placeholder="A, B..." style="text-transform:uppercase" maxlength="2"></div>';
-  h+='</div>';
-  h+='<div class="fr"><span class="fl">Fecha nacimiento</span><input class="fi" type="date" id="al-fnac" value="'+(a.fnac||'')+'"></div>';
-  h+='<div class="ck"><input type="checkbox" id="al-aten"'+(a.atencion?' checked':'')+' style="width:16px;height:16px;accent-color:#92400e"><span>Atencion Educativa (no Religion)</span></div>';
-  h+='<div class="ck"><input type="checkbox" id="al-rep"'+(a.repetidor?' checked':'')+' style="width:16px;height:16px;accent-color:#b91c1c"><span>Repite curso</span></div>';
-  h+='<div style="display:flex;gap:8px;margin-top:14px">';
-  h+='<button class="btn bvd" style="flex:1" onclick="guardarAlumno('+(esEdit?idx:'undefined')+')">Guardar</button>';
-  h+='<button class="btn bgy" onclick="cerrarPanelAlumno()">Cancelar</button>';
-  h+='</div>';
-
-  document.getElementById('panel-alumno-inner').innerHTML=h;
-  document.getElementById('panel-alumno').style.display='flex';
-}
-
-function editAlumno(idx){showAddAlumno(idx);}
-
-function cerrarPanelAlumno(){
-  document.getElementById('panel-alumno').style.display='none';
-}
-
-function guardarAlumno(idx){
-  var ape=(document.getElementById('al-ape')||{}).value||'';
-  var nom=(document.getElementById('al-nom')||{}).value||'';
-  var cur=(document.getElementById('al-cur')||{}).value||'1o';
-  var let2=((document.getElementById('al-let')||{}).value||'').toUpperCase();
-  var fnac=(document.getElementById('al-fnac')||{}).value||'';
-  var aten=(document.getElementById('al-aten')||{}).checked||false;
-  var rep=(document.getElementById('al-rep')||{}).checked||false;
-
-  if(!ape||!nom){alert('Apellidos y nombre son obligatorios');return;}
-
-  var alumno={nombre:nom,apellidos:ape,curso:cur,letra:let2,fnac:fnac,atencion:aten,repetidor:rep};
-
-  if(idx!==undefined&&idx<DB.alumnos.length){
-    DB.alumnos[idx]=alumno;
-  } else {
-    DB.alumnos.push(alumno);
-  }
-  save();
-  cerrarPanelAlumno();
-  renderAlumnos();
-}
-
-function delAlumno(idx){
-  if(!confirm('Eliminar alumno/a?'))return;
-  DB.alumnos.splice(idx,1);
-  save();
-  renderAlumnos();
-}
-
-function showPromocion(){
-  var h='<div style="font-size:15px;font-weight:800;color:#f59e0b;margin-bottom:10px">Promocionar al curso siguiente</div>';
-  h+='<div style="font-size:12px;color:#374151;margin-bottom:12px;line-height:1.6">';
-  h+='Todos los alumnos/as pasan al curso superior.<br>';
-  h+='<strong>2o -> 3o:</strong> letra pendiente de asignar<br>';
-  h+='<strong>4o -> 5o:</strong> letra pendiente de asignar<br>';
-  h+='<strong>6o:</strong> se eliminan (van al instituto)<br>';
-  h+='Los alumnos nuevos de 3 anos los anadiras despues.';
-  h+='</div>';
-
-  // Mostrar resumen de lo que pasara
-  var grupos=getCursosActivos();
-  grupos.forEach(function(g){
-    var sig=getCursoSiguiente(g.curso,g.letra);
-    var color=sig===null?'#b91c1c':sig.pendiente?'#d97706':'#15803d';
-    h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px">';
-    h+='<span>'+g.curso+(g.letra?' '+g.letra:'')+'</span>';
-    h+='<span style="color:'+color+';font-weight:700">';
-    if(sig===null)h+='Se van al instituto';
-    else if(sig.pendiente)h+=sig.curso+' (letra pendiente)';
-    else h+=sig.curso+' '+sig.letra;
-    h+='</span></div>';
-  });
-
-  h+='<div style="display:flex;gap:8px;margin-top:14px">';
-  h+='<button class="btn" style="flex:1;background:#f59e0b;color:#fff" onclick="ejecutarPromocion()">Promocionar ahora</button>';
-  h+='<button class="btn bgy" onclick="cerrarPanelAlumno()">Cancelar</button>';
-  h+='</div>';
-
-  document.getElementById('panel-alumno-inner').innerHTML=h;
-  document.getElementById('panel-alumno').style.display='flex';
-}
-
-function ejecutarPromocion(){
-  if(!confirm('Confirmar promocion de todos los alumnos/as?'))return;
-
-  var nuevosAlumnos=[];
-  DB.alumnos.forEach(function(a){
-    var sig=getCursoSiguiente(a.curso,a.letra);
-    if(sig===null)return; // 6o -> instituto, eliminar
-    nuevosAlumnos.push({
-      nombre:a.nombre,
-      apellidos:a.apellidos,
-      curso:sig.curso,
-      letra:sig.pendiente?'':sig.letra, // letra vacia si pendiente de mezcla
-      fnac:a.fnac||'',
-      atencion:a.atencion||false,
-      repetidor:false // reset repetidor en nuevo curso
-    });
-  });
-
-  DB.alumnos=nuevosAlumnos;
-  save();
-  cerrarPanelAlumno();
-  ALUMNOS_FILTRO={curso:'',letra:''};
-  renderAlumnos();
-  alert('Promocion completada.\nRecuerda asignar la letra a los alumnos de 3o y 5o (antes 2o y 4o).');
-}
-
-function imprimirLista(){
-  var grupos=ALUMNOS_FILTRO.curso
-    ?[{curso:ALUMNOS_FILTRO.curso,letra:ALUMNOS_FILTRO.letra}]
-    :getCursosActivos();
-
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8">';
-  html+='<title>Listado de alumnos - CEIP San Sebastian</title>';
-  html+='<style>body{font-family:Arial,sans-serif;margin:15mm;font-size:10pt}';
-  html+='h2{font-size:13pt;color:#1e3a8a;border-bottom:2pt solid #1e3a8a;padding-bottom:4pt;margin-bottom:8pt}';
-  html+='table{width:100%;border-collapse:collapse;margin-bottom:20pt}';
-  html+='th{background:#1e3a8a;color:#fff;padding:5pt 7pt;text-align:left;font-size:9pt}';
-  html+='td{border:0.5pt solid #ccc;padding:5pt 7pt;font-size:9pt}';
-  html+='tr:nth-child(even)td{background:#f5f5f5}';
-  html+='.aten{color:#92400e;font-weight:bold;font-size:8pt}';
-  html+='@page{size:A4 portrait;margin:10mm}';
-  html+='@media print{.salto{page-break-before:always}}';
-  html+='</style></head><body>';
-
-  grupos.forEach(function(g,gi){
-    var alumnos=getGrupoAlumnos(g.curso,g.letra);
-    if(alumnos.length===0)return;
-    html+='<div class="'+(gi>0?'salto':'')+'">';
-    html+='<h2>'+cursoLabel(g.curso)+(g.letra?' '+g.letra:'')+'</h2>';
-    html+='<table><thead><tr>';
-    html+='<th style="width:30pt">N</th>';
-    html+='<th>Apellidos, Nombre</th>';
-    html+='<th style="width:70pt">Fecha Nac.</th>';
-    html+='<th style="width:80pt">Religion/AE</th>';
-    html+='<th style="width:120pt">Observaciones</th>';
-    html+='</tr></thead><tbody>';
-    alumnos.forEach(function(a,i){
-      html+='<tr><td>'+(i+1)+'</td>';
-      html+='<td><strong>'+a.apellidos+'</strong>, '+a.nombre+'</td>';
-      html+='<td>'+(a.fnac||'')+'</td>';
-      html+='<td class="aten">'+(a.atencion?'Aten.Educativa':'Religion')+'</td>';
-      html+='<td>'+(a.repetidor?'Repite':'')+'</td></tr>';
-    });
-    html+='</tbody></table></div>';
-  });
-
-  html+='</body></html>';
-  var w=window.open('','_blank','width=900,height=700');
-  w.document.write(html);
-  w.document.close();
-  setTimeout(function(){w.print();},500);
-}
-
-function renderSust(){
-  var tbl=loadSust(SUST_DIA);
-  var meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  var hoy=new Date();
-  var h='<div style="background:linear-gradient(135deg,#7f1d1d,#b91c1c);color:#fff;padding:20px 16px 24px">';
-  h+='<div style="font-size:22px;font-weight:900;margin-bottom:2px">&#8635; Sustituciones</div>';
-  h+='<div style="font-size:12px;opacity:.8">'+hoy.getDate()+' '+meses[hoy.getMonth()]+' '+hoy.getFullYear()+'</div></div>';
-
-  // Selector da
-  h+='<div style="display:flex;gap:5px;padding:12px 14px;flex-wrap:wrap">';
-  DIAS.forEach(function(d){h+='<button class="dtab'+(d===SUST_DIA?' on':'')+'" onclick="SUST_DIA=\''+d+'\';renderSust()">'+d.substr(0,3)+'</button>';});
-  h+='</div>';
-
-  // Tramos
-  h+='<div style="margin:0 14px 12px"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div class="ct" style="margin:0">Tramos horarios</div><div style="display:flex;gap:5px"><button class="btn bvd bsm" onclick="addTramo()">+Tramo</button><button class="btn bgy bsm" onclick="addRecreo()">+Recreo</button></div></div>';
-  DB.tramos.forEach(function(t,ti){
-    h+='<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #f8fafc">';
-    if(t.r){h+='<span style="font-size:12px;color:#64748b;flex:1">&#9749; Recreo</span>';}
-    else{h+='<input type="text" value="'+esc(t.i)+'" onchange="updTramo('+ti+',\'i\',this.value)" style="width:55px;padding:4px 6px;border:1.5px solid var(--bd);border-radius:6px;font-size:11px;text-align:center">';
-    h+='<span style="color:#94a3b8;font-size:11px">-</span>';
-    h+='<input type="text" value="'+esc(t.f)+'" onchange="updTramo('+ti+',\'f\',this.value)" style="width:55px;padding:4px 6px;border:1.5px solid var(--bd);border-radius:6px;font-size:11px;text-align:center">';}
-    h+='<button onclick="delTramo('+ti+')" class="btn brd" style="padding:2px 8px;font-size:11px;margin-left:auto">x</button></div>';
-  });
-  h+='</div></div>';
-
-  // Quin falta
-  h+='<div style="margin:0 14px 12px"><div class="card"><div class="ct">Quien falta hoy?</div>';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
-  DB.maestros.filter(function(m){return['PT','AL'].indexOf(m.e)<0;}).forEach(function(m){
-    var f=SUST_FALTAN.indexOf(m.id)>=0;
-    h+='<button class="mfbtn'+(f?' falta':'')+'" onclick="togFalta('+m.id+')">'+m.n+(f?' x':'')+'</button>';
-  });
-  h+='</div>';
-  if(SUST_FALTAN.length>0){
-    h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
-    h+='<button class="btn bvd" onclick="genTabla()">! Generar tabla automatica</button>';
-    h+='<button class="btn bgy bsm" onclick="limpTabla()">Limpiar</button></div>';
-  }
-  h+='</div></div>';
-
-  if(SUST_FALTAN.length===0){document.getElementById('pg-sust-inner').innerHTML=h;return;}
-
-  // Disponibles
-  var disp=DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0&&['Infantil','PT','AL'].indexOf(m.e)<0;});
-  disp.sort(function(a,b){return hL(b)-hL(a);});
-  h+='<div style="margin:0 14px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px">';
-  h+='<div style="font-size:11px;font-weight:800;color:#15803d;text-transform:uppercase;margin-bottom:7px">Disponibles para sustituir</div>';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:5px">';
-  disp.forEach(function(m){
-    var hl=hL(m);var ciclo=getCiclo((m.gRef||m.g||'').replace(/[A-Fa-f]/g,''));
-    h+='<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:#fff;border-radius:7px;border:1px solid #bbf7d0;font-size:12px">';
-    h+='<span style="font-weight:600">'+m.n+'</span>';
-    h+='<span style="font-size:10px;font-weight:700;color:'+(hl>5?'#15803d':hl>2?'#d97706':'#b91c1c')+'">'+hl.toFixed(1)+'h</span>';
-    if(ciclo)h+='<span style="font-size:9px;background:#e0e7ff;color:#4338ca;padding:1px 5px;border-radius:4px">'+ciclo+'</span>';
-    h+='</div>';
-  });
-  h+='</div></div>';
-
-  // Tabla de guardias
-  var fData=SUST_FALTAN.map(function(id){return DB.maestros.find(function(m){return m.id===id;});}).filter(Boolean);
-  h+='<div style="margin:0 14px 12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
-  h+='<div style="font-size:14px;font-weight:800">Tabla de guardias - '+SUST_DIA+'</div>';
-  h+='<button class="btn bgy bsm" onclick="window.print()">imp</button></div>';
-  h+='<div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Pulsa cualquier celda para editarla</div>';
-  h+='<div style="overflow-x:auto;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.07)">';
-  h+='<table class="tbl" style="min-width:'+(80+fData.length*140)+'px">';
-  h+='<thead><tr><th class="th0" style="min-width:72px">Hora</th>';
-  fData.forEach(function(m){h+='<th style="min-width:140px">'+m.n+(m.cargo?'<br><span style="font-size:9px;opacity:.7;font-weight:400">'+m.cargo+'</span>':'')+'</th>';});
-  h+='</tr></thead><tbody>';
-  DB.tramos.forEach(function(t,ti){
-    if(t.r){h+='<tr><td class="td0">&#9749; Recreo</td>';fData.forEach(function(){h+='<td style="background:#f8fafc;text-align:center;font-size:11px;color:#94a3b8;font-style:italic;padding:8px">Recreo</td>';});h+='</tr>';return;}
-    h+='<tr><td class="td0">'+(t.l||fmt(t.ini||0))+'</td>';
-    fData.forEach(function(mF){
-      var key=mF.id+'_'+ti;
-      var cel=(tbl&&tbl[key])||{grupo:'',sust:'',txt:''};
-      var ok=cel.grupo||cel.sust||cel.txt;
-      h+='<td><div class="tcell'+(cel.txt==='X'?' xmark':ok?' asig':'')+'" onclick="openCell('+mF.id+','+ti+',\''+SUST_DIA+'\')">';
-      if(cel.txt==='X'){h+='x';}
-      else if(ok){
-        if(cel.grupo)h+='<div style="font-size:11px;font-weight:700;color:#7c3aed">'+cel.grupo+'</div>';
-        var s=cel.sust||cel.txt;
-        if(s)h+='<div style="font-size:11px;font-weight:600;color:#15803d">'+s+'</div>';
-      }else{h+='<div style="color:#e2e8f0;font-size:10px;text-align:center;padding-top:12px">Toca para editar</div>';}
-      h+='</div></td>';
-    });
-    h+='</tr>';
-  });
-  h+='</tbody></table></div></div>';
-  document.getElementById('pg-sust-inner').innerHTML=h;
-}
-
-function publicarSustSSN(){
-  var url=DB.scriptUrl;
-  if(!url){alert('Configura la URL del script en Config. primero.');return;}
-  var tbl=loadSust(SUST_DIA);
-  if(!tbl||Object.keys(tbl).length===0){alert('No hay sustituciones generadas. Genera primero la tabla.');return;}
-  // Preparar datos para SSN
-  var filas=[['Maestro/a ausente','Hora','Grupo','Sustituye','Observaciones']];
-  SUST_FALTAN.forEach(function(mFId){
-    var mF=DB.maestros.find(function(m){return m.id===mFId;});
-    if(!mF)return;
-    DB.tramos.forEach(function(t,ti){
-      var key=mFId+'_'+ti;
-      var cel=tbl[key];
-      if(!cel||t.r)return;
-      var hora=t.l||fmt(t.ini||0);
-      var grupo=cel.grupo||'';
-      var sust=cel.sust||cel.txt||'Sin cubrir';
-      filas.push([mF.n,hora,grupo,sust,'']);
-    });
-  });
-  if(filas.length<=1){alert('No hay sustituciones asignadas para publicar.');return;}
-  var hoy=new Date();
-  var fechaStr=hoy.toLocaleDateString('es-ES');
-  var cb='_ssn'+Date.now();
-  window[cb]=function(r){
-    delete window[cb];
-    if(r&&r.ok)alert('Sustituciones publicadas en San Sebastian Net correctamente.');
-    else alert('Error al publicar: '+(r?r.error:'sin respuesta'));
-  };
-  var datos=JSON.stringify({sustDia:SUST_DIA,fecha:fechaStr,filas:filas,limpiarAnterior:true});
-  var s=document.createElement('script');
-  s.src=url+'?accion=publicarSust&callback='+cb+'&datos='+encodeURIComponent(datos);
-  s.onerror=function(){delete window[cb];alert('Error de conexion.');};
-  document.head.appendChild(s);
-  setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout.');}},10000);
-}
-
-function togFalta(id){var i=SUST_FALTAN.indexOf(id);if(i>=0)SUST_FALTAN.splice(i,1);else SUST_FALTAN.push(id);updDot();renderSust();}
-function updDot(){var d=document.getElementById('ndot-sust');if(d)d.className='ndot'+(SUST_FALTAN.length>0?' on':'');}
-function updTramo(i,k,v){DB.tramos[i][k]=v;if(k==='i'||k==='f')DB.tramos[i].l=DB.tramos[i].i+'-'+DB.tramos[i].f;save();renderSust();}
-function addTramo(){DB.tramos.push({id:'t'+Date.now(),l:'9:00-10:00',i:'9:00',f:'10:00',r:false});save();renderSust();}
-function addRecreo(){DB.tramos.push({id:'r'+Date.now(),l:'Recreo',i:'',f:'',r:true});save();renderSust();}
-function delTramo(i){DB.tramos.splice(i,1);save();renderSust();}
-
-function genTabla(){
-  var tbl=loadSust(SUST_DIA);
-  var DIAS2=SUST_DIA;
-
-  SUST_FALTAN.forEach(function(mFId){
-    var mF=DB.maestros.find(function(m){return m.id===mFId;});
-    if(!mF)return;
-    // Grupos que cubre este maestro
-    var grupos=[];
-    (mF.asig||[]).forEach(function(a){if(grupos.indexOf(a.gid)<0)grupos.push(a.gid);});
-    if(mF.t&&mF.g&&grupos.indexOf(mF.g)<0)grupos.push(mF.g);
-
-    DB.tramos.forEach(function(t,ti){
-      var key=mFId+'_'+ti;
-      if(tbl[key]&&tbl[key].manual)return; // no tocar cambios manuales
-      if(t.r){tbl[key]={grupo:'',sust:'',txt:'X',candidatos:[]};return;}
-
-      var gSid=grupos.length>0?grupos[ti%grupos.length]:'';
-      // Convertir gid a nombre del grupo
-      var gSobj=DB.hGrupos.find(function(g){return g.id===gSid;});
-      var gS=gSobj?gSobj.n:gSid; // usar nombre si existe
-      var cicloD=getCiclo(gS.replace(/[A-Fa-f]/g,''));
-
-      // Calcular TODOS los candidatos disponibles
-      var candidatos=DB.maestros.filter(function(m){
-        // No puede ser uno de los que faltan
-        if(SUST_FALTAN.indexOf(m.id)>=0)return false;
-        // No puede ser Infantil, PT, AL
-        if(['Infantil','PT','AL'].indexOf(m.e)>=0)return false;
-        // Comprobar si tiene clase en este tramo (esta ocupado)
-        var ocupado=false;
-        DB.hGrupos.forEach(function(g){
-          var hG=DB.hHor&&DB.hHor[g.id];
-          if(!hG||!hG[DIAS2]||!hG[DIAS2][ti])return;
-          var slot=hG[DIAS2][ti];
-          if(slot&&String(slot.pId)===String(m.id))ocupado=true;
-        });
-        return !ocupado;
-      });
-
-      // Ordenar por prioridad
-      candidatos.sort(function(a,b){
-        var pa=priSust(a,gS,cicloD);
-        var pb=priSust(b,gS,cicloD);
-        if(pa!==pb)return pa-pb;
-        return hL(b)-hL(a);
-      });
-
-      tbl[key]={
-        grupo:gS,
-        sust:'', // vacio - el usuario decide
-        txt:'',
-        candidatos:candidatos.map(function(m){
-          return {id:m.id,n:m.n,p:priSust(m,gS,cicloD),hL:hL(m).toFixed(1)};
-        })
-      };
-    });
-  });
-
-  saveSust(SUST_DIA,tbl);
-  renderSust();
-}
-function limpTabla(){if(!confirm('Limpiar tabla?'))return;saveSust(SUST_DIA,{});renderSust();}
-
-function asignarDirecto(mFId,ti,dia,nombre,grupo){
-  var key=mFId+'_'+ti;
-  var tbl=loadSust(dia);
-  // Convertir gid a nombre si es necesario
-  var gObj=DB.hGrupos.find(function(g){return g.id===grupo;});
-  var gNombre=gObj?gObj.n:grupo;
-  tbl[key]={grupo:gNombre,sust:nombre,txt:'',manual:true,candidatos:[]};
-  saveSust(dia,tbl);
-  renderSust();
-}
-
-function openCell(mFId,ti,dia){
-  var key=mFId+'_'+ti;
-  var tbl=loadSust(dia);
-  var cel=tbl[key]||{grupo:'',sust:'',txt:''};
-  var mF=DB.maestros.find(function(m){return m.id===mFId;});
-  var t=DB.tramos[ti];
-  SUST_CELDA={mFId:mFId,ti:ti,dia:dia,key:key};
-  var modal=document.getElementById('modal-sust');
-  if(!modal)return;
-  document.getElementById('modal-t').textContent=(t?(t.l||fmt(t.ini||0)):'Tramo')+' - '+(mF?mF.n:'?');
-  document.getElementById('m-grupo').value=cel.grupo||'';
-  var sel=document.getElementById('m-mae');
-  sel.innerHTML='<option value="">- Sin sustituto -</option>';
-  var disp=DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0&&['Infantil','PT','AL'].indexOf(m.e)<0;});
-  var gS=cel.grupo||'';var cicloD=getCiclo(gS.replace(/[A-Fa-f]/g,''));
-  disp.sort(function(a,b){var pa=priSust(a,gS,cicloD),pb=priSust(b,gS,cicloD);if(pa!==pb)return pa-pb;return hL(b)-hL(a);});
-  var lastP=-1;
-  var pLbls=['&#127919; Da clase aqui','OK Mismo ciclo','* Ciclo adyacente','- Otro ciclo'];
-  disp.forEach(function(m){
-    var p=priSust(m,gS,cicloD);
-    if(p!==lastP){var sep=document.createElement('option');sep.disabled=true;sep.textContent='-- '+pLbls[p]+' --';sel.appendChild(sep);lastP=p;}
-    var o=document.createElement('option');o.value=m.n;o.textContent=m.n+' ('+hL(m).toFixed(1)+'h)';if(m.n===cel.sust)o.selected=true;sel.appendChild(o);
-  });
-  document.getElementById('m-txt').value=(cel.txt&&cel.txt!=='X')?cel.txt:'';
-  modal.classList.add('on');
-}
-function closeModal(){document.getElementById('modal-sust').classList.remove('on');SUST_CELDA=null;}
-function applyCell(){
-  if(!SUST_CELDA)return;
-  var tbl=loadSust(SUST_CELDA.dia);
-  var g=(document.getElementById('m-grupo')||{}).value||'';
-  var s=(document.getElementById('m-mae')||{}).value||'';
-  var t=(document.getElementById('m-txt')||{}).value||'';
-  tbl[SUST_CELDA.key]={grupo:g,sust:t?t:s,txt:t&&t!==s?t:'',manual:true};
-  saveSust(SUST_CELDA.dia,tbl);
-  closeModal();renderSust();
-}
-function emptyCell(){
-  if(!SUST_CELDA)return;
-  var tbl=loadSust(SUST_CELDA.dia);
-  tbl[SUST_CELDA.key]={grupo:'',sust:'',txt:'X',manual:true};
-  saveSust(SUST_CELDA.dia,tbl);
-  closeModal();renderSust();
-}
-
-// 
-// CONFIGURACIN
-// 
-
-// CURSOS para ordenar
-var ORDEN_CURSOS=['3anos','4anos','5anos','1o','2o','3o','4o','5o','6o'];
-
-function cursoLabel(c){
-  var map={'3anos':'3 Anos','4anos':'4 Anos','5anos':'5 Anos',
-    '1o':'1o Primaria','2o':'2o Primaria','3o':'3o Primaria',
-    '4o':'4o Primaria','5o':'5o Primaria','6o':'6o Primaria'};
-  return map[c]||c;
-}
-
-function getCursoSiguiente(curso,letra){
-  // Reglas de promocion
-  // 6o -> Instituto (eliminar)
-  // 2o -> 3o sin letra definida (pendiente de mezcla)
-  // 4o -> 5o sin letra definida (pendiente de mezcla)
-  // Resto -> mismo curso+1 misma letra
-  var map={'3anos':'4anos','4anos':'5anos','5anos':'1o',
-    '1o':'2o','2o':'3o','3o':'4o','4o':'5o','5o':'6o','6o':'INSTITUTO'};
-  var siguiente=map[curso]||'';
-  if(siguiente==='INSTITUTO')return null;
-  // 2o->3o y 4o->5o: letra pendiente de asignacion
-  if(curso==='2o'||curso==='4o')return{curso:siguiente,letra:'',pendiente:true};
-  return{curso:siguiente,letra:letra,pendiente:false};
-}
-
-function getGrupoAlumnos(curso,letra){
-  return DB.alumnos.filter(function(a){
-    return a.curso===curso&&(letra?a.letra===letra:true);
-  }).sort(function(a,b){
-    return a.apellidos.localeCompare(b.apellidos);
-  });
-}
-
-function getCursosActivos(){
-  var cursosLetras={};
-  DB.alumnos.forEach(function(a){
-    var k=a.curso+'_'+a.letra;
-    if(!cursosLetras[k])cursosLetras[k]={curso:a.curso,letra:a.letra,n:0};
-    cursosLetras[k].n++;
-  });
-  return Object.values(cursosLetras).sort(function(a,b){
-    var oa=ORDEN_CURSOS.indexOf(a.curso),ob=ORDEN_CURSOS.indexOf(b.curso);
-    if(oa!==ob)return oa-ob;
-    return a.letra.localeCompare(b.letra);
-  });
-}
-
-var ALUMNOS_FILTRO={curso:'',letra:''};
-
-function renderAlumnos(){
-  var grupos=getCursosActivos();
-  var total=DB.alumnos.length;
-  var h='<div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:20px 16px 24px">';
-  h+='<div style="font-size:22px;font-weight:900;margin-bottom:2px">Alumnado</div>';
-  h+='<div style="font-size:12px;opacity:.8">'+total+' alumnos/as en total</div></div>';
-
-  // Barra de acciones
-  h+='<div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;background:#fff;border-bottom:1px solid #e2e8f0">';
-  h+='<button class="btn bvd bsm" onclick="showAddAlumno()">+ Anadir alumno/a</button>';
-  h+='<button class="btn bgy bsm" onclick="document.getElementById(\'import-xlsx\').click()">Importar Excel</button>';
-  h+='<input type="file" id="import-xlsx" accept=".xlsx,.xls" style="display:none" onchange="importarExcel(this)">';
-  h+='<button class="btn" style="background:#f59e0b;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="showPromocion()">Promocionar curso</button>';
-  h+='<button class="btn bgy bsm" onclick="imprimirLista()">Imprimir lista</button>';
-  h+='</div>';
-
-  // Filtro por grupo
-  h+='<div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap">';
-  h+='<button class="dtab'+(ALUMNOS_FILTRO.curso===''?' on':'')+'" onclick="setFiltroAlumnos(\'\',\'\')">Todos</button>';
-  grupos.forEach(function(g){
-    var k=g.curso+'_'+g.letra;
-    var sel=ALUMNOS_FILTRO.curso===g.curso&&ALUMNOS_FILTRO.letra===g.letra;
-    h+='<button class="dtab'+(sel?' on':'')+'" onclick="ALUMNOS_FILTRO={curso:\''+g.curso+'\',letra:\''+g.letra+'\'};renderAlumnos()">';
-    h+=g.curso+(g.letra?g.letra:'')+' ('+g.n+')</button>';
-  });
-  h+='</div>';
-
-  // Lista de alumnos
-  var alumnos=ALUMNOS_FILTRO.curso
-    ?getGrupoAlumnos(ALUMNOS_FILTRO.curso,ALUMNOS_FILTRO.letra)
-    :DB.alumnos.slice().sort(function(a,b){
-        var oa=ORDEN_CURSOS.indexOf(a.curso),ob=ORDEN_CURSOS.indexOf(b.curso);
-        if(oa!==ob)return oa-ob;
-        if(a.letra!==b.letra)return a.letra.localeCompare(b.letra);
-        return a.apellidos.localeCompare(b.apellidos);
-      });
-
-  h+='<div style="padding:10px 14px">';
-
-  // Agrupar por curso/letra si mostramos todos
-  var cursoActual='';
-  alumnos.forEach(function(a,idx){
-    var grupoClave=a.curso+a.letra;
-    if(!ALUMNOS_FILTRO.curso&&grupoClave!==cursoActual){
-      cursoActual=grupoClave;
-      var ng=getGrupoAlumnos(a.curso,a.letra).length;
-      h+='<div style="font-size:13px;font-weight:800;color:#1e3a8a;margin:12px 0 6px;padding-bottom:3px;border-bottom:2px solid #1e3a8a">';
-      h+=cursoLabel(a.curso)+(a.letra?' '+a.letra:'')+' <span style="font-weight:400;font-size:11px;color:#94a3b8">('+ng+' alumnos/as)</span></div>';
-    }
-
-    var numLista=alumnos.filter(function(x){return x.curso===a.curso&&x.letra===a.letra;}).indexOf(a)+1;
-    h+='<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f8fafc">';
-    h+='<span style="font-size:12px;color:#94a3b8;min-width:20px;text-align:right">'+numLista+'.</span>';
-    h+='<div style="flex:1">';
-    h+='<div style="font-size:13px;font-weight:700">'+a.apellidos+', '+a.nombre+'</div>';
-    h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">';
-    if(a.atencion)h+=bdg('Aten.Educativa','am');
-    if(a.repetidor)h+=bdg('Repetidor','rd');
-    h+='</div></div>';
-    h+='<div style="display:flex;gap:4px">';
-    h+='<button class="btn bgy bsm" style="padding:3px 7px" onclick="editAlumno('+idx+')">edit</button>';
-    h+='<button class="btn brd bsm" style="padding:3px 7px" onclick="delAlumno('+idx+')">x</button>';
-    h+='</div></div>';
-  });
-
-  if(alumnos.length===0){
-    h+='<div class="al i"><span>i</span><span>No hay alumnos/as. Usa el boton "Anadir alumno/a" o importa desde Excel.</span></div>';
-  }
-
-  h+='</div>';
-
-  // Panel de anadir/editar (oculto por defecto)
-  h+='<div id="panel-alumno" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:16px">';
-  h+='<div style="background:#fff;border-radius:14px;padding:18px;width:100%;max-width:360px;max-height:85vh;overflow-y:auto">';
-  h+='<div id="panel-alumno-inner"></div>';
-  h+='</div></div>';
-
-  document.getElementById('pg-alumnos-inner').innerHTML=h;
-}
-
-function setFiltroAlumnos(curso,letra){
-  ALUMNOS_FILTRO={curso:curso,letra:letra};
-  renderAlumnos();
-}
-
-function importarExcel(input){
-  var file=input.files[0];
-  if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      // Leer el Excel usando SheetJS (XLSX)
-      var data=new Uint8Array(e.target.result);
-      var workbook=XLSX.read(data,{type:'array'});
-      var nuevos=[];
-      var errores=[];
-
-      // Mapeo automatico de nombre de hoja a curso/letra
-      var mapaHojas={
-        '3 a': {curso:'3anos',letra:'A'},
-        '3anos a': {curso:'3anos',letra:'A'},
-        '3 b': {curso:'3anos',letra:'B'},
-        '3anos b': {curso:'3anos',letra:'B'},
-        '4 a': {curso:'4anos',letra:''},
-        '4anos': {curso:'4anos',letra:''},
-        '5 a': {curso:'5anos',letra:''},
-        '5anos': {curso:'5anos',letra:''},
-        '1': {curso:'1o',letra:'A'},
-        '1o': {curso:'1o',letra:'A'},
-        '1o a': {curso:'1o',letra:'A'},
-        '2o a': {curso:'2o',letra:'A'},
-        '2 a': {curso:'2o',letra:'A'},
-        '2o b': {curso:'2o',letra:'B'},
-        '2 b': {curso:'2o',letra:'B'},
-        '3o a': {curso:'3o',letra:'A'},
-        '3 a': {curso:'3o',letra:'A'},
-        '3o b': {curso:'3o',letra:'B'},
-        '3 b': {curso:'3o',letra:'B'},
-        '4o a': {curso:'4o',letra:'A'},
-        '4 a': {curso:'4o',letra:'A'},
-        '4o b': {curso:'4o',letra:'B'},
-        '4 b': {curso:'4o',letra:'B'},
-        '5o a': {curso:'5o',letra:'A'},
-        '5 a': {curso:'5o',letra:'A'},
-        '5o b': {curso:'5o',letra:'B'},
-        '5 b': {curso:'5o',letra:'B'},
-        '6o a': {curso:'6o',letra:'A'},
-        '6 a': {curso:'6o',letra:'A'},
-        '6o b': {curso:'6o',letra:'B'},
-        '6 b': {curso:'6o',letra:'B'},
-      };
-
-      function detectarCurso(nombreHoja){
-        var n=nombreHoja.toLowerCase()
-          .replace(/infantil/g,'')
-          .replace(/primaria/g,'')
-          .replace(/anos/g,'anos')
-          .replace(/o/g,'o')
-          .replace(/\.$/g,'')
-          .trim();
-        // Buscar patron numerico + letra
-        var m=n.match(/(\d+)\s*([ab]?)/i);
-        if(!m)return null;
-        var num=m[1];
-        var let2=(m[2]||'').toUpperCase();
-        // Detectar si es Infantil
-        var esInfantil=nombreHoja.toLowerCase().indexOf('infantil')>=0||
-                       nombreHoja.toLowerCase().indexOf('anos')>=0||
-                       nombreHoja.toLowerCase().indexOf('anos')>=0;
-        if(esInfantil){
-          var cursos3={'3':'3anos','4':'4anos','5':'5anos'};
-          return{curso:cursos3[num]||num+'anos',letra:let2};
-        }
-        var cursosPrim={'1':'1o','2':'2o','3':'3o','4':'4o','5':'5o','6':'6o'};
-        return{curso:cursosPrim[num]||num+'o',letra:let2};
-      }
-
-      workbook.SheetNames.forEach(function(sheetName){
-        var detected=detectarCurso(sheetName);
-        if(!detected){errores.push('Hoja sin reconocer: '+sheetName);return;}
-        var sheet=workbook.Sheets[sheetName];
-        var rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
-        rows.forEach(function(row){
-          // Buscar celda con formato "Apellidos, Nombre"
-          var nombreCompleto='';
-          row.forEach(function(cell){
-            var val=String(cell).trim();
-            if(val.indexOf(',')>0&&val.length>3&&isNaN(val)){
-              nombreCompleto=val;
-            }
-          });
-          if(!nombreCompleto)return;
-          var partes=nombreCompleto.split(',',2);
-          var apellidos=partes[0].trim();
-          var nombre=partes[1]?partes[1].trim():'';
-          if(!apellidos||apellidos.length<2)return;
-          nuevos.push({
-            nombre:nombre,apellidos:apellidos,
-            curso:detected.curso,letra:detected.letra,
-            fnac:'',atencion:false,repetidor:false
-          });
-        });
-      });
-
-      if(nuevos.length===0){
-        alert('No se encontraron alumnos en el archivo.\nAsegurate de que el formato es: Apellidos, Nombre');
-        return;
-      }
-
-      var msg='Se encontraron '+nuevos.length+' alumnos.\n';
-      if(errores.length>0)msg+='Hojas sin reconocer: '+errores.join(', ')+'\n';
-      msg+='\nQue quieres hacer?';
-      var opcion=confirm(msg+'\n\nAceptar = Reemplazar todo el alumnado\nCancelar = Anadir a los existentes');
-      if(opcion){
-        DB.alumnos=nuevos;
-      }else{
-        DB.alumnos=DB.alumnos.concat(nuevos);
-      }
-      save();
-      ALUMNOS_FILTRO={curso:'',letra:''};
-      renderAlumnos();
-      alert('Importacion completada: '+nuevos.length+' alumnos.');
-    }catch(ex){
-      alert('Error al leer el archivo: '+ex.message+'\nAsegurate de que es un archivo Excel (.xlsx)');
-    }
-  };
-  reader.readAsArrayBuffer(file);
-  input.value=''; // reset para poder importar de nuevo
-}
-
-function showAddAlumno(idx){
-  var a=idx!==undefined?DB.alumnos[idx]:{nombre:'',apellidos:'',curso:'1o',letra:'A',atencion:false,repetidor:false,fnac:''};
-  var esEdit=idx!==undefined;
-  var grupos=getCursosActivos();
-
-  var h='<div style="font-size:15px;font-weight:800;color:#1e3a8a;margin-bottom:14px">'+(esEdit?'Editar alumno/a':'Nuevo alumno/a')+'</div>';
-  h+='<div class="fr"><span class="fl">Apellidos</span><input class="fi" type="text" id="al-ape" value="'+a.apellidos+'" placeholder="Apellidos..."></div>';
-  h+='<div class="fr"><span class="fl">Nombre</span><input class="fi" type="text" id="al-nom" value="'+a.nombre+'" placeholder="Nombre..."></div>';
-  h+='<div class="fg2">';
-  h+='<div class="fr"><span class="fl">Curso</span><select class="fi" id="al-cur">';
-  ORDEN_CURSOS.forEach(function(cv){h+='<option value="'+cv+'"'+(a.curso===cv?' selected':'')+'>'+cursoLabel(cv)+'</option>';});
-  h+='</select></div>';
-  h+='<div class="fr"><span class="fl">Letra grupo</span><input class="fi" type="text" id="al-let" value="'+(a.letra||'')+'" placeholder="A, B..." style="text-transform:uppercase" maxlength="2"></div>';
-  h+='</div>';
-  h+='<div class="fr"><span class="fl">Fecha nacimiento</span><input class="fi" type="date" id="al-fnac" value="'+(a.fnac||'')+'"></div>';
-  h+='<div class="ck"><input type="checkbox" id="al-aten"'+(a.atencion?' checked':'')+' style="width:16px;height:16px;accent-color:#92400e"><span>Atencion Educativa (no Religion)</span></div>';
-  h+='<div class="ck"><input type="checkbox" id="al-rep"'+(a.repetidor?' checked':'')+' style="width:16px;height:16px;accent-color:#b91c1c"><span>Repite curso</span></div>';
-  h+='<div style="display:flex;gap:8px;margin-top:14px">';
-  h+='<button class="btn bvd" style="flex:1" onclick="guardarAlumno('+(esEdit?idx:'undefined')+')">Guardar</button>';
-  h+='<button class="btn bgy" onclick="cerrarPanelAlumno()">Cancelar</button>';
-  h+='</div>';
-
-  document.getElementById('panel-alumno-inner').innerHTML=h;
-  document.getElementById('panel-alumno').style.display='flex';
-}
-
-function editAlumno(idx){showAddAlumno(idx);}
-
-function cerrarPanelAlumno(){
-  document.getElementById('panel-alumno').style.display='none';
-}
-
-function guardarAlumno(idx){
-  var ape=(document.getElementById('al-ape')||{}).value||'';
-  var nom=(document.getElementById('al-nom')||{}).value||'';
-  var cur=(document.getElementById('al-cur')||{}).value||'1o';
-  var let2=((document.getElementById('al-let')||{}).value||'').toUpperCase();
-  var fnac=(document.getElementById('al-fnac')||{}).value||'';
-  var aten=(document.getElementById('al-aten')||{}).checked||false;
-  var rep=(document.getElementById('al-rep')||{}).checked||false;
-
-  if(!ape||!nom){alert('Apellidos y nombre son obligatorios');return;}
-
-  var alumno={nombre:nom,apellidos:ape,curso:cur,letra:let2,fnac:fnac,atencion:aten,repetidor:rep};
-
-  if(idx!==undefined&&idx<DB.alumnos.length){
-    DB.alumnos[idx]=alumno;
-  } else {
-    DB.alumnos.push(alumno);
-  }
-  save();
-  cerrarPanelAlumno();
-  renderAlumnos();
-}
-
-function delAlumno(idx){
-  if(!confirm('Eliminar alumno/a?'))return;
-  DB.alumnos.splice(idx,1);
-  save();
-  renderAlumnos();
-}
-
-function showPromocion(){
-  var h='<div style="font-size:15px;font-weight:800;color:#f59e0b;margin-bottom:10px">Promocionar al curso siguiente</div>';
-  h+='<div style="font-size:12px;color:#374151;margin-bottom:12px;line-height:1.6">';
-  h+='Todos los alumnos/as pasan al curso superior.<br>';
-  h+='<strong>2o -> 3o:</strong> letra pendiente de asignar<br>';
-  h+='<strong>4o -> 5o:</strong> letra pendiente de asignar<br>';
-  h+='<strong>6o:</strong> se eliminan (van al instituto)<br>';
-  h+='Los alumnos nuevos de 3 anos los anadiras despues.';
-  h+='</div>';
-
-  // Mostrar resumen de lo que pasara
-  var grupos=getCursosActivos();
-  grupos.forEach(function(g){
-    var sig=getCursoSiguiente(g.curso,g.letra);
-    var color=sig===null?'#b91c1c':sig.pendiente?'#d97706':'#15803d';
-    h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px">';
-    h+='<span>'+g.curso+(g.letra?' '+g.letra:'')+'</span>';
-    h+='<span style="color:'+color+';font-weight:700">';
-    if(sig===null)h+='Se van al instituto';
-    else if(sig.pendiente)h+=sig.curso+' (letra pendiente)';
-    else h+=sig.curso+' '+sig.letra;
-    h+='</span></div>';
-  });
-
-  h+='<div style="display:flex;gap:8px;margin-top:14px">';
-  h+='<button class="btn" style="flex:1;background:#f59e0b;color:#fff" onclick="ejecutarPromocion()">Promocionar ahora</button>';
-  h+='<button class="btn bgy" onclick="cerrarPanelAlumno()">Cancelar</button>';
-  h+='</div>';
-
-  document.getElementById('panel-alumno-inner').innerHTML=h;
-  document.getElementById('panel-alumno').style.display='flex';
-}
-
-function ejecutarPromocion(){
-  if(!confirm('Confirmar promocion de todos los alumnos/as?'))return;
-
-  var nuevosAlumnos=[];
-  DB.alumnos.forEach(function(a){
-    var sig=getCursoSiguiente(a.curso,a.letra);
-    if(sig===null)return; // 6o -> instituto, eliminar
-    nuevosAlumnos.push({
-      nombre:a.nombre,
-      apellidos:a.apellidos,
-      curso:sig.curso,
-      letra:sig.pendiente?'':sig.letra, // letra vacia si pendiente de mezcla
-      fnac:a.fnac||'',
-      atencion:a.atencion||false,
-      repetidor:false // reset repetidor en nuevo curso
-    });
-  });
-
-  DB.alumnos=nuevosAlumnos;
-  save();
-  cerrarPanelAlumno();
-  ALUMNOS_FILTRO={curso:'',letra:''};
-  renderAlumnos();
-  alert('Promocion completada.\nRecuerda asignar la letra a los alumnos de 3o y 5o (antes 2o y 4o).');
-}
-
-function imprimirLista(){
-  var grupos=ALUMNOS_FILTRO.curso
-    ?[{curso:ALUMNOS_FILTRO.curso,letra:ALUMNOS_FILTRO.letra}]
-    :getCursosActivos();
-
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8">';
-  html+='<title>Listado de alumnos - CEIP San Sebastian</title>';
-  html+='<style>body{font-family:Arial,sans-serif;margin:15mm;font-size:10pt}';
-  html+='h2{font-size:13pt;color:#1e3a8a;border-bottom:2pt solid #1e3a8a;padding-bottom:4pt;margin-bottom:8pt}';
-  html+='table{width:100%;border-collapse:collapse;margin-bottom:20pt}';
-  html+='th{background:#1e3a8a;color:#fff;padding:5pt 7pt;text-align:left;font-size:9pt}';
-  html+='td{border:0.5pt solid #ccc;padding:5pt 7pt;font-size:9pt}';
-  html+='tr:nth-child(even)td{background:#f5f5f5}';
-  html+='.aten{color:#92400e;font-weight:bold;font-size:8pt}';
-  html+='@page{size:A4 portrait;margin:10mm}';
-  html+='@media print{.salto{page-break-before:always}}';
-  html+='</style></head><body>';
-
-  grupos.forEach(function(g,gi){
-    var alumnos=getGrupoAlumnos(g.curso,g.letra);
-    if(alumnos.length===0)return;
-    html+='<div class="'+(gi>0?'salto':'')+'">';
-    html+='<h2>'+cursoLabel(g.curso)+(g.letra?' '+g.letra:'')+'</h2>';
-    html+='<table><thead><tr>';
-    html+='<th style="width:30pt">N</th>';
-    html+='<th>Apellidos, Nombre</th>';
-    html+='<th style="width:70pt">Fecha Nac.</th>';
-    html+='<th style="width:80pt">Religion/AE</th>';
-    html+='<th style="width:120pt">Observaciones</th>';
-    html+='</tr></thead><tbody>';
-    alumnos.forEach(function(a,i){
-      html+='<tr><td>'+(i+1)+'</td>';
-      html+='<td><strong>'+a.apellidos+'</strong>, '+a.nombre+'</td>';
-      html+='<td>'+(a.fnac||'')+'</td>';
-      html+='<td class="aten">'+(a.atencion?'Aten.Educativa':'Religion')+'</td>';
-      html+='<td>'+(a.repetidor?'Repite':'')+'</td></tr>';
-    });
-    html+='</tbody></table></div>';
-  });
-
-  html+='</body></html>';
-  var w=window.open('','_blank','width=900,height=700');
-  w.document.write(html);
-  w.document.close();
-  setTimeout(function(){w.print();},500);
-}
-
-function renderSust(){
-  var tbl=loadSust(SUST_DIA);
-  var hoy=new Date();
-  var meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  var h='<div style="background:linear-gradient(135deg,#7f1d1d,#b91c1c);color:#fff;padding:20px 16px 24px">';
-  h+='<div style="font-size:22px;font-weight:900;margin-bottom:2px">Sustituciones</div>';
-  h+='<div style="font-size:12px;opacity:.8">'+hoy.getDate()+' '+meses[hoy.getMonth()]+' '+hoy.getFullYear()+'</div></div>';
-  h+='<div style="padding:12px 14px;display:flex;flex-wrap:wrap">';
-  DIAS.forEach(function(d){h+='<button class="dtab'+(d===SUST_DIA?' on':'')+'" onclick="SUST_DIA=\''+d+'\';renderSust()">'+d.substr(0,3)+'</button>';});
-  h+='</div>';
-  h+='<div style="margin:0 14px 12px"><div class="card"><div class="ct">Quien falta hoy?</div>';
-  h+='<div style="display:flex;flex-wrap:wrap;">';
-  DB.maestros.filter(function(m){return['PT','AL'].indexOf(m.e)<0;}).forEach(function(m){
-    var f=SUST_FALTAN.indexOf(m.id)>=0;
-    h+='<button class="mfbtn'+(f?' falta':'')+'" onclick="togFalta('+m.id+')">'+m.n+(f?' x':'')+'</button>';
-  });
-  h+='</div>';
-  if(SUST_FALTAN.length>0){
-    h+='<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">';
-    h+='<button class="btn bvd" onclick="genTabla()">Generar tabla automatica</button>';
-    h+='<button class="btn bgy bsm" onclick="limpTabla()">Limpiar</button>';
-    h+='<button class="btn" style="background:#0f9d58;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="publicarSustSSN()">Publicar en SSN</button>';
-    h+='</div>';
-  }
-  h+='</div></div>';
-  if(SUST_FALTAN.length===0){document.getElementById('pg-sust-inner').innerHTML=h;return;}
-  var disp=DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0&&['Infantil','PT','AL'].indexOf(m.e)<0;});
-  disp.sort(function(a,b){return hL(b)-hL(a);});
-  h+='<div style="margin:0 14px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px">';
-  h+='<div style="font-size:11px;font-weight:800;color:#15803d;margin-bottom:7px">Disponibles</div>';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:5px">';
-  disp.forEach(function(m){
-    h+='<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:#fff;border-radius:7px;border:1px solid #bbf7d0;font-size:12px">';
-    h+='<span style="font-weight:600">'+m.n+'</span>';
-    h+='<span style="font-size:10px;font-weight:700;color:'+(hL(m)>5?'#15803d':hL(m)>2?'#d97706':'#b91c1c')+'">'+hL(m).toFixed(1)+'h</span>';
-    h+='</div>';
-  });
-  h+='</div></div>';
-  var fData=SUST_FALTAN.map(function(id){return DB.maestros.find(function(m){return m.id===id;});}).filter(Boolean);
-  h+='<div style="margin:0 14px 12px"><div style="font-size:14px;font-weight:800;margin-bottom:8px">Tabla '+SUST_DIA+'</div>';
-  h+='<div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.07)">';
-  h+='<table class="tbl" style="min-width:'+(80+fData.length*130)+'px">';
-  h+='<thead><tr><th class="th0" style="min-width:70px">Hora</th>';
-  fData.forEach(function(m){h+='<th style="min-width:130px">'+m.n+(m.cargo?'<br><span style="font-size:9px;opacity:.7;font-weight:400">'+m.cargo+'</span>':'')+'</th>';});
-  h+='</tr></thead><tbody>';
-  DB.tramos.forEach(function(t,ti){
-    if(t.r){h+='<tr><td class="td0">Recreo</td>';fData.forEach(function(){h+='<td style="background:#f8fafc;text-align:center;font-size:11px;color:#94a3b8;padding:8px">Recreo</td>';});h+='</tr>';return;}
-    h+='<tr><td class="td0">'+(t.l||fmt(t.ini||0))+'</td>';
-    fData.forEach(function(mF){
-      var key=mF.id+'_'+ti;
-      var cel=(tbl&&tbl[key])||{grupo:'',sust:'',txt:''};
-      var ok=cel.grupo||cel.sust||cel.txt;
-      h+='<td><div class="tcell'+(cel.txt==='X'?' xmark':ok?' asig':'')+'" onclick="openCell('+mF.id+','+ti+',\''+SUST_DIA+'\')">';
-      if(cel.txt==='X'){h+='x';}
-      else if(ok){
-        if(cel.grupo)h+='<div style="font-size:11px;font-weight:700;color:#7c3aed">'+cel.grupo+'</div>';
-        var s=cel.sust||cel.txt;
-        if(s)h+='<div style="font-size:11px;font-weight:600;color:#15803d">'+s+'</div>';
-      }else{h+='<div style="color:#e2e8f0;font-size:10px;text-align:center;padding-top:12px">Toca</div>';}
-      h+='</div></td>';
-    });
-    h+='</tr>';
-  });
-  h+='</tbody></table></div></div>';
-  document.getElementById('pg-sust-inner').innerHTML=h;
-}
-
-function publicarSustSSN(){
-  var url=DB.scriptUrl;
-  if(!url){alert('Configura la URL del script en Config. primero.');return;}
-  var tbl=loadSust(SUST_DIA);
-  if(!tbl||Object.keys(tbl).length===0){alert('No hay sustituciones generadas. Genera primero la tabla.');return;}
-  // Preparar datos para SSN
-  var filas=[['Maestro/a ausente','Hora','Grupo','Sustituye','Observaciones']];
-  SUST_FALTAN.forEach(function(mFId){
-    var mF=DB.maestros.find(function(m){return m.id===mFId;});
-    if(!mF)return;
-    DB.tramos.forEach(function(t,ti){
-      var key=mFId+'_'+ti;
-      var cel=tbl[key];
-      if(!cel||t.r)return;
-      var hora=t.l||fmt(t.ini||0);
-      var grupo=cel.grupo||'';
-      var sust=cel.sust||cel.txt||'Sin cubrir';
-      filas.push([mF.n,hora,grupo,sust,'']);
-    });
-  });
-  if(filas.length<=1){alert('No hay sustituciones asignadas para publicar.');return;}
-  var hoy=new Date();
-  var fechaStr=hoy.toLocaleDateString('es-ES');
-  var cb='_ssn'+Date.now();
-  window[cb]=function(r){
-    delete window[cb];
-    if(r&&r.ok)alert('Sustituciones publicadas en San Sebastian Net correctamente.');
-    else alert('Error al publicar: '+(r?r.error:'sin respuesta'));
-  };
-  var datos=JSON.stringify({sustDia:SUST_DIA,fecha:fechaStr,filas:filas,limpiarAnterior:true});
-  var s=document.createElement('script');
-  s.src=url+'?accion=publicarSust&callback='+cb+'&datos='+encodeURIComponent(datos);
-  s.onerror=function(){delete window[cb];alert('Error de conexion.');};
-  document.head.appendChild(s);
-  setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout.');}},10000);
-}
-
-function togFalta(id){var i=SUST_FALTAN.indexOf(id);if(i>=0)SUST_FALTAN.splice(i,1);else SUST_FALTAN.push(id);renderSust();}
-
-function genTabla(){
-  var tbl=loadSust(SUST_DIA);
-  SUST_FALTAN.forEach(function(mFId){
-    var mF=DB.maestros.find(function(m){return m.id===mFId;});if(!mF)return;
-    var grupos=[];(mF.asig||[]).forEach(function(a){if(grupos.indexOf(a.gid)<0)grupos.push(a.gid);});if(mF.t&&mF.g&&grupos.indexOf(mF.g)<0)grupos.push(mF.g);
-    DB.tramos.forEach(function(t,ti){
-      var key=mFId+'_'+ti;
-      if(tbl[key]&&tbl[key].manual)return;
-      if(t.r){tbl[key]={grupo:'',sust:'',txt:'X'};return;}
-      if(grupos.length===0){tbl[key]={grupo:'',sust:'',txt:'X'};return;}
-      var gS=grupos[ti%grupos.length];
-      var cicloD=getCiclo(gS.replace(/[A-Fa-f]/g,''));
-      var carga={};Object.values(tbl).forEach(function(c){if(c&&c.sust)carga[c.sust]=(carga[c.sust]||0)+1;});
-      var cands=DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0&&['Infantil','PT','AL'].indexOf(m.e)<0;});
-      cands.sort(function(a,b){var pa=priSust(a,gS,cicloD),pb=priSust(b,gS,cicloD);if(pa!==pb)return pa-pb;var ca=carga[a.n]||0,cb=carga[b.n]||0;if(ca!==cb)return ca-cb;return hL(b)-hL(a);});
-      var mejor=cands[0];
-      tbl[key]={grupo:gS,sust:mejor?mejor.n:'',txt:''};
-    });
-  });
-  saveSust(SUST_DIA,tbl);renderSust();
-}
-
-function limpTabla(){if(!confirm('Limpiar tabla?'))return;saveSust(SUST_DIA,{});renderSust();}
-
-function asignarDirecto(mFId,ti,dia,nombre,grupo){
-  var key=mFId+'_'+ti;
-  var tbl=loadSust(dia);
-  // Convertir gid a nombre si es necesario
-  var gObj=DB.hGrupos.find(function(g){return g.id===grupo;});
-  var gNombre=gObj?gObj.n:grupo;
-  tbl[key]={grupo:gNombre,sust:nombre,txt:'',manual:true,candidatos:[]};
-  saveSust(dia,tbl);
-  renderSust();
-}
-
-function openCell(mFId,ti,dia){
-  var key=mFId+'_'+ti;
-  var tbl=loadSust(dia);
-  var cel=tbl[key]||{grupo:'',sust:'',txt:''};
-  var mF=DB.maestros.find(function(m){return m.id===mFId;});
-  var t=DB.tramos[ti];
-  SUST_CELDA={mFId:mFId,ti:ti,dia:dia,key:key};
-  document.getElementById('modal-t').textContent=(t?(t.l||fmt(t.ini||0)):'Tramo')+' - '+(mF?mF.n:'?');
-  document.getElementById('m-grupo').value=cel.grupo||'';
-  var sel=document.getElementById('m-mae');
-  sel.innerHTML='<option value="">Sin sustituto</option>';
-  var disp=DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0&&['Infantil','PT','AL'].indexOf(m.e)<0;});
-  var gS=cel.grupo||'';var cicloD=getCiclo(gS.replace(/[A-Fa-f]/g,''));
-  disp.sort(function(a,b){return priSust(a,gS,cicloD)-priSust(b,gS,cicloD)||hL(b)-hL(a);});
-  disp.forEach(function(m){var o=document.createElement('option');o.value=m.n;o.textContent=m.n+' ('+hL(m).toFixed(1)+'h)';if(m.n===cel.sust)o.selected=true;sel.appendChild(o);});
-  document.getElementById('m-txt').value=(cel.txt&&cel.txt!=='X')?cel.txt:'';
-  document.getElementById('modal-sust').classList.add('on');
-}
-function closeModal(){document.getElementById('modal-sust').classList.remove('on');SUST_CELDA=null;}
-function applyCell(){
-  if(!SUST_CELDA)return;
-  var tbl=loadSust(SUST_CELDA.dia);
-  var g=(document.getElementById('m-grupo')||{}).value||'';
-  var s=(document.getElementById('m-mae')||{}).value||'';
-  var t=(document.getElementById('m-txt')||{}).value||'';
-  tbl[SUST_CELDA.key]={grupo:g,sust:t?t:s,txt:t&&t!==s?t:'',manual:true};
-  saveSust(SUST_CELDA.dia,tbl);closeModal();renderSust();
-}
-function emptyCell(){
-  if(!SUST_CELDA)return;
-  var tbl=loadSust(SUST_CELDA.dia);
-  tbl[SUST_CELDA.key]={grupo:'',sust:'',txt:'X',manual:true};
-  saveSust(SUST_CELDA.dia,tbl);closeModal();renderSust();
-}
-
-//  MODULO RECREO 
-// === MODULO RECREO ===
-var RECREO_MES_ACTUAL = '';
-var RECREO_VISTA_ACTUAL = 'turnos';
-
 function initRecreo(){
   if(!RECREO_MES_ACTUAL){
     var d = new Date();
@@ -3772,6 +2886,7 @@ function initRecreo(){
   if(!DB.recreo.dispPrimaria || !Array.isArray(DB.recreo.dispPrimaria)) DB.recreo.dispPrimaria = [];
   if(!DB.recreo.maxDias) DB.recreo.maxDias = 2;
   if(!DB.recreo.numInfantil) DB.recreo.numInfantil = 4;
+  if(!DB.recreo.numPrimaria) DB.recreo.numPrimaria = 7;
   if(!DB.recreo.exentos) DB.recreo.exentos = [];
   if(!DB.recreo.cursosAlumnos) DB.recreo.cursosAlumnos = [
     {id:'ca1',n:'1o A'},{id:'ca2',n:'2o A'},{id:'ca3',n:'2o B'},
@@ -3978,6 +3093,8 @@ function renderRecreoConf(){
   h += '<input class="fi" type="number" min="2" max="8" value="'+(DB.recreo.numInfantil||4)+'" onchange="DB.recreo.numInfantil=+this.value;save()" style="width:65px"></div>';
   h += '<div class="fr"><span class="fl">Max recreos/semana/maestro</span>';
   h += '<input class="fi" type="number" min="1" max="5" value="'+(DB.recreo.maxDias||2)+'" onchange="DB.recreo.maxDias=+this.value;save()" style="width:65px"></div>';
+  h += '<div class="fr"><span class="fl">Maestros en Primaria/dia</span>';
+  h += '<input class="fi" type="number" min="1" max="15" value="'+(DB.recreo.numPrimaria||7)+'" onchange="DB.recreo.numPrimaria=+this.value;save()" style="width:65px"></div>';
   h += '</div></div>';
 
   // Zonas de primaria
@@ -4287,13 +3404,39 @@ function addZonaRecreo(){
   save(); renderRecreo();
 }
 
+function getSemanaMes(fechaStr){
+  // Devuelve S1,S2,S3... del mes
+  var d = new Date(fechaStr+'T12:00:00');
+  return 'S'+Math.ceil(d.getDate()/7);
+}
+
+function getTurnoAlumnosDia(fechaStr){
+  // Obtener turno de alumnos para una fecha concreta
+  if(!DB.recreo||!DB.recreo.turnosAlumnos)return {};
+  var p = fechaStr.split('-');
+  var mes = p[0]+'-'+p[1];
+  var rot = DB.recreo.rotacion||'semanal';
+  var dias = getDiasLaborables(mes);
+  var diaObj = dias.find(function(d){return d.fecha===fechaStr;});
+  if(!diaObj)return {};
+  var key;
+  if(rot==='quincenal') key='Q'+(diaObj.sem<=2?1:2);
+  else if(rot==='libre') key='Periodo 1';
+  else key='S'+diaObj.sem;
+  return (DB.recreo.turnosAlumnos[key])||{};
+}
+
 function publicarRecreoBttn(){
   var url = DB.scriptUrl;
   if(!url){alert('Configura la URL del script en Config.');return;}
   var turnosMes = DB.recreo.turnosMes[RECREO_MES_ACTUAL]||{};
   if(Object.keys(turnosMes).length===0){alert('Sin turnos para este mes.');return;}
   var zonas = DB.recreo.zonasPrimaria||[];
-  var cabecera = ['Fecha','Dia','Infantil'].concat(zonas.map(function(z){return z.n;}));
+  var cursos = DB.recreo.cursosAlumnos||[];
+  // Cabecera: Fecha, Dia, Infantil (maestros), zonas maestros, ALUMNOS: zonas alumnos
+  var cabMaestros = ['Fecha','Dia','Infantil'].concat(zonas.map(function(z){return z.n;}));
+  var cabAlumnos = zonas.map(function(z){return 'Alumnos: '+z.n;});
+  var cabecera = cabMaestros.concat(cabAlumnos);
   var filas = [cabecera];
   Object.keys(turnosMes).sort().forEach(function(fecha){
     var t = turnosMes[fecha];
@@ -4302,17 +3445,33 @@ function publicarRecreoBttn(){
       return m?m.n:'?';
     }).join(', ');
     var fila = [fecha,t.diaSem,infStr];
+    // Maestros por zona
     zonas.forEach(function(z){
       var slot = t.primaria&&t.primaria[z.id];
       fila.push(slot&&slot.maestroN?slot.maestroN:'');
+    });
+    // Alumnos por zona ese dia
+    var tAlumnos = getTurnoAlumnosDia(fecha);
+    zonas.forEach(function(z){
+      var slotA = tAlumnos[z.id]||[];
+      var nombresA = slotA.map(function(cid){
+        var cu = cursos.find(function(x){return x.id===cid;});
+        return cu?cu.n:'';
+      }).filter(Boolean).join(', ');
+      fila.push(nombresA);
     });
     filas.push(fila);
   });
   var cb = '_rec'+Date.now();
   window[cb] = function(r){
     delete window[cb];
-    if(r&&r.ok)alert('Turnos publicados en San Sebastian Net correctamente.');
-    else alert('Error al publicar: '+(r?r.error:'sin respuesta'));
+    if(r&&r.ok){
+      // Tambien aoadir eventos semanales a Agenda - Calendario RECREO
+      agregarEventosRecreoAgenda();
+      alert('Turnos publicados en San Sebastian Net y en Agenda correctamente.');
+    } else {
+      alert('Error al publicar: '+(r?r.error:'sin respuesta'));
+    }
   };
   var datos = JSON.stringify({mes:RECREO_MES_ACTUAL,mesLabel:getMesLabel2(RECREO_MES_ACTUAL),filas:filas});
   var s = document.createElement('script');
@@ -4320,6 +3479,78 @@ function publicarRecreoBttn(){
   s.onerror = function(){delete window[cb];alert('Error de conexion.');};
   document.head.appendChild(s);
   setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout.');}},12000);
+}
+
+function agregarEventosRecreoAgenda(){
+  if(!DB.agenda)DB.agenda=[];
+  var turnosMes = DB.recreo.turnosMes[RECREO_MES_ACTUAL]||{};
+  var zonas = DB.recreo.zonasPrimaria||[];
+  var cursos = DB.recreo.cursosAlumnos||[];
+  var p = RECREO_MES_ACTUAL.split('-');
+  var mesKey = p[0]+'-'+p[1];
+
+  // Eliminar eventos de recreo del mes actual en agenda
+  DB.agenda = DB.agenda.filter(function(e){
+    return !(e.calendario==='RECREO' && e.fecha && e.fecha.startsWith(mesKey));
+  });
+
+  // Agrupar dias por semana para crear 1 evento por semana
+  var semanas = {};
+  Object.keys(turnosMes).sort().forEach(function(fecha){
+    var d = new Date(fecha+'T12:00:00');
+    var sem = Math.ceil(d.getDate()/7);
+    if(!semanas[sem])semanas[sem]=[];
+    semanas[sem].push(fecha);
+  });
+
+  Object.keys(semanas).forEach(function(sem){
+    var diasSem = semanas[sem].sort();
+    var fechaIni = diasSem[0];
+    var fechaFin = diasSem[diasSem.length-1];
+    var d = new Date(fechaIni+'T12:00:00');
+    var meses = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    var titulo = 'Recreo Semana '+sem+' - '+parseInt(fechaIni.split('-')[2])+' al '+parseInt(fechaFin.split('-')[2])+' '+meses[d.getMonth()+1];
+
+    // Construir descripcion con turno maestros + alumnos
+    var desc = 'MAESTROS: ';
+    // Usar el turno del primer dia de la semana como referencia
+    var t = turnosMes[fechaIni]||{};
+    var infNombres = (t.infantil||[]).map(function(id){
+      var m = DB.maestros.find(function(x){return String(x.id)===String(id);});
+      return m?m.n:'?';
+    }).join(', ');
+    desc += 'Infantil: '+infNombres+' + ';
+    zonas.forEach(function(z){
+      var slot = t.primaria&&t.primaria[z.id];
+      if(slot&&slot.maestroN)desc += z.n+': '+slot.maestroN+' | ';
+    });
+
+    // Alumnos
+    var tA = getTurnoAlumnosDia(fechaIni);
+    if(Object.keys(tA).length>0){
+      desc += ' ALUMNOS: ';
+      zonas.forEach(function(z){
+        var slotA = tA[z.id]||[];
+        var nombresA = slotA.map(function(cid){
+          var cu = cursos.find(function(x){return x.id===cid;});
+          return cu?cu.n:'';
+        }).filter(Boolean).join(', ');
+        if(nombresA)desc += z.n+': '+nombresA+' | ';
+      });
+    }
+
+    DB.agenda.push({
+      titulo: titulo,
+      fecha: fechaIni,
+      horaIni: '11:00',
+      horaFin: '11:30',
+      calendario: 'RECREO',
+      proyecto: '',
+      descripcion: desc
+    });
+  });
+
+  save();
 }
 
 function getRecreoDelDia(fechaStr){
