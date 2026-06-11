@@ -2849,55 +2849,48 @@ function rHResumen(){
 
 // 
 // SUSTITUCIONES
+function setVistaRecreo(el){
+  RECREO_VISTA_ACTUAL = el.getAttribute('data-vista');
+  renderRecreo();
+}
+
 function initRecreo(){
   if(!RECREO_MES_ACTUAL){
-    var d = new Date();
-    RECREO_MES_ACTUAL = d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);
+    var d=new Date();
+    RECREO_MES_ACTUAL=d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);
   }
-  if(!DB.recreo) DB.recreo = {};
-  // Migrar zonas del formato antiguo (strings o sin color) al nuevo (objetos)
-  var necesitaMigracion = !DB.recreo.zonasPrimaria ||
-     DB.recreo.zonasPrimaria.length===0 ||
-     typeof DB.recreo.zonasPrimaria[0]==='string' ||
-     (DB.recreo.zonasPrimaria[0] && !DB.recreo.zonasPrimaria[0].id);
-  if(necesitaMigracion){
-    var zonasAnteriores = (DB.recreo.zonasPrimaria||[]).map(function(z){
-      return typeof z==='string'?z:(z.n||z);
-    });
-    DB.recreo.zonasPrimaria = [
-    {id:'zp1',n:'Huerto La Dehesa',color:'#dcfce7',fija:false},
-    {id:'zp2',n:'Pista deportiva',color:'#dbeafe',fija:false},
-    {id:'zp3',n:'Zona de juegos',color:'#fef3c7',fija:false},
-    {id:'zp4',n:'Patio central',color:'#f3e8ff',fija:false},
-    {id:'zp5',n:'Zona tranquila',color:'#ffedd5',fija:false},
-    {id:'zp6',n:'Acompanamiento',color:'#fee2e2',fija:false,esAcomp:true}
-  ];
-  // Incorporar nombres de zonas anteriores si las habia
-  if(zonasAnteriores.length>0){
-    zonasAnteriores.forEach(function(z,i){
-      var nombre=typeof z==='string'?z:(z.n||z);
-      if(DB.recreo.zonasPrimaria[i]&&nombre!==DB.recreo.zonasPrimaria[i].n){
-        DB.recreo.zonasPrimaria[i].n=nombre;
-      }
-    });
+  if(!DB.recreo)DB.recreo={};
+  // Migrar zonas antiguas al nuevo formato con id y color
+  var zp=DB.recreo.zonasPrimaria;
+  if(!zp||zp.length===0||typeof zp[0]==='string'||!(zp[0]&&zp[0].id)){
+    var nombres=(zp||[]).map(function(z){return typeof z==='string'?z:(z.n||'');});
+    var def=[
+      {id:'zp1',n:'Huerto La Dehesa',color:'#dcfce7',fija:false},
+      {id:'zp2',n:'Pista deportiva',color:'#dbeafe',fija:false},
+      {id:'zp3',n:'Zona de juegos',color:'#fef3c7',fija:false},
+      {id:'zp4',n:'Patio central',color:'#f3e8ff',fija:false},
+      {id:'zp5',n:'Zona tranquila',color:'#ffedd5',fija:false},
+      {id:'zp6',n:'Acompanamiento',color:'#fee2e2',fija:false,esAcomp:true}
+    ];
+    nombres.forEach(function(n,i){if(n&&def[i])def[i].n=n;});
+    DB.recreo.zonasPrimaria=def;
   }
-  } // fin if migracion
-  if(!DB.recreo.dispInfantil || !Array.isArray(DB.recreo.dispInfantil)) DB.recreo.dispInfantil = [];
-  if(!DB.recreo.dispPrimaria || !Array.isArray(DB.recreo.dispPrimaria)) DB.recreo.dispPrimaria = [];
-  if(!DB.recreo.maxDias) DB.recreo.maxDias = 2;
-  if(!DB.recreo.numInfantil) DB.recreo.numInfantil = 4;
-  if(!DB.recreo.numPrimaria) DB.recreo.numPrimaria = 7;
-  if(!DB.recreo.exentos) DB.recreo.exentos = [];
-  if(!DB.recreo.cursosAlumnos) DB.recreo.cursosAlumnos = [
+  if(!Array.isArray(DB.recreo.dispInfantil))DB.recreo.dispInfantil=[];
+  if(!Array.isArray(DB.recreo.dispPrimaria))DB.recreo.dispPrimaria=[];
+  if(!DB.recreo.maxDias)DB.recreo.maxDias=2;
+  if(!DB.recreo.numInfantil)DB.recreo.numInfantil=4;
+  if(!DB.recreo.numPrimaria)DB.recreo.numPrimaria=7;
+  if(!DB.recreo.exentos)DB.recreo.exentos=[];
+  if(!DB.recreo.cursosAlumnos)DB.recreo.cursosAlumnos=[
     {id:'ca1',n:'1o A'},{id:'ca2',n:'2o A'},{id:'ca3',n:'2o B'},
     {id:'ca4',n:'3o A'},{id:'ca5',n:'3o B'},{id:'ca6',n:'4o A'},
     {id:'ca7',n:'4o B'},{id:'ca8',n:'5o A'},{id:'ca9',n:'5o B'},
     {id:'ca10',n:'6o A'},{id:'ca11',n:'6o B'}
   ];
-  if(!DB.recreo.zonaAforo) DB.recreo.zonaAforo = {};
-  if(!DB.recreo.rotacion) DB.recreo.rotacion = 'semanal';
-  if(!DB.recreo.turnosAlumnos) DB.recreo.turnosAlumnos = {};
-  if(!DB.recreo.turnosMes) DB.recreo.turnosMes = {};
+  if(!DB.recreo.zonaAforo)DB.recreo.zonaAforo={};
+  if(!DB.recreo.rotacion)DB.recreo.rotacion='semanal';
+  if(!DB.recreo.turnosAlumnos)DB.recreo.turnosAlumnos={};
+  if(!DB.recreo.turnosMes)DB.recreo.turnosMes={};
 }
 
 function getMesLabel2(m){
@@ -3062,7 +3055,7 @@ function renderRecreo(){
   h += '<div style="padding:8px 14px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap">';
   [{v:'turnos',l:'Turnos'},{v:'alumnos',l:'Alumnos'},{v:'config',l:'Configurar'}].forEach(function(op){
     var sel = RECREO_VISTA_ACTUAL===op.v;
-    h += '<button class="dtab'+(sel?' on':'')+'" onclick="RECREO_VISTA_ACTUAL=\''+op.v+'\';renderRecreo()">'+op.l+'</button>';
+    h += '<button class="dtab'+(sel?' on':'')+'" data-vista="'+op.v+'" onclick="setVistaRecreo(this)">'+op.l+'</button>';
   });
   h += '</div>';
 
