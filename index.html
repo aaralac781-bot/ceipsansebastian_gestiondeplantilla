@@ -317,7 +317,7 @@ function calcFranjas(){
 
 function DEF(){
   return{
-    grupos:{_1o:1,_2o:2,_3o:2,_4o:2,_5o:2,_6o:2},
+    grupos:{_3anos:1,_4anos:1,_5anos:1,_1o:1,_2o:2,_3o:2,_4o:2,_5o:2,_6o:2},
     scriptUrl:'',
     maestros:[
   {id:1,n:'Angel',e:'EF',cargo:'Director',rC:10,rE:0,rJ:0,coord:0,hC:0,t:false,g:'',ref:false,rT:'',plan:'',gRef:'',asig:[]},
@@ -987,19 +987,13 @@ function rClaustro(){
   var grupos=todosGH(); // grupos del catalogo
   var coords=DB.coordinaciones||[];
   var h='<div class="card"><div class="ct">Grupos por nivel</div><div class="gr-row">';
-    CURSOS_INF.forEach(function(cv){
-    var lbl=cv==='3anos'?'I.3a':cv==='4anos'?'I.4a':'I.5a';
-    h+='<div class="gr-c"><span class="gr-l">'+lbl+'</span>';
-    h+='<input type="number" min="0" max="4" value="'+(DB.grupos['_'+cv]||0)+'" oninput="setGrupo(this,\'_'+cv+'\');sincGrupos()">';
-    h+='</div>';
-  });
-  CURSOS.forEach(function(cv){
+  var CURSOS2=['1o','2o','3o','4o','5o','6o'];
+  CURSOS2.forEach(function(cv){
     h+='<div class="gr-c"><span class="gr-l">'+cv+'</span>';
     h+='<input type="number" min="0" max="6" value="'+(DB.grupos['_'+cv]||0)+'" oninput="setGrupo(this,\'_'+cv+'\')">'; 
     h+='</div>';
   });
-  h+='</div><div style="font-size:12px;color:#94a3b8;margin-top:6px">Total: <strong>'+tg()+'</strong> grupos</div></div>';
-
+  h+='</div><div style="font-size:12px;color:#94a3b8;margin-top:6px">Total: <strong>'+tg()+'</strong> grupos de Primaria</div></div>';
 
   DB.maestros.forEach(function(m){
     var dp=hd(m),isOpen=EXP===m.id;
@@ -1519,23 +1513,21 @@ function publicarSustSSN(){
   if(!url){alert('Configura la URL del script en Config.');return;}
   var tbl=loadSust(SUST_DIA);
   if(!tbl||Object.keys(tbl).length===0){alert('Genera primero la tabla.');return;}
-  // Formato transpuesto: fila=tramo, columna=maestro ausente
-  var cabecera=['Hora'];
-  var maestrosAusentes=[];
-  SUST_FALTAN.forEach(function(mFId){
-    var mF=DB.maestros.find(function(m){return m.id===mFId;});
-    if(mF){cabecera.push(mF.n+' (ausente)');maestrosAusentes.push({id:mFId,m:mF});}
+  var cab=['Hora'];
+  var mAus=[];
+  SUST_FALTAN.forEach(function(id){
+    var m=DB.maestros.find(function(x){return x.id===id;});
+    if(m){cab.push(m.n+' (ausente)');mAus.push({id:id,n:m.n});}
   });
-  var filas=[cabecera];
+  var filas=[cab];
   (DB.tramos||[]).forEach(function(t,ti){
-    if(t.r){var fr=['RECREO'];maestrosAusentes.forEach(function(){fr.push('');});filas.push(fr);return;}
+    if(t.r){var fr=['RECREO'];mAus.forEach(function(){fr.push('');});filas.push(fr);return;}
     var fila=[fmt(t.ini||0)];
-    maestrosAusentes.forEach(function(ma){
-      var key=String(ma.id)+'_'+ti;
-      var cel=tbl[key]||{};
-      var sust=cel.sust||cel.txt||'';
-      var grupo=cel.grupo||'';
-      fila.push(sust?(sust+(grupo?' ('+grupo+')':'')):'');
+    mAus.forEach(function(ma){
+      var cel=tbl[String(ma.id)+'_'+ti]||{};
+      var s2=cel.sust||cel.txt||'';
+      var g2=cel.grupo||'';
+      fila.push(s2?(s2+(g2?' ('+g2+')'  :'')):'');
     });
     filas.push(fila);
   });
@@ -1549,6 +1541,9 @@ function publicarSustSSN(){
   document.head.appendChild(s);
   setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout.');}},30000);
 }
+
+var SUST_DIA='Lunes';
+var SUST_FALTAN=[];
 
 function renderSust(){
   var hoy=new Date();
@@ -1611,37 +1606,31 @@ function renderSust(){
   if(SUST_FALTAN.length>0){
     h+='<div style="margin-top:8px;overflow-x:auto">';
     h+='<table style="border-collapse:collapse;font-size:11px;width:100%">';
-        // Cabecera: Hora | Maestro1_ausente | Maestro2_ausente | ...
     h+='<tr style="background:#7f1d1d">';
     h+='<th style="color:#fff;padding:4px 8px;text-align:left;min-width:60px">Hora</th>';
     SUST_FALTAN.forEach(function(mFId){
-      var mF=DB.maestros.find(function(m){return m.id===mFId;});
-      if(!mF)return;
-      h+='<th style="color:#fff;padding:4px 8px;min-width:90px">'+mF.n.split(' ')[0]+'<br><span style="font-size:9px;font-weight:400;opacity:.8">ausente</span></th>';
+      var mF2=DB.maestros.find(function(m){return m.id===mFId;});
+      if(!mF2)return;
+      h+='<th style="color:#fff;padding:4px 8px;min-width:90px">'+mF2.n.split(' ')[0]+'<br><span style="font-size:9px;font-weight:400;opacity:.8">ausente</span></th>';
     });
     h+='</tr>';
-    // Filas por tramo
     tramos.forEach(function(t,ti){
       if(t.r){
         h+='<tr><td style="background:#fef3c7;color:#92400e;padding:3px 8px;text-align:center;font-size:10px;border:1px solid #e2e8f0" colspan="'+(SUST_FALTAN.length+1)+'">RECREO</td></tr>';
         return;
       }
       h+='<tr>';
-      h+='<td style="background:#f8fafc;padding:3px 8px;border:1px solid #e2e8f0;font-weight:700;text-align:center;white-space:nowrap">'+fmt(t.ini||0)+'</td>';
+      h+='<td style="background:#f8fafc;padding:3px 8px;border:1px solid #e2e8f0;font-weight:700;text-align:center">'+fmt(t.ini||0)+'</td>';
       SUST_FALTAN.forEach(function(mFId){
-        var mF=DB.maestros.find(function(m){return m.id===mFId;});
-        if(!mF){h+='<td></td>';return;}
+        var mF3=DB.maestros.find(function(m){return m.id===mFId;});
+        if(!mF3){h+='<td style="border:1px solid #e2e8f0"></td>';return;}
         var key=String(mFId)+'_'+ti;
         var cel=tbl[key]||{};
         var sust=cel.sust||'';
-        var grupo=cel.grupo||'';
+        var grp=cel.grupo||'';
         h+='<td style="padding:3px 6px;border:1px solid #e2e8f0;cursor:pointer;background:'+(sust?'#f0fdf4':'#fff')+'" data-key="'+key+'" data-dia="'+SUST_DIA+'" onclick="abrirCelda(this)">';
-        if(sust){
-          h+='<div style="font-weight:600;font-size:11px">'+sust+'</div>';
-          if(grupo)h+='<div style="font-size:9px;color:#64748b">'+grupo+'</div>';
-        } else {
-          h+='<span style="color:#cbd5e1;font-size:10px">Asignar...</span>';
-        }
+        if(sust){h+='<div style="font-weight:600;font-size:11px">'+sust+'</div>';if(grp)h+='<div style="font-size:9px;color:#64748b">'+grp+'</div>';}
+        else{h+='<span style="color:#cbd5e1;font-size:10px">Asignar...</span>';}
         h+='</td>';
       });
       h+='</tr>';
@@ -1824,46 +1813,21 @@ function rHBoja(){
 function rHGrupos(){
   var h='';
   DB.hGrupos.forEach(function(g,i){
-    var isInf=CURSOS_INF.indexOf(g.niv||'')>=0;
-    var etiq=isInf?(LABELS_INF[g.niv]||g.niv):g.niv;
     h+='<div class="cfg-i">';
-    h+='<div style="display:flex;flex-direction:column;gap:1px;margin-right:4px">';
-    h+='<button style="border:none;background:#f1f5f9;border-radius:3px;cursor:pointer;font-size:9px;padding:1px 4px" onclick="moverGrupo('+i+',-1)">&#9650;</button>';
-    h+='<button style="border:none;background:#f1f5f9;border-radius:3px;cursor:pointer;font-size:9px;padding:1px 4px" onclick="moverGrupo('+i+',1)">&#9660;</button>';
-    h+='</div>';
     h+='<div style="width:14px;height:14px;border-radius:50%;background:'+g.c+';border:1px solid rgba(0,0,0,.1);flex-shrink:0"></div>';
     h+='<div style="flex:1">';
-    h+='<input type="text" value="'+g.n+'" style="font-size:13px;font-weight:600;border:none;background:transparent;width:70px" onchange="DB.hGrupos['+i+'].n=this.value;save()">';
-    h+='<span style="font-size:10px;color:#64748b;margin-left:4px">'+etiq+'</span>';
+    h+='<input type="text" value="'+g.n+'" style="font-size:13px;font-weight:600;border:none;background:transparent;width:60px" onchange="DB.hGrupos['+i+'].n=this.value;save()">';
+    h+='<input type="text" value="'+g.niv+'" style="font-size:11px;color:#94a3b8;border:none;background:transparent;width:40px" onchange="DB.hGrupos['+i+'].niv=this.value;save()">';
     h+='</div>';
     h+='<button class="btn brd bsm" onclick="delHGrupo('+i+')">x</button>';
     h+='</div>';
   });
-  });
-  h+='<div style="display:flex;gap:7px;margin-top:10px;align-items:flex-end;flex-wrap:wrap">';
-  h+='<div><span class="fl">Nombre</span><input class="fi" type="text" id="new-g-n" placeholder="3anosA, 1oA..." style="width:90px"></div>';
-  h+='<div><span class="fl">Nivel</span>';
-  h+='<select class="fi" id="new-g-niv" style="width:130px">';
-  h+='<option value="3anos">Infantil 3 anos</option>';
-  h+='<option value="4anos">Infantil 4 anos</option>';
-  h+='<option value="5anos">Infantil 5 anos</option>';
-  h+='<option value="1o">1o Primaria</option>';
-  h+='<option value="2o">2o Primaria</option>';
-  h+='<option value="3o">3o Primaria</option>';
-  h+='<option value="4o">4o Primaria</option>';
-  h+='<option value="5o">5o Primaria</option>';
-  h+='<option value="6o">6o Primaria</option>';
-  h+='</select></div>';
+  h+='<div style="display:flex;gap:7px;margin-top:10px;align-items:flex-end">';
+  h+='<div><span class="fl">Nombre</span><input class="fi" type="text" id="new-g-n" placeholder="6oC" style="width:80px"></div>';
+  h+='<div><span class="fl">Nivel</span><input class="fi" type="text" id="new-g-niv" placeholder="6o" style="width:70px"></div>';
   h+='<button class="btn bvd bsm" onclick="addHGrupo()" style="margin-bottom:1px">+ Anadir</button>';
   h+='</div>';
   document.getElementById('s-hgrupos').innerHTML=h;
-}
-
-function moverGrupo(i,dir){
-  var j=i+dir;
-  if(j<0||j>=DB.hGrupos.length)return;
-  var tmp=DB.hGrupos[i];DB.hGrupos[i]=DB.hGrupos[j];DB.hGrupos[j]=tmp;
-  save();rHGrupos();
 }
 function addHGrupo(){
   var n=(document.getElementById('new-g-n')||{}).value||'';
@@ -5131,23 +5095,11 @@ function renderConfig(){
   h+='<button class="btn bgy bsm" style="margin-left:8px" onclick="diagHoras()">Diag. horas</button>';
   h+='<button class="btn bgy bsm" style="margin-left:8px" onclick="diagSync()">Diag. sync</button>';
   h+='<div id="ls-res" style="margin-top:8px;font-size:12px"></div></div>';
-  h+='<div class="card"><div class="ct">Grupos por nivel</div>';
-  h+='<div style="font-size:10px;font-weight:700;color:#92400e;margin-bottom:4px">INFANTIL</div>';
-  h+='<div class="gr-row">';
-  CURSOS_INF.forEach(function(c){
-    var lbl=c==='3anos'?'3 anos':c==='4anos'?'4 anos':'5 anos';
-    h+='<div class="gr-c"><span class="gr-l">Inf.'+lbl+'</span>';
-    h+='<input type="number" min="0" max="4" value="'+(DB.grupos['_'+c]||0)+'" oninput="DB.grupos[\'_'+c+'\']= parseInt(this.value)||0;save();sincGrupos()" style="width:46px;font-size:16px;font-weight:800;text-align:center;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px;background:#fff">';
-    h+='</div>';
-  });
-  h+='</div>';
-  h+='<div style="font-size:10px;font-weight:700;color:#14532d;margin:8px 0 4px">PRIMARIA</div>';
-  h+='<div class="gr-row">';
+  h+='<div class="card"><div class="ct">Grupos por nivel</div><div class="gr-row">';
   CURSOS.forEach(function(c){
-    h+='<div class="gr-c"><span class="gr-l">'+c+'</span><input type="number" min="0" max="6" value="'+(DB.grupos['_'+c]||0)+'" oninput="DB.grupos[\'_'+c+'\']= parseInt(this.value)||0;save()" style="width:46px;font-size:16px;font-weight:800;text-align:center;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px;background:#fff"></div>';
+    h+='<div class="gr-c"><span class="gr-l">'+c+'</span><input type="number" min="0" max="6" value="'+(DB.grupos['_'+c]||0)+'" oninput="DB.grupos[\'_'+c+'\']=parseInt(this.value)||0;save()" style="width:46px;font-size:16px;font-weight:800;text-align:center;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px;background:#fff"></div>';
   });
-  h+='</div>';
-  h+='<div style="font-size:12px;color:#94a3b8;margin-top:6px">Total: <strong>'+tg()+'</strong> grupos</div></div>';
+  h+='</div><div style="font-size:12px;color:#94a3b8;margin-top:6px">Total: <strong>'+tg()+'</strong> grupos</div></div>';
   h+='<div class="card"><div class="ct">Conexion Google Sheets</div>';
   h+='<div class="al w" style="margin-bottom:10px"><span>!</span><span><strong>Sync sube tus datos.</strong> Para recibir de otro dispositivo usa el boton de abajo.</span></div>';
   h+='<div class="fr"><span class="fl">URL Apps Script Web App</span><input class="fi" type="text" id="inp-script" value="'+esc(DB.scriptUrl||'')+'" placeholder="https://script.google.com/macros/s/.../exec"></div>';
