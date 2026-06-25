@@ -1,0 +1,25 @@
+{
+  "name": "Gestión de Plantilla",
+  "short_name": "Gestión SS",
+  "description": "Gestión de plantilla CEIP San Sebastián",
+  "display": "standalone",
+  "background_color": "#15803d",
+  "theme_color": "#15803d",
+  "start_url": "/ceipsansebastian_gestiondeplantilla/",
+  "scope": "/ceipsansebastian_gestiondeplantilla/",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "gestion_icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "gestion_icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
