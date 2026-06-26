@@ -3748,6 +3748,7 @@ function renderRecreoAlumnos(){
 
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
   h += '<button class="btn bvd bsm" onclick="genTurnosAlumnosDia()">Generar rotacion mensual</button>';
+  h += '<button class="btn" style="background:#0f9d58;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="publicarRecreoAlumnosSSN()">Publicar en SSN</button>';
   h += '</div></div>';
 
   // Tabla de turnos diarios
@@ -5088,6 +5089,47 @@ function publicarCalendarioSSN(calId){
 
 
 
+
+function publicarRecreoAlumnosSSN(){
+  var url=DB.scriptUrl;
+  if(!url){alert('Configura la URL del script en Config.');return;}
+  var turnos=DB.recreo.turnosAlumnosDia||{};
+  if(Object.keys(turnos).length===0){alert('No hay turnos de alumnos generados. Pulsa "Generar rotacion mensual" primero.');return;}
+  var cursos=DB.recreo.cursosAlumnos||[];
+  var zonas=DB.recreo.zonasPrimaria||[];
+  // Construir filas para cada dia: [[Fecha, Dia, Curso1, Curso2...], [datos...]]
+  var diasConTurnos=Object.keys(turnos).sort();
+  if(diasConTurnos.length===0){alert('Sin dias con turnos generados.');return;}
+  var cabecera=['Fecha','Dia'].concat(cursos.map(function(c){return c.n;}));
+  var filas=[cabecera];
+  diasConTurnos.forEach(function(fecha){
+    var tDia=turnos[fecha]||{};
+    var d=new Date(fecha+'T12:00:00');
+    var dias=['Dom','Lun','Mar','Mie','Jue','Vie','Sab'];
+    var diaSem=dias[d.getDay()];
+    // Solo dias lectivos
+    if(d.getDay()===0||d.getDay()===6)return;
+    var fila=[fecha,diaSem];
+    cursos.forEach(function(c){
+      var zid=tDia[c.id]||'';
+      var zonaObj=zonas.find(function(z){return z.id===zid;});
+      fila.push(zonaObj?zonaObj.n:'');
+    });
+    filas.push(fila);
+  });
+  var cb='_recAlum'+Date.now();
+  window[cb]=function(r){
+    delete window[cb];
+    if(r&&r.ok)alert('Turnos de alumnos publicados en San Sebastian Net.');
+    else alert('Error: '+(r?r.error:'sin respuesta'));
+  };
+  var datos=JSON.stringify({tipo:'alumnos',mes:RECREO_MES_ACTUAL,filas:filas});
+  var s=document.createElement('script');
+  s.src=url+'?accion=publicarRecreo&callback='+cb+'&datos='+encodeURIComponent(datos);
+  s.onerror=function(){delete window[cb];alert('Error de conexion al publicar alumnos.');};
+  document.head.appendChild(s);
+  setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout.');}},12000);
+}
 
 function irARecreo(){
   goMod('recreo', document.getElementById('nb-recreo'));
