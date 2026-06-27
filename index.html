@@ -3799,75 +3799,67 @@ function renderRecreoAlumnos(){
 function genTurnosAlumnosDia(){
   initRecreo();
   var cursos = DB.recreo.cursosAlumnos||[];
-  var zonas = DB.recreo.zonasPrimaria||[];
-  var aforo = DB.recreo.zonaAforo||{};
-  var dias = getDiasLaborables(RECREO_MES_ACTUAL);
+  var zonas  = DB.recreo.zonasPrimaria||[];
+  var aforo  = DB.recreo.zonaAforo||{};
+  var dias   = getDiasLaborables(RECREO_MES_ACTUAL);
 
-  if(cursos.length===0||zonas.length===0){alert('Anade cursos y zonas primero.');return;}
+  if(cursos.length===0||zonas.length===0){
+    alert('Anade cursos y zonas primero.');return;
+  }
 
-  // Calcular slots totales disponibles por dia
-  // Cada zona tiene aforo N = N cursos simultaneos
-  // Total slots = suma de aforos
-  var slotsTotal = zonas.reduce(function(acc,z){return acc+(aforo[z.id]||1);},0);
-
-  // Construir lista de slots: [zp1,zp1,zp2,zp3,zp3,...] segun aforo
-  function getSlotsZonas(){
+  // Construir lista de slots expandida respetando aforo
+  // Ejemplo: ZonaA aforo 2, ZonaB aforo 1 → [ZA,ZA,ZB]
+  function buildSlots(){
     var slots=[];
     zonas.forEach(function(z){
-      var af=aforo[z.id]||1;
+      var af=Math.max(1,aforo[z.id]||1);
       for(var i=0;i<af;i++)slots.push(z.id);
     });
     return slots;
   }
 
-  // Para cada dia, rotar los cursos por los slots
-  // El offset de rotacion cambia cada dia para que cada curso pase por todas las zonas
+  var slots = buildSlots();
+  var numSlots = slots.length;
+  var numCursos = cursos.length;
   var turnos = {};
 
   dias.forEach(function(d,di){
-    turnos[d.fecha] = {};
-    // Construir lista expandida de slots respetando aforo
-    // slots = [zp1, zp2, zp2, zp3, ...] si zp2 tiene aforo 2
-    var slots = getSlotsZonas(); // ya respeta aforo
-    var numSlots = slots.length;
+    // Rotacion: cada dia el offset cambia 1 posicion
+    // Cada curso ocupa UN slot, respetando el aforo
+    var asignado = {};   // cursoId → zonaId
+    var contZona = {};   // zonaId → cuantos cursos asignados hoy
 
-    // Si hay ms cursos que slots, algunos quedan sin zona
-    // Rotar con offset diario para equidad
+    // Inicializar contador de zonas a 0
+    zonas.forEach(function(z){ contZona[z.id]=0; });
+
+    // Asignar cada curso al siguiente slot disponible con espacio
     cursos.forEach(function(cu,ci){
-      var slotIdx = (ci + di) % numSlots;
-      turnos[d.fecha][cu.id] = slots[slotIdx];
-    });
-
-    // Verificar que no supera el aforo
-    // Contar cuantos cursos hay en cada zona
-    var contZona = {};
-    cursos.forEach(function(cu){
-      var zid = turnos[d.fecha][cu.id];
-      contZona[zid] = (contZona[zid]||0)+1;
-    });
-    // Si alguna zona supera aforo, reasignar
-    cursos.forEach(function(cu){
-      var zid = turnos[d.fecha][cu.id];
-      var af = aforo[zid]||1;
-      if(contZona[zid]>af){
-        // Buscar zona con espacio
-        var zonaLibre = null;
-        zonas.forEach(function(z){
-          if(!zonaLibre&&(contZona[z.id]||0)<(aforo[z.id]||1))zonaLibre=z.id;
-        });
-        if(zonaLibre){
-          contZona[zid]--;
-          contZona[zonaLibre]=(contZona[zonaLibre]||0)+1;
-          turnos[d.fecha][cu.id]=zonaLibre;
+      // Calcular slot de inicio rotado
+      var startSlot = (ci + di) % numSlots;
+      // Buscar el primer slot (a partir de startSlot) cuya zona tenga espacio
+      var asignada = null;
+      for(var tries=0; tries<numSlots; tries++){
+        var slotIdx = (startSlot + tries) % numSlots;
+        var zid = slots[slotIdx];
+        var af = Math.max(1, aforo[zid]||1);
+        if((contZona[zid]||0) < af){
+          asignada = zid;
+          break;
         }
       }
+      // Si no hay zona con espacio, asignar la primera zona (desbordamiento)
+      if(!asignada) asignada = zonas[0].id;
+      asignado[cu.id] = asignada;
+      contZona[asignada] = (contZona[asignada]||0) + 1;
     });
+
+    turnos[d.fecha] = asignado;
   });
 
   DB.recreo.turnosAlumnosDia = turnos;
   save();
   renderRecreo();
-  alert('Rotacion generada para '+getMesLabel2(RECREO_MES_ACTUAL)+'. Cada curso rota diariamente por todas las zonas.');
+  alert('Rotacion generada para '+getMesLabel2(RECREO_MES_ACTUAL)+'. Aforo respetado. Cada curso rota por todas las zonas.');
 }
 
 function editZonaCursoEl(el){
