@@ -291,17 +291,9 @@ input[type=number].fi{max-width:80px}
     <span class="ni"><svg width="24" height="24" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="44" rx="20" ry="3" fill="#15803d" opacity=".3"/><rect x="4" y="26" width="3" height="18" rx="1.5" fill="#92400e" opacity=".4"/><ellipse cx="5" cy="23" rx="7" ry="6" fill="#15803d" opacity=".5"/><circle cx="32" cy="20" r="14" fill="currentColor" opacity=".2"/><circle cx="32" cy="20" r="11" fill="currentColor" opacity=".15"/><circle cx="32" cy="20" r="7" fill="currentColor" opacity=".1"/><line x1="32" y1="20" x2="32" y2="11" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="20" x2="39" y2="24" stroke="#FCD34D" stroke-width="2" stroke-linecap="round"/><circle cx="32" cy="20" r="2" fill="currentColor"/></svg></span>
     <span>Horarios</span>
   </button>
-  <button class="nbtn" id="nb-alumnos" onclick="goMod('alumnos',this)">
-    <span class="ni"><svg width="24" height="24" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".3"/><circle cx="14" cy="16" r="6" fill="#EF4444" opacity=".7"/><path d="M6 36 Q6 26 14 26 Q22 26 22 36" fill="#DC2626" opacity=".6"/><circle cx="28" cy="14" r="6" fill="currentColor" opacity=".7"/><path d="M20 36 Q20 24 28 24 Q36 24 36 36" fill="currentColor" opacity=".5"/><circle cx="14" cy="8" r="2" fill="#FCD34D" opacity=".8"/></svg></span>
-    <span>Alumnos</span>
-  </button>
   <button class="nbtn" id="nb-sust" onclick="goMod('sust',this)">
     <span class="ni"><svg width="24" height="24" viewBox="0 0 48 48" fill="none"><circle cx="12" cy="24" r="7" fill="#EF4444" opacity=".6"/><line x1="9" y1="21" x2="15" y2="27" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="15" y1="21" x2="9" y2="27" stroke="white" stroke-width="2" stroke-linecap="round"/><path d="M22 20 L30 20 L28 17" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 28 L22 28 L24 31" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="37" cy="24" r="7" fill="currentColor" opacity=".6"/><polyline points="34,24 36,26 40,21" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     <span>Sust.</span>
-  </button>
-  <button class="nbtn" id="nb-recreo" onclick="goMod('recreo',this)">
-    <span class="ni"><svg width="24" height="24" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="44" rx="22" ry="4" fill="currentColor" opacity=".3"/><rect x="4" y="26" width="4" height="18" rx="2" fill="#92400e" opacity=".5"/><ellipse cx="6" cy="22" rx="9" ry="8" fill="currentColor" opacity=".5"/><circle cx="24" cy="30" r="4" fill="#EF4444" opacity=".7"/><circle cx="34" cy="28" r="4" fill="#3B82F6" opacity=".7"/><circle cx="29" cy="22" r="3" fill="#FCD34D" opacity=".8"/><circle cx="38" cy="14" r="5" fill="#FCD34D" opacity=".7"/><circle cx="38" cy="14" r="3" fill="#F59E0B"/><circle cx="12" cy="18" r="1.5" fill="#4ADE80" opacity=".9"/></svg></span>
-    <span>Recreo</span>
   </button>
   <button class="nbtn" id="nb-agenda" onclick="goMod('agenda',this)">
     <span class="ni"><svg width="24" height="24" viewBox="0 0 48 48" fill="none"><rect x="4" y="10" width="40" height="32" rx="6" fill="currentColor" opacity=".2"/><rect x="4" y="10" width="40" height="12" rx="6" fill="currentColor" opacity=".4"/><rect x="4" y="16" width="40" height="6" fill="currentColor" opacity=".4"/><rect x="14" y="6" width="4" height="9" rx="2" fill="currentColor" opacity=".7"/><rect x="30" y="6" width="4" height="9" rx="2" fill="currentColor" opacity=".7"/><circle cx="16" cy="30" r="3" fill="#EF4444" opacity=".7"/><circle cx="24" cy="30" r="3.5" fill="#FCD34D"/><circle cx="32" cy="30" r="3" fill="#A855F7" opacity=".7"/><circle cx="4" cy="6" r="3" fill="#EC4899" opacity=".7"/></svg></span>
@@ -933,13 +925,6 @@ function renderPlantillaHome(){
 
 function calcNecesidades(){
   // Horas totales necesarias por area segun BOJA y numero de grupos
-  ['3años','4años','5años'].forEach(function(cv){
-    var lbl=cv.replace('años',' años');
-    h+='<div class="gr-c"><span class="gr-l">'+lbl+'</span>';
-    h+='<input type="number" min="0" max="4" value="'+(DB.grupos['_inf'+cv]||0)+'" oninput="setGrupo(this,\'_'+cv+'\')">'; 
-    h+='</div>';
-  });
-  h+='</div><div style="font-size:.7rem;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Primaria</div><div class="gr-row">';
   var CURSOS2=['1o','2o','3o','4o','5o','6o'];
   var areas=['len','mat','cono','ing','ef','art','fra','rel','val','aut'];
   var nec={};
@@ -1059,7 +1044,7 @@ function rBalance(){
 function rClaustro(){
   var grupos=todosGH(); // grupos del catalogo
   var coords=DB.coordinaciones||[];
-  var h='<div class="card"><div class="ct">Grupos por nivel</div><div style="font-size:.7rem;font-weight:700;color:#EC4899;text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">Infantil</div><div class="gr-row">';
+  var h='<div class="card"><div class="ct">Grupos por nivel</div><div class="gr-row">';
   var CURSOS2=['1o','2o','3o','4o','5o','6o'];
   CURSOS2.forEach(function(cv){
     h+='<div class="gr-c"><span class="gr-l">'+cv+'</span>';
@@ -1789,6 +1774,7 @@ function renderHorariosHome(){
     ['hboja','Carga BOJA','Horas por area y curso','ic-az'],
     ['hcarga','Asignacion','Asignar maestros a materias','ic-vd'],
     ['hluciernaga','Luciernaga','Proyecto Luciernaga - Refuerzo','ic-am'],
+    ['recreo-card','Recreo','Turnos y zonas de recreo','ic-vd'],
   ];
   cards.forEach(function(x){
     h+='<button class="icard '+x[3]+'" onclick="goSec(\'horarios\',\''+x[0]+'\',\''+x[1]+'\',\'Horarios\')">';
@@ -5222,7 +5208,10 @@ function publicarRecreoSSN(){
 }
 
 function renderConfig(){
-  var h='<div class="card" style="background:#fef9c3;border:2px solid #f59e0b"><div class="ct">Verificar guardado</div>';
+  var h='<div class="card" style="background:#dbeafe;border:2px solid #3b82f6;margin-bottom:14px"><div class="ct">Gestión del Alumnado</div>';
+  h+='<div style="font-size:.82rem;color:#1e40af;margin-bottom:10px">Listado completo, grupos por nivel y datos del alumnado.</div>';
+  h+='<button class="btn" style="background:#1e40af;color:#fff" onclick="goMod(\'alumnos\',document.getElementById(\'nb-config\'))">Abrir Alumnos</button></div>';
+  h+='<div class="card" style="background:#fef9c3;border:2px solid #f59e0b"><div class="ct">Verificar guardado</div>';
   h+='<button class="btn" style="background:#f59e0b;color:#fff" onclick="testLS()">Probar ahora</button>';
   h+='<button class="btn bgy bsm" style="margin-left:8px" onclick="diagHoras()">Diag. horas</button>';
   h+='<button class="btn bgy bsm" style="margin-left:8px" onclick="diagSync()">Diag. sync</button>';
