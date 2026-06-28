@@ -3601,11 +3601,35 @@ function publicarRecreoBttn(){
     }
   };
   var datos = JSON.stringify({mes:RECREO_MES_ACTUAL,mesLabel:getMesLabel2(RECREO_MES_ACTUAL),filas:filas});
+  var fullUrl = url+'?accion=publicarRecreo&callback='+cb+'&datos='+encodeURIComponent(datos);
+  // Verificar longitud
+  if(fullUrl.length > 7500){
+    delete window[cb];
+    // Datos demasiado grandes — enviar solo maestros sin alumnos
+    var filasCortas = filas.map(function(fila,idx){
+      if(idx===0) return fila.filter(function(col){return col.indexOf('Alumnos')<0;});
+      return fila.slice(0, filas[0].filter(function(col){return col.indexOf('Alumnos')<0;}).length);
+    });
+    var datosCortos = JSON.stringify({mes:RECREO_MES_ACTUAL,mesLabel:getMesLabel2(RECREO_MES_ACTUAL),filas:filasCortas});
+    var cb2='_rec2'+Date.now();
+    window[cb2]=function(r){delete window[cb2];if(r&&r.ok)alert('Recreo publicado (solo maestros).');else alert('Error: '+(r?r.error:'sin respuesta'));};
+    var s2=document.createElement('script');
+    s2.src=url+'?accion=publicarRecreo&callback='+cb2+'&datos='+encodeURIComponent(datosCortos);
+    s2.onerror=function(){delete window[cb2];alert('Error de conexion al publicar recreo.');};
+    document.head.appendChild(s2);
+    setTimeout(function(){if(window[cb2]){delete window[cb2];alert('Timeout.');}},20000);
+    return;
+  }
   var s = document.createElement('script');
-  s.src = url+'?accion=publicarRecreo&callback='+cb+'&datos='+encodeURIComponent(datos);
-  s.onerror = function(){delete window[cb];alert('Error de conexion.');};
+  s.src = fullUrl;
+  s.onerror = function(){
+    delete window[cb];
+    // Intentar con datos reducidos
+    var datosMin=JSON.stringify({mes:RECREO_MES_ACTUAL,mesLabel:getMesLabel2(RECREO_MES_ACTUAL),filas:filas.slice(0,2)});
+    alert('Error de conexion. URL: '+fullUrl.length+' chars. Datos: '+datos.length+' chars');
+  };
   document.head.appendChild(s);
-  setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout. Intenta de nuevo.');}},20000);
+  setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout.');}},20000);
 }
 
 function agregarEventosRecreoAgenda(){
