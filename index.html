@@ -933,6 +933,13 @@ function renderPlantillaHome(){
 
 function calcNecesidades(){
   // Horas totales necesarias por area segun BOJA y numero de grupos
+  ['3años','4años','5años'].forEach(function(cv){
+    var lbl=cv.replace('años',' años');
+    h+='<div class="gr-c"><span class="gr-l">'+lbl+'</span>';
+    h+='<input type="number" min="0" max="4" value="'+(DB.grupos['_inf'+cv]||0)+'" oninput="setGrupo(this,\'_'+cv+'\')">'; 
+    h+='</div>';
+  });
+  h+='</div><div style="font-size:.7rem;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px">Primaria</div><div class="gr-row">';
   var CURSOS2=['1o','2o','3o','4o','5o','6o'];
   var areas=['len','mat','cono','ing','ef','art','fra','rel','val','aut'];
   var nec={};
@@ -1052,7 +1059,7 @@ function rBalance(){
 function rClaustro(){
   var grupos=todosGH(); // grupos del catalogo
   var coords=DB.coordinaciones||[];
-  var h='<div class="card"><div class="ct">Grupos por nivel</div><div class="gr-row">';
+  var h='<div class="card"><div class="ct">Grupos por nivel</div><div style="font-size:.7rem;font-weight:700;color:#EC4899;text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">Infantil</div><div class="gr-row">';
   var CURSOS2=['1o','2o','3o','4o','5o','6o'];
   CURSOS2.forEach(function(cv){
     h+='<div class="gr-c"><span class="gr-l">'+cv+'</span>';
