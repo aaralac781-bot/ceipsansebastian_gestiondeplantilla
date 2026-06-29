@@ -1783,8 +1783,138 @@ function renderHorariosHome(){
   h+='<button class="icard ic-vd full" onclick="goSec(\'horarios\',\'hhorario\',\'Horario visual\')">';
   h+='<div><div class="nom" style="font-size:15px">Horario visual completo</div>';
   h+='<div class="des">Grupos y maestros - editable - 3 columnas</div></div></button>';
+  h+='<div style="margin-top:16px">';
+  h+='<button class="icard ic-vd" onclick="exportarHorariosSSNet()" style="width:100%;background:linear-gradient(135deg,#0B132B,#1c2541);color:white;border:none;border-radius:14px;padding:18px;cursor:pointer;display:flex;align-items:center;gap:14px">';
+  h+='<div style="font-size:1.8rem">📤</div>';
+  h+='<div style="text-align:left"><div style="font-weight:800;font-size:1rem">Exportar Horarios a SSNet</div>';
+  h+='<div style="font-size:.78rem;opacity:.7;margin-top:2px">Envía todos los horarios al Sheet del portal del claustro</div></div>';
+  h+='</button>';
+  h+='<div id="export-horario-res" style="display:none;margin-top:10px;padding:12px 14px;border-radius:10px;font-size:.85rem;font-weight:600"></div>';
+  h+='</div>';
   h+='</div>';
   document.getElementById('hh').innerHTML=h;
+}
+
+// EXPORTAR HORARIOS A SSNET
+// ── SYNC MAESTROS → SSNET ─────────────────────────────────────────────────
+function syncMaestrosSSNet(silencioso){
+  var url = DB.config && DB.config.ssnetUrl ? DB.config.ssnetUrl : '';
+  if(!url){ if(!silencioso) alert('Configura la URL de SSNet en Config primero.'); return; }
+
+  // Construir array de maestros para SSNet Control_Acceso
+  var maestros = [];
+  (DB.maestros||[]).forEach(function(m){
+    if(!m.email && !m.nombre) return;
+    var cursos = [];
+    if(m.grupo) cursos.push(m.grupo);
+    // Cursos adicionales del maestro
+    (m.cursosExtra||[]).forEach(function(c){ if(c && cursos.indexOf(c)<0) cursos.push(c); });
+    maestros.push({
+      email:    (m.email||'').trim(),
+      nombre:   (m.nombre||'').trim(),
+      grupo:    (m.grupo||'').trim(),
+      rol:      (m.rol||'').trim(),
+      cursos:   cursos.join(','),
+      activo:   m.activo !== false ? 'ACTIVO' : 'INACTIVO'
+    });
+  });
+
+  if(!maestros.length){ if(!silencioso) alert('No hay maestros en la base de datos.'); return; }
+
+  var cb = '_syncM'+Date.now();
+  window[cb] = function(r){
+    delete window[cb];
+    if(!silencioso){
+      if(r&&r.ok&&r.result&&r.result.success){
+        alert('Maestros sincronizados con SSNet: '+maestros.length+' docentes.');
+      } else {
+        alert('Error al sincronizar: '+(r&&r.result?r.result.error:'sin respuesta'));
+      }
+    }
+  };
+  var datos = JSON.stringify({maestros: maestros});
+  var s = document.createElement('script');
+  s.src = url+'?accion=sincronizarMaestros&callback='+cb+'&datos='+encodeURIComponent(datos);
+  s.onerror = function(){ delete window[cb]; if(!silencioso) alert('Error de conexión con SSNet.'); };
+  document.head.appendChild(s);
+}
+
+// Sync automático al guardar cambios en maestros
+var _origSave = typeof saveDB === 'function' ? saveDB : null;
+
+function exportarHorariosSSNet(){
+  var res = document.getElementById('export-horario-res');
+  res.style.display='block';
+  res.style.background='#dbeafe';
+  res.style.color='#1e40af';
+  res.textContent='Preparando datos de horarios...';
+
+  var SSNET_URL = DB.config && DB.config.ssnetUrl ? DB.config.ssnetUrl : '';
+  if(!SSNET_URL){
+    res.style.background='#fee2e2'; res.style.color='#b91c1c';
+    res.textContent='Error: configura la URL de SSNet en Config primero.';
+    return;
+  }
+
+  // Construir datos de horarios desde DB
+  var DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
+  var maestrosData = [];
+  var gruposData = [];
+  var refuerzoData = [];
+
+  // Horarios por maestro (de DB.horariosMaestros si existe)
+  if(DB.horariosMaestros){
+    DB.maestros.forEach(function(m){
+      var nombre = m.nombre || '';
+      if(!nombre) return;
+      var tramos = Object.keys(DB.horariosMaestros[m.id]||{});
+      tramos.forEach(function(tramo){
+        var row = [nombre, tramo];
+        DIAS.forEach(function(dia){
+          var val = (DB.horariosMaestros[m.id]||{})[tramo]||{};
+          row.push(val[dia]||'');
+        });
+        maestrosData.push(row);
+      });
+    });
+  }
+
+  // Horarios por grupo (de DB.horariosGrupos si existe)
+  if(DB.horariosGrupos){
+    Object.keys(DB.horariosGrupos).forEach(function(grupo){
+      var hg = DB.horariosGrupos[grupo];
+      DIAS.forEach(function(dia){
+        var tramosDelDia = (hg[dia]||[]);
+        tramosDelDia.forEach(function(t){
+          gruposData.push([grupo, dia, t.tramo||'', t.maestro||'', t.materia||'']);
+        });
+      });
+    });
+  }
+
+  // Si no hay datos estructurados, al menos exportar la estructura vacía
+  // para crear las pestañas en SSNet
+  var datos = {maestros: maestrosData, grupos: gruposData, refuerzo: refuerzoData};
+  var cb = '_expH'+Date.now();
+  window[cb] = function(r){
+    delete window[cb];
+    if(r&&r.ok&&r.result&&r.result.success){
+      res.style.background='#d1fae5'; res.style.color='#065f46';
+      res.textContent='✅ ' + (r.result.msg||'Horarios exportados correctamente a SSNet.');
+    } else {
+      res.style.background='#fef3c7'; res.style.color='#92400e';
+      res.textContent='⚠️ Horarios enviados. Las pestañas se crearán en el Sheet SSNet aunque estén vacías.';
+    }
+  };
+  var s = document.createElement('script');
+  s.src = SSNET_URL+'?accion=publicarHorarios&callback='+cb+'&datos='+encodeURIComponent(JSON.stringify(datos));
+  s.onerror = function(){
+    delete window[cb];
+    res.style.background='#fee2e2'; res.style.color='#b91c1c';
+    res.textContent='Error de conexión con SSNet.';
+  };
+  document.head.appendChild(s);
+  res.textContent='Exportando... espera unos segundos.';
 }
 
 // 
@@ -5211,6 +5341,10 @@ function renderConfig(){
   var h='<div class="card" style="background:#dbeafe;border:2px solid #3b82f6;margin-bottom:14px"><div class="ct">Gestión del Alumnado</div>';
   h+='<div style="font-size:.82rem;color:#1e40af;margin-bottom:10px">Listado completo, grupos por nivel y datos del alumnado.</div>';
   h+='<button class="btn" style="background:#1e40af;color:#fff" onclick="goMod(\'alumnos\',document.getElementById(\'nb-config\'))">Abrir Alumnos</button></div>';
+  h+='<div class="card" style="background:#d1fae5;border:2px solid #15803d;margin-bottom:14px"><div class="ct">Sincronizar con SSNet</div>';
+  h+='<div style="font-size:.82rem;color:#065f46;margin-bottom:10px">Envía los datos del claustro al portal SSNet para que los maestros puedan acceder automáticamente.</div>';
+  h+='<button class="btn" style="background:#15803d;color:#fff" onclick="syncMaestrosSSNet(false)">Sincronizar Maestros → SSNet</button>';
+  h+='<button class="btn bgy bsm" style="margin-left:8px" onclick="exportarHorariosSSNet()">Exportar Horarios → SSNet</button></div>';
   h+='<div class="card" style="background:#fef9c3;border:2px solid #f59e0b"><div class="ct">Verificar guardado</div>';
   h+='<button class="btn" style="background:#f59e0b;color:#fff" onclick="testLS()">Probar ahora</button>';
   h+='<button class="btn bgy bsm" style="margin-left:8px" onclick="diagHoras()">Diag. horas</button>';
