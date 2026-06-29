@@ -1798,7 +1798,7 @@ function renderHorariosHome(){
 // EXPORTAR HORARIOS A SSNET
 // ── SYNC MAESTROS → SSNET ─────────────────────────────────────────────────
 function syncMaestrosSSNet(silencioso){
-  var url = DB.config && DB.config.ssnetUrl ? DB.config.ssnetUrl : '';
+  var url = DB.scriptUrl || '';
   if(!url){ if(!silencioso) alert('Configura la URL de SSNet en Config primero.'); return; }
 
   // Construir array de maestros para SSNet Control_Acceso
@@ -1847,7 +1847,7 @@ function exportarHorariosSSNet(){
   res.style.color='#1e40af';
   res.textContent='Preparando datos de horarios...';
 
-  var SSNET_URL = DB.config && DB.config.ssnetUrl ? DB.config.ssnetUrl : '';
+  var SSNET_URL = DB.scriptUrl || '';
   if(!SSNET_URL){
     res.style.background='#fee2e2'; res.style.color='#b91c1c';
     res.textContent='Error: configura la URL de SSNet en Config primero.';
