@@ -1804,18 +1804,16 @@ function syncMaestrosSSNet(silencioso){
   // Construir array de maestros para SSNet Control_Acceso
   var maestros = [];
   (DB.maestros||[]).forEach(function(m){
-    if(!m.email && !m.nombre) return;
+    if(!m.email && !m.n) return;
     var cursos = [];
-    if(m.grupo) cursos.push(m.grupo);
-    // Cursos adicionales del maestro
-    (m.cursosExtra||[]).forEach(function(c){ if(c && cursos.indexOf(c)<0) cursos.push(c); });
+    if(m.g) cursos.push(m.g);  // grupo de tutoría
     maestros.push({
-      email:    (m.email||'').trim(),
-      nombre:   (m.nombre||'').trim(),
-      grupo:    (m.grupo||'').trim(),
-      rol:      (m.rol||'').trim(),
-      cursos:   cursos.join(','),
-      activo:   m.activo !== false ? 'ACTIVO' : 'INACTIVO'
+      email:   (m.email||'').trim(),
+      nombre:  (m.n||'').trim(),
+      grupo:   (m.g||'').trim(),
+      rol:     (m.cargo||m.e||'').trim(),
+      cursos:  cursos.join(','),
+      activo:  m.activo !== false ? 'ACTIVO' : 'INACTIVO'
     });
   });
 
@@ -1825,7 +1823,7 @@ function syncMaestrosSSNet(silencioso){
   window[cb] = function(r){
     delete window[cb];
     if(!silencioso){
-      if(r&&r.ok&&r.result&&r.result.success){
+      if(r&&r.result&&r.result.success){
         alert('Maestros sincronizados con SSNet: '+maestros.length+' docentes.');
       } else {
         alert('Error al sincronizar: '+(r&&r.result?r.result.error:'sin respuesta'));
@@ -1898,7 +1896,7 @@ function exportarHorariosSSNet(){
   var cb = '_expH'+Date.now();
   window[cb] = function(r){
     delete window[cb];
-    if(r&&r.ok&&r.result&&r.result.success){
+    if(r&&r.result&&r.result.success){
       res.style.background='#d1fae5'; res.style.color='#065f46';
       res.textContent='✅ ' + (r.result.msg||'Horarios exportados correctamente a SSNet.');
     } else {
