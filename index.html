@@ -816,6 +816,19 @@ function goMod(mod,btn){
 }
 
 function goSec(mod,sec,titulo,sub){
+  // Casos especiales
+  if(sec === 'recreo-card'){
+    var nbH = document.getElementById('nb-horarios');
+    if(nbH) goMod('recreo', nbH);
+    else { document.querySelectorAll('.nbtn').forEach(function(b){b.classList.remove('on');}); document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on');}); document.getElementById('pg-recreo').classList.add('on'); MOD='recreo'; renderRecreo(); }
+    return;
+  }
+  if(sec === 'alumnos-card'){
+    var nbC = document.getElementById('nb-config');
+    if(nbC) goMod('alumnos', nbC);
+    else { document.getElementById('pg-alumnos').classList.add('on'); MOD='alumnos'; renderAlumnos(); }
+    return;
+  }
   // si se llama con 2 args: goSec('balance','Balance') -> mod='plantilla' +
   if(titulo===undefined){titulo=sec;sec=mod;mod='plantilla';}
   var homeEl=document.getElementById(mod==='plantilla'?'ph':'hh');
@@ -1800,6 +1813,25 @@ function renderHorariosHome(){
 function syncMaestrosSSNet(silencioso){
   var url = DB.scriptUrl || '';
   if(!url){ if(!silencioso) alert('Configura la URL de SSNet en Config primero.'); return; }
+  
+  // Primero verificar que el Codigo.gs tiene sincronizarMaestros (v6)
+  var cbTest = '_testV6'+Date.now();
+  window[cbTest] = function(r){
+    delete window[cbTest];
+    if(r && r.ok){
+      // Script responde — intentar sync
+      _doSyncMaestros(url, silencioso);
+    }
+  };
+  // Probar con ping primero
+  var sTest = document.createElement('script');
+  sTest.src = url+'?accion=ping&callback='+cbTest;
+  sTest.onerror = function(){ delete window[cbTest]; if(!silencioso) alert('Error de conexión con SSNet. Verifica la URL.'); };
+  document.head.appendChild(sTest);
+  setTimeout(function(){ if(window[cbTest]){ delete window[cbTest]; if(!silencioso) alert('SSNet no responde. Verifica que el script esté activo.'); } }, 5000);
+}
+
+function _doSyncMaestros(url, silencioso){
 
   // Construir array de maestros para SSNet Control_Acceso
   var maestros = [];
@@ -1826,7 +1858,12 @@ function syncMaestrosSSNet(silencioso){
       if(r&&r.result&&r.result.success){
         alert('Maestros sincronizados con SSNet: '+maestros.length+' docentes.');
       } else {
-        alert('Error al sincronizar: '+(r&&r.result?r.result.error:'sin respuesta'));
+        var errMsg = r&&r.result ? r.result.error : 'sin respuesta';
+      if(errMsg === 'sin respuesta' || errMsg === 'accion desconocida: sincronizarMaestros'){
+        alert('⚠️ Para sincronizar necesitas actualizar el Codigo.gs de SSNet a la versión 6.\nConsulta al director.');
+      } else {
+        alert('Error al sincronizar: ' + errMsg);
+      }
       }
     }
   };
