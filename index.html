@@ -1503,15 +1503,21 @@ function importarExcel(input){
 }
 
 function detectarCurso(nombreHoja){
-  var n=nombreHoja.toLowerCase().replace(/infantil/g,'').replace(/primaria/g,'').replace(/anos/g,'anos').replace(/o/g,'o').trim();
-  var m=n.match(/(\d+)\s*([ab]?)/i);
-  if(!m)return null;
-  var num=m[1];
-  var let2=(m[2]||'').toUpperCase();
-  var esInf=nombreHoja.toLowerCase().indexOf('infantil')>=0||nombreHoja.toLowerCase().indexOf('anos')>=0;
-  if(esInf){var ci={'3':'3anos','4':'4anos','5':'5anos'};return{curso:ci[num]||num+'anos',letra:let2};}
-  var cp={'1':'1o','2':'2o','3':'3o','4':'4o','5':'5o','6':'6o'};
-  return{curso:cp[num]||num+'o',letra:let2};
+  var n = nombreHoja;
+  var esInf = /infantil|a\xf1os|anos/i.test(n);
+  var mNum = n.match(/(\d+)/);
+  if (!mNum) return null;
+  var num = mNum[1];
+  // Detectar letra A o B — tanto pegada (4ºA) como separada (4º A)
+  var mLetra = n.match(/\d[\xba\xb0oa]?\s*([AB])\b/i);
+  if (!mLetra) mLetra = n.match(/\s([AB])\s*(?:[Pp]rimaria|$)/);
+  var let2 = mLetra ? mLetra[1].toUpperCase() : '';
+  if (esInf) {
+    var ci = {'3':'3anos','4':'4anos','5':'5anos'};
+    return {curso: ci[num]||num+'anos', letra: let2};
+  }
+  var cp = {'1':'1o','2':'2o','3':'3o','4':'4o','5':'5o','6':'6o'};
+  return {curso: cp[num]||num+'o', letra: let2};
 }
 
 function imprimirLista(){
