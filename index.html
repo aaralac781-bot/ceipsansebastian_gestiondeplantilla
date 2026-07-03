@@ -1494,6 +1494,8 @@ function importarExcel(input){
       else DB.alumnos=DB.alumnos.concat(nuevos);
       save();ALUMNOS_FILTRO={curso:'',letra:''};renderAlumnos();
       alert('Importacion completada: '+nuevos.length+' alumnos.');
+      // Sincronizar alumnos con Sheet SSNet automáticamente
+      sincronizarAlumnosSSNet(nuevos, true);
     }catch(ex){alert('Error al leer el archivo: '+ex.message);}
   };
   reader.readAsArrayBuffer(file);
@@ -1810,6 +1812,30 @@ function renderHorariosHome(){
 
 // EXPORTAR HORARIOS A SSNET
 // ── SYNC MAESTROS → SSNET ─────────────────────────────────────────────────
+// Sincronizar alumnos con Sheet SSNet
+function sincronizarAlumnosSSNet(alumnos, silencioso){
+  var url = DB.scriptUrl || '';
+  if(!url){ return; }
+  if(!alumnos || !alumnos.length) alumnos = DB.alumnos || [];
+  if(!alumnos.length) return;
+
+  // Convertir a formato que SSNet entiende
+  var datos = {alumnos: alumnos};
+  var cb = '_syncA'+Date.now();
+  window[cb] = function(r){
+    delete window[cb];
+    if(!silencioso){
+      if(r && r.success) alert('Alumnos sincronizados con SSNet: '+alumnos.length);
+      else alert('Error al sincronizar alumnos: '+(r?r.error:'sin respuesta'));
+    }
+  };
+  var s = document.createElement('script');
+  s.src = url+'?accion=sincronizarAlumnos&callback='+cb+'&datos='+encodeURIComponent(JSON.stringify(datos));
+  s.onerror = function(){ delete window[cb]; };
+  document.head.appendChild(s);
+  setTimeout(function(){ if(window[cb]){ delete window[cb]; }}, 10000);
+}
+
 function syncMaestrosSSNet(silencioso){
   var url = DB.scriptUrl || '';
   if(!url){ if(!silencioso) alert('Configura la URL de SSNet en Config primero.'); return; }
