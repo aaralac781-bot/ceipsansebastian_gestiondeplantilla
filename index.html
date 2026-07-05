@@ -1886,11 +1886,12 @@ function _doSyncMaestros(url, silencioso){
   var cb = '_syncM'+Date.now();
   window[cb] = function(r){
     delete window[cb];
+    var resp = (r && r.result) ? r.result : (r || {});
     if(!silencioso){
-      if(r&&r.result&&r.result.success){
+      if(resp.success){
         alert('Maestros sincronizados con SSNet: '+maestros.length+' docentes.');
       } else {
-        var errMsg = r&&r.result ? r.result.error : 'sin respuesta';
+        var errMsg = resp.error || 'sin respuesta';
       if(errMsg === 'sin respuesta' || errMsg === 'accion desconocida: sincronizarMaestros'){
         alert('⚠️ Para sincronizar necesitas actualizar el Codigo.gs de SSNet a la versión 6.\nConsulta al director.');
       } else {
@@ -1965,9 +1966,10 @@ function exportarHorariosSSNet(){
   var cb = '_expH'+Date.now();
   window[cb] = function(r){
     delete window[cb];
-    if(r&&r.result&&r.result.success){
+    var resp = (r && r.result) ? r.result : (r || {});
+    if(resp.success){
       res.style.background='#d1fae5'; res.style.color='#065f46';
-      res.textContent='✅ ' + (r.result.msg||'Horarios exportados correctamente a SSNet.');
+      res.textContent='✅ ' + (resp.msg||'Horarios exportados correctamente a SSNet.');
     } else {
       res.style.background='#fef3c7'; res.style.color='#92400e';
       res.textContent='⚠️ Horarios enviados. Las pestañas se crearán en el Sheet SSNet aunque estén vacías.';
