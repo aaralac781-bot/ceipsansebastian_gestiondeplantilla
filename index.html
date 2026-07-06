@@ -626,6 +626,7 @@ function doSync(){
   var body='accion=guardar&datos='+encodeURIComponent(JSON.stringify(datos));
   fetch(url,{
     method:'POST',
+    mode:'no-cors',
     headers:{'Content-Type':'application/x-www-form-urlencoded'},
     body:body
   })
@@ -1912,83 +1913,88 @@ var _origSave = typeof saveDB === 'function' ? saveDB : null;
 
 function exportarHorariosSSNet(){
   var res = document.getElementById('export-horario-res');
-  res.style.display='block';
-  res.style.background='#dbeafe';
-  res.style.color='#1e40af';
-  res.textContent='Preparando datos de horarios...';
+  if(res){res.style.display='block';res.style.background='#dbeafe';res.style.color='#1e40af';res.textContent='Preparando datos de horarios...';}
 
   var SSNET_URL = DB.scriptUrl || '';
   if(!SSNET_URL){
-    res.style.background='#fee2e2'; res.style.color='#b91c1c';
-    res.textContent='Error: configura la URL de SSNet en Config primero.';
+    if(res){res.style.background='#fee2e2';res.style.color='#b91c1c';res.textContent='Error: configura la URL de SSNet en Config primero.';}
     return;
   }
 
-  // Construir datos de horarios desde DB
-  var DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
-  var maestrosData = [];
-  var gruposData = [];
-  var refuerzoData = [];
+  var DIAS2=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var gruposData=[];
+  var maestrosData=[];
+  var refuerzoData=[];
 
-  // Horarios por maestro (de DB.horariosMaestros si existe)
-  if(DB.horariosMaestros){
-    DB.maestros.forEach(function(m){
-      var nombre = m.nombre || '';
-      if(!nombre) return;
-      var tramos = Object.keys(DB.horariosMaestros[m.id]||{});
-      tramos.forEach(function(tramo){
-        var row = [nombre, tramo];
-        DIAS.forEach(function(dia){
-          var val = (DB.horariosMaestros[m.id]||{})[tramo]||{};
-          row.push(val[dia]||'');
-        });
-        maestrosData.push(row);
-      });
-    });
+  function tramoLabel(t){
+    try{ return fmt(t.ini)+(t.fin?'-'+fmt(t.fin):''); }catch(e){ return (t.ini||'')+''; }
   }
-
-  // Horarios por grupo (de DB.horariosGrupos si existe)
-  if(DB.horariosGrupos){
-    Object.keys(DB.horariosGrupos).forEach(function(grupo){
-      var hg = DB.horariosGrupos[grupo];
-      DIAS.forEach(function(dia){
-        var tramosDelDia = (hg[dia]||[]);
-        tramosDelDia.forEach(function(t){
-          gruposData.push([grupo, dia, t.tramo||'', t.maestro||'', t.materia||'']);
-        });
-      });
-    });
-  }
-
-  // Si no hay datos estructurados, al menos exportar la estructura vacía
-  // para crear las pestañas en SSNet
-  var datos = {maestros: maestrosData, grupos: gruposData, refuerzo: refuerzoData};
-  var cb = '_expH'+Date.now();
-  window[cb] = function(r){
-    delete window[cb];
-    var resp = (r && r.result) ? r.result : (r || {});
-    if(resp.success){
-      res.style.background='#d1fae5'; res.style.color='#065f46';
-      res.textContent='✅ ' + (resp.msg||'Horarios exportados correctamente a SSNet.');
-    } else {
-      res.style.background='#fef3c7'; res.style.color='#92400e';
-      res.textContent='⚠️ Horarios enviados. Las pestañas se crearán en el Sheet SSNet aunque estén vacías.';
+  function slotTexto(slot, conGrupo, g){
+    var txt='';
+    var tipo=slot.tipo||'clase';
+    if(tipo!=='clase'&&typeof SLOT_TIPOS!=='undefined'&&SLOT_TIPOS[tipo]){ txt=slot.txt||SLOT_TIPOS[tipo].label; }
+    else if(slot.mId){
+      var mat=DB.hMat.find(function(m){return m.id===slot.mId;});
+      txt=(mat?mat.n:'');
     }
-  };
-  var s = document.createElement('script');
-  s.src = SSNET_URL+'?accion=publicarHorarios&callback='+cb+'&datos='+encodeURIComponent(JSON.stringify(datos));
-  s.onerror = function(){
-    delete window[cb];
-    res.style.background='#fee2e2'; res.style.color='#b91c1c';
-    res.textContent='Error de conexión con SSNet.';
-  };
-  document.head.appendChild(s);
-  res.textContent='Exportando... espera unos segundos.';
-}
+    if(txt&&conGrupo&&g) txt+=' '+(g.n||'');
+    return txt;
+  }
 
-// 
-// PLANTILLA  RENDERS
-// 
+  // 1) HORARIOS POR GRUPO: [Grupo, Dia, Tramo, Maestro, Materia]
+  (DB.hGrupos||[]).forEach(function(g){
+    var hor=(DB.hHor||{})[g.id]; if(!hor) return;
+    DIAS2.forEach(function(d){
+      (hor[d]||[]).forEach(function(slot,ti){
+        var t=(DB.tramos||[])[ti]; if(!t||t.r||slot.r) return;
+        if(!slot.mId&&!(slot.tipo&&slot.tipo!=='clase')) return;
+        var mat=slot.mId?DB.hMat.find(function(m){return m.id===slot.mId;}):null;
+        var prof=slot.pId?DB.maestros.find(function(m){return m.id===slot.pId;}):null;
+        var materia=mat?mat.n:(slot.txt||'');
+        gruposData.push([g.n||'', d, tramoLabel(t), prof?prof.n:'', materia]);
+      });
+    });
+  });
+
+  // 2) HORARIOS POR MAESTRO: [Maestro, Tramo, L, M, X, J, V]
+  (DB.maestros||[]).forEach(function(p){
+    if(!p.n) return;
+    (DB.tramos||[]).forEach(function(t,ti){
+      if(t.r) return;
+      var row=[p.n, tramoLabel(t)]; var tiene=false;
+      DIAS2.forEach(function(d){
+        var celda='';
+        (DB.hGrupos||[]).some(function(g){
+          var hor=(DB.hHor||{})[g.id];
+          var slot=hor&&hor[d]&&hor[d][ti];
+          if(slot&&slot.pId===p.id&&slot.mId){ celda=slotTexto(slot,true,g); return true; }
+          return false;
+        });
+        if(celda) tiene=true;
+        row.push(celda);
+      });
+      if(tiene) maestrosData.push(row);
+    });
+  });
+
+  var totalFilas=gruposData.length+maestrosData.length;
+  if(!totalFilas){
+    if(res){res.style.background='#fee2e2';res.style.color='#b91c1c';res.textContent='No hay horarios construidos que exportar.';}
+    return;
+  }
+
+  if(res)res.textContent='Enviando '+totalFilas+' filas a SSNet...';
+  var datos={maestros:maestrosData, grupos:gruposData, refuerzo:refuerzoData};
+  var body='accion=publicarHorarios&datos='+encodeURIComponent(JSON.stringify(datos));
+  fetch(SSNET_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
+  .then(function(){
+    if(res){res.style.background='#d1fae5';res.style.color='#065f46';
+      res.textContent='✅ Enviados '+maestrosData.length+' tramos de maestros y '+gruposData.length+' de grupos. Comprueba las pestañas Horarios_ del Sheet.';}
+  })
+  .catch(function(e){
+    if(res){res.style.background='#fee2e2';res.style.color='#b91c1c';res.textContent='Error de conexión: '+e;}
+  });
+}
 
 function setCoordActivo(i,v){DB.coordinaciones[i].activo=v;save();}
 function setCoordNombre(i,v){DB.coordinaciones[i].n=v;save();}
