@@ -581,7 +581,17 @@ function hA(m){
 function hL(m){return Math.max(0,hd(m)-hA(m));}
 function hdC(h){return h>=18?'#15803d':h>=12?'#92400e':'#b91c1c';}
 function tg(){var s=0;Object.keys(DB.grupos).forEach(function(k){s+=DB.grupos[k]||0;});return s;}
-function todosG(){var l=[],lt=['A','B','C','D','E','F'];CURSOS.forEach(function(c){var n=DB.grupos['_'+c]||0;for(var j=0;j<n;j++)l.push(c+lt[j]);});return l;}
+function todosG(){
+  var l=[],lt=['A','B','C','D','E','F'];
+  ['3anos','4anos','5anos'].forEach(function(c){
+    var n=DB.grupos['_'+c]||0;
+    if(n===1)l.push(c);
+    else for(var j=0;j<n;j++)l.push(c+lt[j]);
+  });
+  CURSOS.forEach(function(c){var n=DB.grupos['_'+c]||0;for(var j=0;j<n;j++)l.push(c+lt[j]);});
+  if(DB.grupos['_estrellas'])l.push('AULA DE LAS ESTRELLAS');
+  return l;
+}
 function getMat(id){return DB.materias.find(function(m){return m.id===id;})||{id:id,n:id,c:'#f3f4f6',t:'#374151'};}
 function pill(e){var x=EC[e]||{bg:'#f1f5f9',c:'#475569'};return '<span class="pill" style="background:'+x.bg+';color:'+x.c+'">'+(EL[e]||e)+'</span>';}
 function bdg(t,cl){return '<span class="badge '+cl+'">'+t+'</span>';}
@@ -1106,14 +1116,24 @@ function rBalance(){
 function rClaustro(){
   var grupos=todosGH(); // grupos del catalogo
   var coords=DB.coordinaciones||[];
-  var h='<div class="card"><div class="ct">Grupos por nivel</div><div class="gr-row">';
+  var h='<div class="card"><div class="ct">Grupos por nivel</div>';
+  h+='<div style="font-size:11px;color:#64748b;font-weight:700;margin:4px 0 2px">INFANTIL</div><div class="gr-row">';
+  [['3anos','3 A\u00d1OS'],['4anos','4 A\u00d1OS'],['5anos','5 A\u00d1OS']].forEach(function(p){
+    h+='<div class="gr-c"><span class="gr-l">'+p[1]+'</span>';
+    h+='<input type="number" min="0" max="6" value="'+(DB.grupos['_'+p[0]]||0)+'" oninput="setGrupo(this,\'_'+p[0]+'\')">'; 
+    h+='</div>';
+  });
+  h+='<div class="gr-c"><span class="gr-l">A. ESTRELLAS</span>';
+  h+='<input type="number" min="0" max="1" value="'+(DB.grupos['_estrellas']||0)+'" oninput="setGrupo(this,\'_estrellas\')">'; 
+  h+='</div>';
+  h+='</div><div style="font-size:11px;color:#64748b;font-weight:700;margin:8px 0 2px">PRIMARIA</div><div class="gr-row">';
   var CURSOS2=['1o','2o','3o','4o','5o','6o'];
   CURSOS2.forEach(function(cv){
     h+='<div class="gr-c"><span class="gr-l">'+cv+'</span>';
     h+='<input type="number" min="0" max="6" value="'+(DB.grupos['_'+cv]||0)+'" oninput="setGrupo(this,\'_'+cv+'\')">'; 
     h+='</div>';
   });
-  h+='</div><div style="font-size:12px;color:#94a3b8;margin-top:6px">Total: <strong>'+tg()+'</strong> grupos de Primaria</div></div>';
+  h+='</div><div style="font-size:12px;color:#94a3b8;margin-top:6px">Total: <strong>'+tg()+'</strong> grupos</div></div>';
 
   DB.maestros.forEach(function(m){
     var dp=hd(m),isOpen=EXP===m.id;
@@ -1144,6 +1164,10 @@ function rClaustro(){
     h+='<div style="text-align:right;flex-shrink:0;margin:0 6px">';
     h+='<div style="font-weight:800;font-size:18px;color:'+(hlC<1?'#b91c1c':hlC<3?'#d97706':'#15803d')+'">'+hlC.toFixed(1)+'h</div>';
     h+='<div style="font-size:10px;color:#94a3b8;text-align:center">'+(haC>0?haC.toFixed(1)+'h asig':'libres')+'</div>';
+    h+='</div>';
+    h+='<div style="display:flex;flex-direction:column;gap:3px;margin-right:6px">';
+    h+='<button onclick="event.stopPropagation();moveM('+m.id+',-1)" style="border:1px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:6px;width:26px;height:22px;font-size:10px;cursor:pointer;line-height:1;padding:0">&#9650;</button>';
+    h+='<button onclick="event.stopPropagation();moveM('+m.id+',1)" style="border:1px solid #e2e8f0;background:#f8fafc;color:#475569;border-radius:6px;width:26px;height:22px;font-size:10px;cursor:pointer;line-height:1;padding:0">&#9660;</button>';
     h+='</div>';
     h+='<div style="color:#94a3b8">'+(isOpen?'&#9650;':'&#9660;')+'</div></div>';
 
@@ -1380,6 +1404,14 @@ function _procesarClaustroFilas(filas){
   }
   save();rClaustro();
   alert('Importacion completada:\n- '+nuevos+' maestros nuevos\n- '+actualizados+' actualizados\n\nEmails construidos como usuario@g.educaand.es y nombres en formato Nombre Apellidos.\n\nRevisa el claustro y pulsa Sincronizar.');
+}
+function moveM(id,dir){
+  var i=-1;
+  for(var k=0;k<DB.maestros.length;k++)if(DB.maestros[k].id===id){i=k;break;}
+  var j=i+dir;
+  if(i<0||j<0||j>=DB.maestros.length)return;
+  var t=DB.maestros[i];DB.maestros[i]=DB.maestros[j];DB.maestros[j]=t;
+  save();rClaustro();
 }
 function addM(){var id=Math.max.apply(null,DB.maestros.map(function(m){return m.id;}))+1;DB.maestros.push({id:id,n:'Nuevo/a',e:'Primaria',cargo:'',rC:0,rE:0,rJ:0,coord:0,hC:0,t:false,g:'',ref:false,rT:'',plan:'',gRef:'',asig:[]});EXP=id;save();rClaustro();}
 
