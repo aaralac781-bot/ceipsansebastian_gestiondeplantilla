@@ -603,14 +603,49 @@ function doSync(){
   if(!ok)return;
   var url=DB.scriptUrl;
   if(!url){setSync('ok','Guardado '+hhmm());return;}
+  // CANDADO: comprobar si hay cambios de otro miembro del equipo sin recibir
+  setSync('spin','Comprobando nube...');
+  var cb='_chk'+Date.now();
+  var hecho=false;
+  window[cb]=function(r){
+    if(hecho)return; hecho=true; delete window[cb];
+    var el=document.getElementById('jp_chk'); if(el&&el.parentNode)el.parentNode.removeChild(el);
+    var meta=(r&&r.ok&&r.data&&r.data._sync)?r.data._sync:null;
+    var ultimo=localStorage.getItem('sync_ultimo_recibido')||'';
+    if(meta&&meta.autor&&meta.autor!==_getAutor()&&meta.fecha&&meta.fecha>ultimo){
+      var cuando=meta.fecha.replace('T',' ').substr(0,16);
+      if(!confirm('\u26A0\uFE0F ATENCION: '+meta.autor+' subio cambios el '+cuando+' que tu NO has recibido.\nSi envias ahora, sus cambios se PERDERAN.\n\nRecomendado: Cancelar y pulsar Recibir primero.\n\nEnviar y sobrescribir igualmente?')){
+        setSync('ok','Envio cancelado');
+        return;
+      }
+    }
+    _doEnviar(url);
+  };
+  var s2=document.createElement('script');
+  s2.id='jp_chk';
+  s2.src=url+'?accion=leer&callback='+cb+'&_='+Date.now();
+  s2.onerror=function(){if(!hecho){hecho=true;delete window[cb];_doEnviar(url);}};
+  document.head.appendChild(s2);
+  setTimeout(function(){if(window[cb]&&!hecho){hecho=true;delete window[cb];_doEnviar(url);}},6000);
+}
+
+function _getAutor(){
+  var a=localStorage.getItem('sync_autor');
+  if(!a){
+    a=(prompt('Tu nombre para el registro de sincronizacion (Angel, Paula, Antonio...):')||'').trim()||'Sin nombre';
+    localStorage.setItem('sync_autor',a);
+  }
+  return a;
+}
+
+function _doEnviar(url){
   setSync('spin','Subiendo...');
-  // Usar fetch POST para evitar limite de URL en GET
-  // Sustituciones: recoger de localStorage
   var sust={};
   ['Lunes','Martes','Miercoles','Jueves','Viernes'].forEach(function(d){
     var k='sust_'+d;
     try{var v=localStorage.getItem(k);if(v)sust[d]=JSON.parse(v);}catch(e){}
   });
+  var firma={fecha:new Date().toISOString(),autor:_getAutor(),nMaestros:(DB.maestros||[]).length};
   var datos={
     maestros:DB.maestros,
     grupos:DB.grupos,
@@ -621,7 +656,8 @@ function doSync(){
     hHor:DB.hHor||{},
     tramos:DB.tramos||[],
     bojaHoras:DB.bojaHoras||{},
-    sust:sust
+    sust:sust,
+    _sync:firma
   };
   var body='accion=guardar&datos='+encodeURIComponent(JSON.stringify(datos));
   fetch(url,{
@@ -630,37 +666,23 @@ function doSync(){
     headers:{'Content-Type':'application/x-www-form-urlencoded'},
     body:body
   })
-  .then(function(r){return r.text();})
-  .then(function(txt){
-    try{
-      var r=JSON.parse(txt);
-      setSync(r.ok?'ok':'err', r.ok?'Sheets '+hhmm():'Error Sheets');
-    }catch(e){
-      setSync('ok','Sheets '+hhmm());
-    }
+  .then(function(){
+    localStorage.setItem('sync_ultimo_recibido',firma.fecha);
+    setSync('ok','Sheets '+hhmm());
   })
   .catch(function(e){
-    // Si POST falla por CORS, intentar con JSONP GET dividido
-    setSync('spin','Reintentando...');
-    var id='_jp'+Date.now();
-    window[id]=function(r){
-      delete window[id];
-      var el=document.getElementById('jp_'+id);
-      if(el&&el.parentNode)el.parentNode.removeChild(el);
-      setSync(r&&r.ok?'ok':'ok','Sheets '+hhmm());
-    };
-    var datos2={maestros:DB.maestros,grupos:DB.grupos,coordinaciones:DB.coordinaciones||[]};
-    var s=document.createElement('script');
-    s.id='jp_'+id;
-    s.src=url+'?accion=guardar&callback='+id+'&datos='+encodeURIComponent(JSON.stringify(datos2));
-    s.onerror=function(){delete window[id];setSync('ok','Local '+hhmm());};
-    document.head.appendChild(s);
-    setTimeout(function(){if(window[id]){delete window[id];setSync('ok','Local '+hhmm());}},8000);
+    setSync('err','Error al subir');
+    alert('No se pudo subir a Sheets. Comprueba la conexion y vuelve a pulsar Sincronizar. Tus datos siguen guardados en este dispositivo.');
   });
 }
 
 function _aplicarDatos(data){
-  // Procesar maestros
+  // FORMATO NUEVO (sincronizacion total): objetos completos con email, asignaciones, todo
+  if(data.maestros&&data.maestros.length&&!Array.isArray(data.maestros[0])){
+    DB.maestros=data.maestros;
+  }
+  else
+  // FORMATO ANTIGUO (tabla con cabeceras)
   if(data.maestros&&data.maestros.length>1){
     var cab=data.maestros[0];
     function ci(n){for(var i=0;i<cab.length;i++)if(String(cab[i]).toLowerCase().replace(/[_\s]/g,'')==n.toLowerCase().replace(/[_\s]/g,''))return i;return -1;}
@@ -701,7 +723,11 @@ function _aplicarDatos(data){
     }
     if(mae.length>0)DB.maestros=mae;
   }
-  // Procesar hCarga
+  // FORMATO NUEVO: hCarga como objeto, grupos y coordinaciones directos
+  if(data.hCarga&&!Array.isArray(data.hCarga)&&Object.keys(data.hCarga).length>0)DB.hCarga=data.hCarga;
+  if(data.grupos&&data.grupos.length>0)DB.grupos=data.grupos;
+  if(data.coordinaciones&&data.coordinaciones.length>0)DB.coordinaciones=data.coordinaciones;
+  // Procesar hCarga (formato antiguo tabla)
   if(data.carga&&data.carga.length>1){
     DB.hCarga={};
     for(var i=1;i<data.carga.length;i++){
@@ -750,12 +776,22 @@ function recibirCambios(){
     delete window[cb];
     var el=document.getElementById('jsonp_rcb');
     if(el&&el.parentNode)el.parentNode.removeChild(el);
-    if(!r||!r.ok){setSync('err','Error al leer');alert('Error al leer de Sheets');return;}
+    if(!r||!r.ok){setSync('err','Error al leer');alert('Error al leer de Sheets: '+((r&&r.error)||'sin respuesta'));return;}
     var data=r.data||{};
+    var nRemoto=(data.maestros&&data.maestros.length?data.maestros.length-1:0);
+    var nLocal=(DB.maestros||[]).length;
+    if(nLocal>nRemoto+1){
+      if(!confirm('\u26A0\uFE0F La nube tiene '+nRemoto+' maestros y este dispositivo '+nLocal+'.\nSi recibes, PERDERAS lo que tengas de mas aqui.\n\nRecibir igualmente?')){
+        setSync('ok','Recepcion cancelada');return;
+      }
+    }
     _aplicarDatos(data);
+    if(data._sync&&data._sync.fecha)localStorage.setItem('sync_ultimo_recibido',data._sync.fecha);
     localStorage.setItem('ceip_last_sync',String(Date.now()));
     setSync('ok','Sheets '+hhmm());
-    var msg='Recibido correctamente:\n';
+    var msg='Recibido correctamente';
+    if(data._sync&&data._sync.autor)msg+=' (subido por '+data._sync.autor+' el '+data._sync.fecha.replace('T',' ').substr(0,16)+')';
+    msg+=':\n';
     msg+='- '+DB.maestros.length+' maestros\n';
     var nCarga=Object.keys(DB.hCarga||{}).length;
     msg+='- '+nCarga+' grupos con asignaciones\n';
@@ -890,6 +926,18 @@ function autoRecibir(){
   if(!url)return;
   var id='_auto'+Date.now();
   window[id]=function(r){
+    var dataChk=(r&&r.ok&&r.data)?r.data:null;
+    if(dataChk){
+      var nRem=(dataChk.maestros&&dataChk.maestros.length?dataChk.maestros.length-1:0);
+      var nLoc=(DB.maestros||[]).length;
+      if(nLoc>nRem+1){
+        delete window[id];
+        setSync('','Local (nube con menos datos)');
+        return;
+      }
+      if(dataChk._sync&&dataChk._sync.fecha)localStorage.setItem('sync_ultimo_recibido',dataChk._sync.fecha);
+    }
+
     delete window[id];
     var el=document.getElementById('jp_auto');
     if(el&&el.parentNode)el.parentNode.removeChild(el);
@@ -1166,6 +1214,7 @@ function rClaustro(){
     h+='</div>';
   });
   h+='<button class="badd" onclick="addM()">+ Anadir maestro/a</button>';
+  h+='<button class="badd" style="background:#0e7490" onclick="importarClaustroCSV()">&#8682; Importar claustro de S\u00e9neca (.xls)</button>';
   document.getElementById('s-claustro').innerHTML=h;
 }
 function setGrupo(el,key){
@@ -1232,6 +1281,106 @@ function updF(id,k,v){
 }
 
 function delM(id){if(!confirm('Eliminar?'))return;DB.maestros=DB.maestros.filter(function(m){return m.id!==id;});if(EXP===id)EXP=null;save();rClaustro();}
+function importarClaustroCSV(){
+  var inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='.xls,.xlsx,.csv,text/csv';
+  inp.onchange=function(){
+    var f=inp.files[0]; if(!f)return;
+    var ext=(f.name.split('.').pop()||'').toLowerCase();
+    if(ext==='xls'||ext==='xlsx'){
+      _cargarSheetJS(function(){
+        var rd=new FileReader();
+        rd.onload=function(){
+          try{
+            var wb=XLSX.read(new Uint8Array(rd.result),{type:'array'});
+            var hoja=wb.Sheets[wb.SheetNames[0]];
+            var filas=XLSX.utils.sheet_to_json(hoja,{header:1,defval:''});
+            _procesarClaustroFilas(filas);
+          }catch(e){alert('No pude leer el Excel: '+e.message+'\nPrueba guardandolo como CSV.');}
+        };
+        rd.readAsArrayBuffer(f);
+      });
+    } else {
+      var rd=new FileReader();
+      rd.onload=function(){
+        var txt=rd.result;
+        var lineas=txt.split(/\r?\n/).filter(function(l){return l.trim();});
+        var sep=(lineas[0]&&lineas[0].indexOf(';')>=0)?';':',';
+        var filas=lineas.map(function(l){return l.split(sep).map(function(c){return c.replace(/^"|"$/g,'').trim();});});
+        _procesarClaustroFilas(filas);
+      };
+      rd.readAsText(f,'utf-8');
+    }
+  };
+  inp.click();
+}
+function _cargarSheetJS(cb){
+  if(window.XLSX){cb();return;}
+  var sc=document.createElement('script');
+  sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  sc.onload=cb;
+  sc.onerror=function(){alert('Para leer .xls directamente hace falta conexion a internet.\nAlternativa: guarda el archivo como CSV e importalo.');};
+  document.head.appendChild(sc);
+}
+function _procesarClaustroFilas(filas){
+  function norm(x){return String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[_\s\/"]/g,'');}
+  // Localizar la fila de cabecera (Seneca trae 4 filas de titulo antes)
+  var hIdx=-1;
+  for(var i=0;i<Math.min(filas.length,15);i++){
+    var c=(filas[i]||[]).map(norm);
+    if(c.indexOf('empleadoa')>=0||c.indexOf('empleado')>=0||(c.indexOf('nombre')>=0)||(c.indexOf('apellidos')>=0)){hIdx=i;break;}
+  }
+  if(hIdx<0){alert('No encuentro la cabecera. El archivo debe tener una fila con "Empleado/a" (Seneca) o "nombre"/"apellidos".');return;}
+  var cab=(filas[hIdx]||[]).map(norm);
+  function ci(){for(var a=0;a<arguments.length;a++){var i=cab.indexOf(norm(arguments[a]));if(i>=0)return i;}return -1;}
+  var iEmp=ci('empleadoa','empleado');
+  var iUsu=ci('usuarioidea','usuario','idea');
+  var iTel=ci('telefono');
+  var iN=ci('nombre'),iA=ci('apellidos','apellido'),iEm=ci('email','correo','correoelectronico','educaand');
+  var iT=ci('tutor','estutor'),iG=ci('curso','grupo','grupotutor'),iE=ci('especialidad','puesto');
+  var nuevos=0,actualizados=0;
+  for(var i=hIdx+1;i<filas.length;i++){
+    var c=filas[i]||[];
+    // Nombre: formato Seneca "Apellidos, Nombre" -> "Nombre Apellidos"
+    var nombre='';
+    if(iEmp>=0&&c[iEmp]){
+      var bruto=String(c[iEmp]).trim();
+      var coma=bruto.indexOf(',');
+      nombre=coma>=0?(bruto.slice(coma+1).trim()+' '+bruto.slice(0,coma).trim()):bruto;
+    } else {
+      nombre=((iN>=0?String(c[iN]||''):'')+' '+(iA>=0?String(c[iA]||''):'')).trim();
+    }
+    if(!nombre)continue;
+    // Email: usuario IdEA + dominio, o columna email directa
+    var email='';
+    if(iUsu>=0&&c[iUsu]){
+      var u=String(c[iUsu]).trim();
+      if(u)email=(u.indexOf('@')>=0)?u:(u+'@g.educaand.es');
+    }
+    if(!email&&iEm>=0&&c[iEm])email=String(c[iEm]).trim();
+    var tel=iTel>=0?String(c[iTel]||'').trim():'';
+    var esTutor=iT>=0?/^(si|s|x|1|true)$/i.test(String(c[iT]||'').trim()):false;
+    var grupo=iG>=0?String(c[iG]||'').trim():'';
+    var esp=iE>=0?String(c[iE]||'').trim():'';
+    var m=DB.maestros.find(function(x){
+      return (email&&x.email&&x.email.toLowerCase()===email.toLowerCase())||(norm(x.n)===norm(nombre));
+    });
+    if(m){
+      if(email)m.email=email;
+      if(tel)m.tel=tel;
+      if(esp)m.e=esp;
+      if(esTutor){m.t=true;if(grupo)m.g=grupo;}
+      actualizados++;
+    } else {
+      var id=DB.maestros.length?Math.max.apply(null,DB.maestros.map(function(x){return x.id;}))+1:1;
+      DB.maestros.push({id:id,n:nombre,email:email,tel:tel,e:esp||'Primaria',cargo:'',rC:0,rE:0,rJ:0,coord:0,hC:0,t:esTutor,g:esTutor?grupo:'',ref:false,rT:'',plan:'',gRef:'',asig:[]});
+      nuevos++;
+    }
+  }
+  save();rClaustro();
+  alert('Importacion completada:\n- '+nuevos+' maestros nuevos\n- '+actualizados+' actualizados\n\nEmails construidos como usuario@g.educaand.es y nombres en formato Nombre Apellidos.\n\nRevisa el claustro y pulsa Sincronizar.');
+}
 function addM(){var id=Math.max.apply(null,DB.maestros.map(function(m){return m.id;}))+1;DB.maestros.push({id:id,n:'Nuevo/a',e:'Primaria',cargo:'',rC:0,rE:0,rJ:0,coord:0,hC:0,t:false,g:'',ref:false,rT:'',plan:'',gRef:'',asig:[]});EXP=id;save();rClaustro();}
 
 function rDocencia(){
