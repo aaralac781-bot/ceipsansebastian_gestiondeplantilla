@@ -1114,7 +1114,11 @@ function rBalance(){
 }
 
 function rClaustro(){
-  var grupos=todosGH(); // grupos del catalogo
+  // Grupos para tutoria: catalogo completo (infantil+primaria+estrellas) + los del horario, sin duplicar
+  var grupos=todosG();
+  if(DB.hGrupos&&DB.hGrupos.length){
+    DB.hGrupos.forEach(function(g){if(g&&g.n&&grupos.indexOf(g.n)<0)grupos.push(g.n);});
+  }
   var coords=DB.coordinaciones||[];
   var h='<div class="card"><div class="ct">Grupos por nivel</div>';
   h+='<div style="font-size:11px;color:#64748b;font-weight:700;margin:4px 0 2px">INFANTIL</div><div class="gr-row">';
