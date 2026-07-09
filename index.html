@@ -735,7 +735,10 @@ function _aplicarDatos(data){
   }
   // FORMATO NUEVO: hCarga como objeto, grupos y coordinaciones directos
   if(data.hCarga&&!Array.isArray(data.hCarga)&&Object.keys(data.hCarga).length>0)DB.hCarga=data.hCarga;
-  if(data.grupos&&data.grupos.length>0)DB.grupos=data.grupos;
+  if(data.grupos){
+    if(Array.isArray(data.grupos)){ if(data.grupos.length>0)DB.grupos=data.grupos; }
+    else if(Object.keys(data.grupos).length>0)DB.grupos=data.grupos;
+  }
   if(data.coordinaciones&&data.coordinaciones.length>0)DB.coordinaciones=data.coordinaciones;
   // Procesar hCarga (formato antiguo tabla)
   if(data.carga&&data.carga.length>1){
@@ -1119,6 +1122,8 @@ function rClaustro(){
   if(DB.hGrupos&&DB.hGrupos.length){
     DB.hGrupos.forEach(function(g){if(g&&g.n&&grupos.indexOf(g.n)<0)grupos.push(g.n);});
   }
+  // Defensa: nunca perder de vista una tutoria ya asignada aunque falte en el catalogo
+  DB.maestros.forEach(function(m){if(m.g&&grupos.indexOf(m.g)<0)grupos.push(m.g);});
   var coords=DB.coordinaciones||[];
   var h='<div class="card"><div class="ct">Grupos por nivel</div>';
   h+='<div style="font-size:11px;color:#64748b;font-weight:700;margin:4px 0 2px">INFANTIL</div><div class="gr-row">';
