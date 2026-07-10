@@ -62,12 +62,14 @@
         }
       }, 9000);
     } else {
-      // MODO NAVEGADOR: redirigir con selector de cuenta educaand
-      setTimeout(function(){ window.location.replace(CHOOSER); }, 800);
-      setTimeout(function(){
-        document.getElementById('msg').textContent = 'Si no abre automáticamente:';
-        addBtn();
-      }, 2500);
+      // MODO NAVEGADOR: portada estable (sin redireccion) para poder instalar con calma
+      document.getElementById('dot').style.display = 'none';
+      document.getElementById('msg').textContent = 'Portal del claustro · CEIP San Sebastián';
+      addBtn();
+      var hint = document.createElement('div');
+      hint.style.cssText = 'margin-top:18px;font-size:.8rem;opacity:.75;line-height:1.5;max-width:290px';
+      hint.innerHTML = '&#128241; <strong>Instálalo como app:</strong> menú del navegador &#8942; &rarr; <em>Añadir a pantalla de inicio</em>. Se abrirá a pantalla completa desde el icono.';
+      document.body.appendChild(hint);
     }
   </script>
 </body>
