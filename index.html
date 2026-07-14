@@ -929,14 +929,9 @@ function startApp(){
   setSync('','Local');
   // Auto-recibir al arrancar - con delay mayor para evitar errores
   if(DB.scriptUrl){
-    var lastSync=parseInt(localStorage.getItem('ceip_last_sync')||'0');
-    var ahora=Date.now();
-    var diezMin=10*60*1000;
-    if(ahora-lastSync > diezMin){
-      setTimeout(function(){
-        try{autoRecibir();}catch(e){setSync('','Local');}
-      }, 3000);
-    }
+    setTimeout(function(){
+      try{autoRecibir();}catch(e){setSync('','Local');}
+    }, 2500);
   }
 }
 
@@ -945,38 +940,45 @@ function autoRecibir(){
   if(!url)return;
   var id='_auto'+Date.now();
   window[id]=function(r){
-    var dataChk=(r&&r.ok&&r.data)?r.data:null;
-    if(dataChk){
-      var nRem=(dataChk.maestros&&dataChk.maestros.length?dataChk.maestros.length-1:0);
-      var nLoc=(DB.maestros||[]).length;
-      if(nLoc>nRem+1){
-        delete window[id];
-        setSync('','Local (nube con menos datos)');
-        return;
-      }
-      if(dataChk._sync&&dataChk._sync.fecha)localStorage.setItem('sync_ultimo_recibido',dataChk._sync.fecha);
-    }
-
     delete window[id];
     var el=document.getElementById('jp_auto');
     if(el&&el.parentNode)el.parentNode.removeChild(el);
     if(!r||!r.ok){setSync('','Local');return;}
     var data=r.data||{};
-    var huboMaestros=false;
-    // Aplicar datos si los hay
-    if(data.maestros&&data.maestros.length>1){
-      huboMaestros=true;
-      // Reusar logica de recibirCambios
-      _aplicarDatos(data);
+    var meta=data._sync||null;
+    var ultimo=localStorage.getItem('sync_ultimo_recibido')||'';
+
+    // Cuantos maestros hay a cada lado (formato nuevo = objetos, antiguo = tabla)
+    var nRem=0;
+    if(data.maestros&&data.maestros.length){
+      nRem=Array.isArray(data.maestros[0])?data.maestros.length-1:data.maestros.length;
     }
+    var nLoc=(DB.maestros||[]).length;
+
+    // ¿La nube trae algo que este dispositivo no tenga?
+    var hayNovedad=meta&&meta.fecha&&meta.fecha>ultimo;
     localStorage.setItem('ceip_last_sync',String(Date.now()));
-    setSync('ok','Auto '+hhmm());
-    if(huboMaestros){
-      renderPlantillaHome();
-      renderHorariosHome();
-      var secAbierta=document.querySelector('.sec.on');
-      if(secAbierta)renderSec(secAbierta.id.replace('s-',''));
+    if(!hayNovedad){setSync('ok','Al dia '+hhmm());return;}
+
+    var quien=meta.autor||'Alguien del equipo';
+    var cuando=meta.fecha.replace('T',' ').substr(0,16);
+    var aviso='\uD83D\uDD14 '+quien+' fue quien trabajo por ultima vez en la app ('+cuando+').\n\n'
+      +'\u00bfQuieres actualizar tu app con sus cambios?\n\n'
+      +'En la nube: '+nRem+' maestros\nEn este dispositivo: '+nLoc+' maestros';
+    if(nLoc>nRem+1){
+      aviso+='\n\n\u26A0\uFE0F ATENCION: la nube tiene MENOS datos que este dispositivo.\nSi actualizas, perderas lo que tengas de mas aqui.';
     }
+    aviso+='\n\n(Aceptar = actualizar · Cancelar = seguir con lo mio)';
+
+    if(!confirm(aviso)){setSync('','Local (sin actualizar)');return;}
+
+    _aplicarDatos(data);
+    localStorage.setItem('sync_ultimo_recibido',meta.fecha);
+    setSync('ok','Actualizado '+hhmm());
+    renderPlantillaHome();
+    renderHorariosHome();
+    var secAbierta=document.querySelector('.sec.on');
+    if(secAbierta)renderSec(secAbierta.id.replace('s-',''));
   };
   var s=document.createElement('script');
   s.id='jp_auto';
