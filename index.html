@@ -663,9 +663,12 @@ function _doEnviar(url){
     hCarga:DB.hCarga||{},
     hGrupos:DB.hGrupos||[],
     hMat:DB.hMat||[],
+    materias:DB.materias||[],
     hHor:DB.hHor||{},
     tramos:DB.tramos||[],
     bojaHoras:DB.bojaHoras||{},
+    recreo:DB.recreo||{},
+    luciernaga:DB.luciernaga||{},
     sust:sust,
     _sync:firma
   };
@@ -740,6 +743,8 @@ function _aplicarDatos(data){
     else if(Object.keys(data.grupos).length>0)DB.grupos=data.grupos;
   }
   if(data.coordinaciones&&data.coordinaciones.length>0)DB.coordinaciones=data.coordinaciones;
+  if(data.recreo&&Object.keys(data.recreo).length>0)DB.recreo=data.recreo;
+  if(data.luciernaga&&Object.keys(data.luciernaga).length>0)DB.luciernaga=data.luciernaga;
   // Procesar hCarga (formato antiguo tabla)
   if(data.carga&&data.carga.length>1){
     DB.hCarga={};
@@ -767,7 +772,8 @@ function _aplicarDatos(data){
   // Procesar extras (hGrupos, hMat, tramos, bojaHoras, hHor, sust)
   if(data.hGrupos&&data.hGrupos.length>0)DB.hGrupos=data.hGrupos;
   if(data.hMat&&data.hMat.length>0)DB.hMat=data.hMat;
-  if(data.tramos&&data.tramos.length>0)DB.tramos=data.tramos;
+  if(data.materias&&data.materias.length>0)DB.materias=data.materias;
+  if(data.tramos&&data.tramos.length>=2)DB.tramos=data.tramos;
   if(data.bojaHoras&&Object.keys(data.bojaHoras).length>0)DB.bojaHoras=data.bojaHoras;
   if(data.hHor&&Object.keys(data.hHor).length>0)DB.hHor=data.hHor;
   if(data.sust&&Object.keys(data.sust).length>0){
@@ -2592,7 +2598,7 @@ function setTramos45(){
     {id:'t5',ini:705,dur:45,r:false},{id:'t6',ini:750,dur:45,r:false},
     {id:'t7',ini:795,dur:45,r:false}
   ];
-  calcFranjas();save();rHTramos();
+  save();calcFranjas();rHTramos();
 }
 function setTramos60(){
   DB.tramos=[
@@ -2600,7 +2606,7 @@ function setTramos60(){
     {id:'t3',ini:660,dur:30,r:true},{id:'t4',ini:690,dur:60,r:false},
     {id:'t5',ini:750,dur:60,r:false}
   ];
-  calcFranjas();save();rHTramos();
+  save();calcFranjas();rHTramos();
 }
 function setTramos30(){
   DB.tramos=[
@@ -2610,7 +2616,7 @@ function setTramos30(){
     {id:'t7',ini:720,dur:30,r:false},{id:'t8',ini:750,dur:30,r:false},
     {id:'t9',ini:780,dur:30,r:false},{id:'ta',ini:810,dur:30,r:false}
   ];
-  calcFranjas();save();rHTramos();
+  save();calcFranjas();rHTramos();
 }
 function addTramo2(){
   var iniStr=(document.getElementById('tr-ini')||{}).value||'09:00';
@@ -2619,9 +2625,9 @@ function addTramo2(){
   var tipo=(document.getElementById('tr-tipo')||{}).value||'clase';
   DB.tramos.push({id:'t'+Date.now(),ini:ini,dur:dur,r:tipo==='recreo'});
   DB.tramos.sort(function(a,b){return a.ini-b.ini;});
-  calcFranjas();save();rHTramos();
+  save();calcFranjas();rHTramos();
 }
-function delTramo2(i){DB.tramos.splice(i,1);calcFranjas();save();rHTramos();}
+function delTramo2(i){DB.tramos.splice(i,1);save();calcFranjas();rHTramos();}
 
 // === TIPOS DE SLOTS ===
 var SLOT_TIPOS={
