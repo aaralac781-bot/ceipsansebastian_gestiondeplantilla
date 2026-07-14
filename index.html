@@ -523,11 +523,11 @@ function load(){
       }
       // Sincronizar grupos al cargar
       if(DB.hGrupos&&DB.hGrupos.length>0){
-        CURSOS_TODOS.forEach(function(cv){DB.grupos['_'+cv]=0;});
-        DB.hGrupos.forEach(function(g){
-          var k='_'+g.niv;
-          if(DB.grupos[k]!==undefined)DB.grupos[k]++;
-        });
+        // Solo recontar los niveles que EXISTEN en hGrupos.
+        // Los niveles configurados a mano (infantil, estrellas) se respetan.
+        var _cont={};
+        DB.hGrupos.forEach(function(g){var k='_'+g.niv;_cont[k]=(_cont[k]||0)+1;});
+        Object.keys(_cont).forEach(function(k){if(DB.grupos[k]!==undefined)DB.grupos[k]=_cont[k];});
       }
       if(DB.grupos['_3anos']===undefined)DB.grupos['_3anos']=0;
       if(DB.grupos['_4anos']===undefined)DB.grupos['_4anos']=0;
@@ -2287,6 +2287,8 @@ function rHGrupos(){
   h+='<div><span class="fl">Nivel</span><input class="fi" type="text" id="new-g-niv" placeholder="6o" style="width:70px"></div>';
   h+='<button class="btn bvd bsm" onclick="addHGrupo()" style="margin-bottom:1px">+ Anadir</button>';
   h+='</div>';
+  h+='<button class="btn bsm" style="background:#0e7490;color:#fff;margin-top:12px;width:100%;padding:9px" onclick="crearGruposFaltantes()">&#8595; Crear los grupos que faltan (seg&uacute;n Claustro)</button>';
+  h+='<div style="font-size:10px;color:#94a3b8;margin-top:5px;line-height:1.4">Crea aqu&iacute; los grupos configurados en Claustro (infantil incluido) para que aparezcan en Asignacion y en el Horario Visual.</div>';
   document.getElementById('s-hgrupos').innerHTML=h;
 }
 function addHGrupo(){
@@ -2299,15 +2301,46 @@ function addHGrupo(){
   save();rHGrupos();
 }
 
-function sincGrupos(){
-  CURSOS_TODOS.forEach(function(cv){DB.grupos['_'+cv]=0;});
-  DB.hGrupos.forEach(function(g){
-    var k='_'+g.niv;
-    if(DB.grupos[k]!==undefined)DB.grupos[k]++;
-  });
+function nivDeNombre(n){
+  var m=String(n).match(/^(3anos|4anos|5anos|1o|2o|3o|4o|5o|6o)/);
+  if(m)return m[1];
+  if(String(n).toUpperCase().indexOf('ESTRELLA')>=0)return 'estrellas';
+  return '';
 }
-function delHGrupo(i){var id=DB.hGrupos[i].id;DB.hGrupos.splice(i,1);delete DB.hHor[id];sincGrupos();save();rHGrupos();}
+function crearGruposFaltantes(){
+  var creados=0, saltados=[];
+  todosG().forEach(function(n){
+    if(DB.hGrupos.some(function(g){return g.n===n;}))return;
+    var niv=nivDeNombre(n);
+    if(!niv){saltados.push(n);return;}
+    DB.hGrupos.push({id:'g'+Date.now()+Math.floor(Math.random()*9999),n:n,niv:niv,c:'#f8fafc'});
+    creados++;
+  });
+  save();rHGrupos();
+  alert(creados?('Creados '+creados+' grupos.\nYa aparecen en Asignacion y en el Horario Visual.'):'No falta ningun grupo: ya estan todos creados.');
+}
+function sincGrupos(){
+  // Solo recontar los niveles presentes en hGrupos; respetar los manuales (infantil, estrellas)
+  var cont={};
+  DB.hGrupos.forEach(function(g){var k='_'+g.niv;cont[k]=(cont[k]||0)+1;});
+  Object.keys(cont).forEach(function(k){if(DB.grupos[k]!==undefined)DB.grupos[k]=cont[k];});
+}
+function delHGrupo(i){var _g=DB.hGrupos[i];var id=_g.id;var _niv=_g.niv;DB.hGrupos.splice(i,1);delete DB.hHor[id];sincGrupos();if(DB.grupos['_'+_niv]!==undefined&&!DB.hGrupos.some(function(x){return x.niv===_niv;}))DB.grupos['_'+_niv]=0;save();rHGrupos();}
 
+function addMateriasInfantil(){
+  var AREAS_INF=[
+    {id:'inf1',n:'Crecimiento en Armonia',c:'#fce7f3',t:'#be185d'},
+    {id:'inf2',n:'Descubrimiento y Exploracion del Entorno',c:'#ccfbf1',t:'#0f766e'},
+    {id:'inf3',n:'Comunicacion y Representacion de la Realidad',c:'#fef9c3',t:'#92400e'}
+  ];
+  var n=0;
+  AREAS_INF.forEach(function(a){
+    if(DB.hMat.some(function(m){return m.n===a.n||m.id===a.id;}))return;
+    DB.hMat.push(a); n++;
+  });
+  save();rHMaterias();
+  alert(n?('Anadidas '+n+' areas de Infantil.\nEn Asignacion, las horas de infantil se ponen a mano (no vienen del BOJA).'):'Las areas de Infantil ya estaban creadas.');
+}
 function rHMaterias(){
   var h='';
   DB.hMat.forEach(function(mat,i){
@@ -2321,6 +2354,7 @@ function rHMaterias(){
   h+='<div style="flex:1"><span class="fl">Nombre materia</span><input class="fi" type="text" id="new-m-n" placeholder="Ed.Fisica, Lengua..."></div>';
   h+='<button class="btn bvd bsm" onclick="addHMat()" style="margin-bottom:1px">+ Anadir</button>';
   h+='</div>';
+  h+='<button class="btn bsm" style="background:#0e7490;color:#fff;margin-top:12px;width:100%;padding:9px" onclick="addMateriasInfantil()">&#43; A&ntilde;adir las 3 &aacute;reas de Infantil (LOMLOE)</button>';
   document.getElementById('s-hmaterias').innerHTML=h;
 }
 function addHMat(){
@@ -2345,7 +2379,8 @@ function getBojaH(gid,mid){
     'Plastica':'plas','Artistica':'plas','Lengua':'len','Matematicas':'mat',
     'Cono.Medio':'cono','Religion':'rel','Religion/AE':'rel',
     'Aten.Educativa':'aten','AtencionEducativa':'aten','Atencion':'aten',
-    'Libre Disp.':'aut'
+    'Libre Disp.':'aut','Autonomia':'aut',
+    'Ed.Valores':'val','Valores':'val','Ed. Valores':'val'
   };
   var key=null;
   Object.keys(keyMap).forEach(function(k){
