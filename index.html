@@ -180,6 +180,16 @@ input[type=number].fi{max-width:80px}
   .print-title{font-size:14pt;font-weight:bold;margin-bottom:6pt;color:#000}
   .print-sub{font-size:10pt;font-weight:bold;margin:4pt 0;color:#333}
 }
+
+/* Impresion del horario en A4 horizontal */
+@media print{
+  @page{ size: A4 landscape; margin: 8mm; }
+  body{ background:#fff !important; }
+  .nav,.hd,.btn,.tabbar,.sync-btn{ display:none !important; }
+  table{ font-size:7.5pt !important; page-break-inside:avoid; }
+  td,th{ padding:2px !important; }
+  .hor-wrap,.hor-box{ overflow:visible !important; width:100% !important; }
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <meta name="theme-color" content="#15803d">
@@ -924,6 +934,7 @@ function renderSec(id){
 function startApp(){
   load();
   calcFranjas();
+  sincHorConTramos();
   renderPlantillaHome();
   renderHorariosHome();
   setSync('','Local');
@@ -2599,6 +2610,26 @@ function setCarga(gid,mid,k,v){
   save();
 }
 
+function sincHorConTramos(){
+  var n=HFRANJAS.length;
+  if(!n||!DB.hHor)return;
+  Object.keys(DB.hHor).forEach(function(gid){
+    if(!DB.hHor[gid])return;
+    DIAS.forEach(function(d){
+      var arr=DB.hHor[gid][d]||[];
+      while(arr.length<n)arr.push({mId:null,pId:null,fij:false,dur:HFRANJAS[arr.length].dur,r:HFRANJAS[arr.length].r});
+      if(arr.length>n)arr.length=n;
+      for(var i=0;i<n;i++){
+        if(!arr[i])arr[i]={mId:null,pId:null,fij:false};
+        arr[i].dur=HFRANJAS[i].dur;
+        arr[i].r=HFRANJAS[i].r;
+        if(HFRANJAS[i].r){arr[i].mId=null;arr[i].pId=null;arr[i].tipo='';}
+        if(arr[i].tipo==='despacho')arr[i].tipo='direccion';
+      }
+      DB.hHor[gid][d]=arr;
+    });
+  });
+}
 function getHor(gid){if(!DB.hHor[gid]){DB.hHor[gid]={};DIAS.forEach(function(d){DB.hHor[gid][d]=[];HFRANJAS.forEach(function(f){DB.hHor[gid][d].push({mId:null,pId:null,fij:false,dur:f.dur,r:f.r});});});}return DB.hHor[gid];}
 function initSelGrupo(){var sel=document.getElementById('sel-g');if(!sel)return;var cur=sel.value;sel.innerHTML='';DB.hGrupos.forEach(function(g){var o=document.createElement('option');o.value=g.id;o.textContent=g.n;if(g.id===cur)o.selected=true;sel.appendChild(o);});if(!sel.value&&DB.hGrupos.length)sel.value=DB.hGrupos[0].id;SEL_GRUPO=sel.value;}
 function pLibre(pId,dia,fi,gidAct){for(var i=0;i<DB.hGrupos.length;i++){var g=DB.hGrupos[i];if(g.id===gidAct)continue;var h=DB.hHor[g.id];if(!h||!h[dia]||!h[dia][fi])continue;var s=h[dia][fi];if(s&&s.pId===pId&&s.mId)return false;}return true;}
@@ -2653,7 +2684,7 @@ function setTramos45(){
     {id:'t5',ini:705,dur:45,r:false},{id:'t6',ini:750,dur:45,r:false},
     {id:'t7',ini:795,dur:45,r:false}
   ];
-  save();calcFranjas();rHTramos();
+  calcFranjas();sincHorConTramos();save();rHTramos();
 }
 function setTramos60(){
   DB.tramos=[
@@ -2661,7 +2692,7 @@ function setTramos60(){
     {id:'t3',ini:660,dur:30,r:true},{id:'t4',ini:690,dur:60,r:false},
     {id:'t5',ini:750,dur:60,r:false}
   ];
-  save();calcFranjas();rHTramos();
+  calcFranjas();sincHorConTramos();save();rHTramos();
 }
 function setTramos30(){
   DB.tramos=[
@@ -2671,7 +2702,7 @@ function setTramos30(){
     {id:'t7',ini:720,dur:30,r:false},{id:'t8',ini:750,dur:30,r:false},
     {id:'t9',ini:780,dur:30,r:false},{id:'ta',ini:810,dur:30,r:false}
   ];
-  save();calcFranjas();rHTramos();
+  calcFranjas();sincHorConTramos();save();rHTramos();
 }
 function addTramo2(){
   var iniStr=(document.getElementById('tr-ini')||{}).value||'09:00';
@@ -2680,17 +2711,20 @@ function addTramo2(){
   var tipo=(document.getElementById('tr-tipo')||{}).value||'clase';
   DB.tramos.push({id:'t'+Date.now(),ini:ini,dur:dur,r:tipo==='recreo'});
   DB.tramos.sort(function(a,b){return a.ini-b.ini;});
-  save();calcFranjas();rHTramos();
+  calcFranjas();sincHorConTramos();save();rHTramos();
 }
-function delTramo2(i){DB.tramos.splice(i,1);save();calcFranjas();rHTramos();}
+function delTramo2(i){DB.tramos.splice(i,1);calcFranjas();sincHorConTramos();save();rHTramos();}
 
 // === TIPOS DE SLOTS ===
 var SLOT_TIPOS={
-  clase:{bg:'',c:'',label:'Clase'},
-  despacho:{bg:'#fef3c7',c:'#92400e',label:'Despacho'},
+  clase:{bg:'',c:'#374151',label:'Clase'},
+  direccion:{bg:'#dbeafe',c:'#1e40af',label:'Direccion'},
+  jefatura:{bg:'#e0e7ff',c:'#4338ca',label:'Jefatura'},
+  secretaria:{bg:'#cffafe',c:'#0e7490',label:'Secretaria'},
   coord:{bg:'#ede9fe',c:'#6d28d9',label:'Coordinacion'},
+  luciernaga:{bg:'#fef9c3',c:'#a16207',label:'Ref. Luciernaga'},
   reduccion:{bg:'#fee2e2',c:'#b91c1c',label:'Reduccion'},
-  libre:{bg:'#f1f5f9',c:'#64748b',label:'Libre/Refuerzo'}
+  libre:{bg:'#f1f5f9',c:'#64748b',label:'Libre'}
 };
 
 function getHorGrupo(gid){
@@ -2756,13 +2790,7 @@ var SLOT_ACTIVO=null;
 var HOR_VISTA='grupos';
 var HOR_PAG=0;
 
-var SLOT_TIPOS={
-  clase:{bg:'',c:'#374151',label:'Clase'},
-  despacho:{bg:'#fef3c7',c:'#92400e',label:'Despacho'},
-  coord:{bg:'#ede9fe',c:'#6d28d9',label:'Coordinacion'},
-  reduccion:{bg:'#fee2e2',c:'#b91c1c',label:'Reduccion'},
-  libre:{bg:'#f1f5f9',c:'#64748b',label:'Libre'}
-};
+/* SLOT_TIPOS unificado arriba */
 
 
 
@@ -2791,7 +2819,7 @@ function getMaestroSlot(mid,dia,ti){
 function renderCelda(slot,t,eid,dia,ti,esGrupo){
   var isActive=SLOT_ACTIVO&&String(SLOT_ACTIVO.eid)===String(eid)&&SLOT_ACTIVO.dia===dia&&SLOT_ACTIVO.ti===ti;
   var bg='#fff',tc='#cbd5e1',txt='',sub='';
-  if(t.r||(slot&&slot.r)){
+  if(t.r){
     return '<td style="background:#fef3c7;text-align:center;font-size:9px;color:#92400e;padding:3px;border:1px solid #e2e8f0">Rec</td>';
   }
   if(slot){
