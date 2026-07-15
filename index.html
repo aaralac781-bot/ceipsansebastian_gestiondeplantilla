@@ -1225,6 +1225,7 @@ function rClaustro(){
       h+='<div class="fr"><span class="fl">Especialidad</span><select class="fi" onchange="updF('+m.id+',\'e\',this.value)">'+espOpts+'</select></div>';
 
       h+='<div class="fr"><span class="fl">Cargo</span><input class="fi" type="text" value="'+esc(m.cargo||'')+'" oninput="updF('+m.id+',\'cargo\',this.value)"></div>';
+      h+='<div class="fr"><span class="fl">Reduccion por cargo (h)</span><input class="fi" type="number" min="0" max="22.5" step="0.5" value="'+(m.rC||0)+'" oninput="updN('+m.id+',\'rC\',this.value)"></div>';
 
       h+='<div class="fg2">';
       h+='<div class="fr"><span class="fl">Red. edad (h)</span><input class="fi" type="number" min="0" max="5" value="'+m.rE+'" oninput="updF('+m.id+',\'rE\',+this.value)"></div>';
@@ -1244,6 +1245,9 @@ function rClaustro(){
         h+='<select class="fi" onchange="updF('+m.id+',\'rT\',this.value)">';
         h+='<option value="Primaria"'+(m.rT==='Primaria'?' selected':'')+'>Primaria (CAR)</option>';
         h+='<option value="Infantil"'+(m.rT==='Infantil'?' selected':'')+'>Infantil (C14)</option>';
+        h+='<option value="ZTS"'+(m.rT==='ZTS'?' selected':'')+'>ZTS (Zona de Transformacion Social)</option>';
+        h+='<option value="PT"'+(m.rT==='PT'?' selected':'')+'>PT</option>';
+        h+='<option value="AL"'+(m.rT==='AL'?' selected':'')+'>AL</option>';
         h+='</select></div>';
       }
 
@@ -1324,6 +1328,14 @@ function updCoord(id,cid,add){
 
 function togMc(id){EXP=(EXP===id?null:id);rClaustro();}
 
+function updN(id,k,v){
+  var n=parseFloat(String(v).replace(',','.'));
+  if(isNaN(n))n=0;
+  for(var i=0;i<DB.maestros.length;i++){if(DB.maestros[i].id===id){DB.maestros[i][k]=n;break;}}
+  save();
+  var ex=EXP;rClaustro();EXP=ex;
+  try{var el=document.querySelector('[data-mid="'+id+'"]');}catch(e){}
+}
 function updF(id,k,v){
   for(var i=0;i<DB.maestros.length;i++){if(DB.maestros[i].id===id){DB.maestros[i][k]=v;break;}}
   try{
@@ -2372,12 +2384,27 @@ function addMateriasInfantil(){
   save();rHMaterias();
   alert(n?('Anadidas '+n+' areas de Infantil.\nEn Asignacion, las horas de infantil se ponen a mano (no vienen del BOJA).'):'Las areas de Infantil ya estaban creadas.');
 }
+function updMat(i,k,v){
+  if(!DB.hMat[i])return;
+  DB.hMat[i][k]=parseInt(v)||0;
+  save();rHMaterias();
+}
 function rHMaterias(){
-  var h='';
+  var h='<div class="al i" style="margin-bottom:8px"><span>i</span><span><b>BLOQUE</b>: cuantos modulos seguidos da la materia en cada sesion (ej. con modulos de 30 min, poner 2 = sesiones de 1h).<br><b>MAX/DIA</b>: cuantos modulos como maximo puede tener esa materia en un mismo dia (ej. Ingles con bloque 2 y max/dia 2 = 1h al dia).</span></div>';
   DB.hMat.forEach(function(mat,i){
     h+='<div class="cfg-i">';
     h+='<div style="width:14px;height:14px;border-radius:50%;background:'+mat.c+';border:1px solid rgba(0,0,0,.1);flex-shrink:0"></div>';
     h+='<div style="flex:1;font-size:13px;font-weight:600">'+mat.n+'</div>';
+    h+='<div style="display:flex;align-items:center;gap:4px" title="Modulos seguidos en cada sesion">';
+    h+='<span style="font-size:9px;color:#94a3b8;font-weight:700">BLOQUE</span>';
+    h+='<select style="font-size:11px;border:1.5px solid #e2e8f0;border-radius:6px;padding:2px" onchange="updMat('+i+',\'blq\',this.value)">';
+    [1,2,3,4].forEach(function(v){h+='<option value="'+v+'"'+((parseInt(mat.blq)||1)===v?' selected':'')+'>'+v+'</option>';});
+    h+='</select></div>';
+    h+='<div style="display:flex;align-items:center;gap:4px" title="Maximo de modulos de esta materia al dia (0 = sin limite)">';
+    h+='<span style="font-size:9px;color:#94a3b8;font-weight:700">MAX/DIA</span>';
+    h+='<select style="font-size:11px;border:1.5px solid #e2e8f0;border-radius:6px;padding:2px" onchange="updMat('+i+',\'maxD\',this.value)">';
+    [0,1,2,3,4].forEach(function(v){h+='<option value="'+v+'"'+((parseInt(mat.maxD)||0)===v?' selected':'')+'>'+(v===0?'-':v)+'</option>';});
+    h+='</select></div>';
     h+='<button class="btn brd bsm" onclick="delHMat('+i+')">x</button>';
     h+='</div>';
   });
@@ -3077,6 +3104,7 @@ function genHorario(){
     return;
   }
   var DIAS2=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var GEN_AVISOS=[];
   var durMod=(DB.tramos.filter(function(t){return !t.r;})[0]||{dur:45}).dur;
   DB.hGrupos.forEach(function(g){
     var hor=getHorGrupo(g.id);
@@ -3117,47 +3145,82 @@ function genHorario(){
       }
       return false;
     }
-    // Distribuir equitativamente por dias
-    huecos.sort(function(a,b){return a.ti-b.ti||DIAS2.indexOf(a.d)-DIAS2.indexOf(b.d);});
-    var hi=0;
-    tareas.forEach(function(tarea){
-      if(hi>=huecos.length)return;
-      // Buscar hueco donde el maestro no este ya ocupado
-      var h2=null;
-      var intentos=0;
-      while(hi<huecos.length&&intentos<huecos.length){
-        var candidato=huecos[hi];
-        if(!maestroOcupado(tarea.pId,candidato.d,candidato.ti)){
-          h2=candidato;
-          hi++;
-          break;
-        }
-        // Maestro ocupado en este tramo - mover al final y probar otro
-        huecos.push(huecos.splice(hi,1)[0]);
-        intentos++;
-      }
-      if(!h2)return; // No hay hueco disponible para este maestro
-      if(!hor[h2.d])hor[h2.d]=[];
-      if(!hor[h2.d][h2.ti])hor[h2.d][h2.ti]={};
-      hor[h2.d][h2.ti].mId=tarea.mId;
-      hor[h2.d][h2.ti].pId=tarea.pId;
-      hor[h2.d][h2.ti].tipo='clase';
-      hor[h2.d][h2.ti].txt='';
-      // Si es Religion, marcar el mismo tramo como paralelo con AtenEduc
-      var matAsig=DB.hMat.find(function(m){return m.id===tarea.mId;});
+    // ── Colocacion por BLOQUES segun los parametros de cada materia ──
+    function _matDe(mid){for(var i=0;i<DB.hMat.length;i++)if(String(DB.hMat[i].id)===String(mid))return DB.hMat[i];return {};}
+    function _libre(d,ti){
+      if(DB.tramos[ti]&&DB.tramos[ti].r)return false;
+      var sx=hor[d]&&hor[d][ti]?hor[d][ti]:null;
+      if(!sx)return true;
+      if(sx.fij||sx.mId)return false;
+      if(sx.tipo&&sx.tipo!=='clase')return false;
+      return true;
+    }
+    function _modsDia(mId,d){
+      var c=0;
+      (DB.tramos||[]).forEach(function(t,ti){
+        var sx=hor[d]&&hor[d][ti];
+        if(sx&&String(sx.mId)===String(mId))c++;
+      });
+      return c;
+    }
+    function _paralelo(d,ti,mId){
+      var matAsig=_matDe(mId);
       if(matAsig&&matAsig.n==='Religion'){
-        hor[h2.d][h2.ti].paralelo=true; // Flag para mostrar RELIG/ATEDU
-        // Buscar maestro de Aten.Educativa para este grupo
+        hor[d][ti].paralelo=true;
         var cargaG=DB.hCarga[g.id]||{};
         var atenMat=DB.hMat.find(function(m){return m.n==='Aten.Educativa';});
         if(atenMat){
           var cvAten=cargaG[atenMat.id];
-          if(cvAten&&cvAten.m){
-            hor[h2.d][h2.ti].pIdAten=cvAten.m; // Maestro de AtenEduc
-          }
+          if(cvAten&&cvAten.m)hor[d][ti].pIdAten=cvAten.m;
         }
       }
+    }
+    // Agrupar los modulos de cada materia en bloques
+    var porMat={};
+    tareas.forEach(function(t){(porMat[t.mId]=porMat[t.mId]||[]).push(t);});
+    var bloques=[];
+    Object.keys(porMat).forEach(function(mid){
+      var lista=porMat[mid];
+      var mat=_matDe(mid);
+      var tam=Math.max(1,parseInt(mat.blq)||1);
+      var k=0;
+      while(k<lista.length){
+        var n=Math.min(tam,lista.length-k);
+        bloques.push({mId:lista[k].mId,pId:lista[k].pId,n:n,maxD:parseInt(mat.maxD)||0});
+        k+=n;
+      }
     });
+    bloques.sort(function(a,b){return b.n-a.n;});
+    var idxT=[];
+    (DB.tramos||[]).forEach(function(t,ti){if(!t.r)idxT.push(ti);});
+    var sinSitio=0;
+    bloques.forEach(function(b){
+      var puesto=false;
+      var dias=DIAS2.slice().sort(function(x,y){return _modsDia(b.mId,x)-_modsDia(b.mId,y);});
+      for(var di=0;di<dias.length&&!puesto;di++){
+        var d=dias[di];
+        if(b.maxD>0&&_modsDia(b.mId,d)+b.n>b.maxD)continue;
+        for(var k2=0;k2+b.n<=idxT.length&&!puesto;k2++){
+          var vale=true;
+          for(var j=0;j<b.n;j++){
+            var ti=idxT[k2+j];
+            if(!_libre(d,ti)||maestroOcupado(b.pId,d,ti)){vale=false;break;}
+          }
+          if(!vale)continue;
+          for(var j2=0;j2<b.n;j2++){
+            var ti2=idxT[k2+j2];
+            if(!hor[d])hor[d]=[];
+            if(!hor[d][ti2])hor[d][ti2]={};
+            hor[d][ti2].mId=b.mId;hor[d][ti2].pId=b.pId;hor[d][ti2].tipo='clase';hor[d][ti2].txt='';
+            _paralelo(d,ti2,b.mId);
+          }
+          puesto=true;
+        }
+      }
+      if(!puesto)sinSitio+=b.n;
+    });
+    if(sinSitio)GEN_AVISOS.push(g.n+': '+sinSitio+' modulos sin hueco');
+
   });
   save();rHHorario();
   alert('Horario generado. Revisa y ajusta manualmente si necesitas cambios.');
