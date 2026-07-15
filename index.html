@@ -2310,16 +2310,34 @@ function nivDeNombre(n){
   return '';
 }
 function crearGruposFaltantes(){
-  var creados=0, saltados=[];
-  todosG().forEach(function(n){
+  // Candidatos: los del catalogo (Claustro) + los que ya tengan tutoria asignada
+  var cands=todosG().slice();
+  (DB.maestros||[]).forEach(function(m){
+    if(m.g&&cands.indexOf(m.g)<0)cands.push(m.g);
+    if(m.gRef&&cands.indexOf(m.gRef)<0)cands.push(m.gRef);
+  });
+  var creados=0,sinNivel=[];
+  cands.forEach(function(n){
+    if(!n)return;
     if(DB.hGrupos.some(function(g){return g.n===n;}))return;
     var niv=nivDeNombre(n);
-    if(!niv){saltados.push(n);return;}
+    if(!niv){sinNivel.push(n);return;}
     DB.hGrupos.push({id:'g'+Date.now()+Math.floor(Math.random()*9999),n:n,niv:niv,c:'#f8fafc'});
     creados++;
   });
   save();rHGrupos();
-  alert(creados?('Creados '+creados+' grupos.\nYa aparecen en Asignacion y en el Horario Visual.'):'No falta ningun grupo: ya estan todos creados.');
+
+  var infCat=(DB.grupos['_3anos']||0)+(DB.grupos['_4anos']||0)+(DB.grupos['_5anos']||0);
+  var infCreados=DB.hGrupos.filter(function(g){return ['3anos','4anos','5anos'].indexOf(g.niv)>=0;}).length;
+  var msg='';
+  if(creados)msg+='Creados '+creados+' grupos. Ya aparecen en Asignacion y en el Horario Visual.\n\n';
+  else msg+='No se ha creado ninguno (ya estaban todos).\n\n';
+  msg+='Grupos de INFANTIL disponibles ahora: '+infCreados+'\n';
+  if(infCreados===0&&infCat===0){
+    msg+='\n\u26A0\uFE0F No hay grupos de infantil configurados.\nVe a Claustro > Grupos por nivel y pon cuantos grupos hay de 3, 4 y 5 anos. Luego vuelve y pulsa este boton otra vez.';
+  }
+  if(sinNivel.length)msg+='\n\nNo pude deducir el nivel de: '+sinNivel.join(', ')+' (crealos a mano abajo).';
+  alert(msg);
 }
 function sincGrupos(){
   // Solo recontar los niveles presentes en hGrupos; respetar los manuales (infantil, estrellas)
