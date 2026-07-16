@@ -4793,13 +4793,16 @@ function initLuciernaga(){
   var L = DB.luciernaga;
   if(!L.modulos) L.modulos = JSON.parse(JSON.stringify(LUC_MODULOS));
   if(!L.espacios) L.espacios = [
-    {id:'radio', n:'Radio escolar'},
-    {id:'steam', n:'Aula STEAM'},
-    {id:'dehesa', n:'Dehesa La Dehesa'},
-    {id:'presente', n:'Aula del Presente'},
-    {id:'exterior', n:'Zona exterior (lectura)'},
-    {id:'ordinaria', n:'Aula ordinaria'}
+    {id:'biblio', n:'Biblioteca nueva', cap:'entero'},
+    {id:'steam', n:'Aula STEAM', cap:'medio'},
+    {id:'estudio', n:'Estudio creativo (cine/radio/TV)', cap:'reducido'},
+    {id:'dehesa', n:'Aula exterior Dehesa', cap:'entero'},
+    {id:'casitas', n:'Casitas de lectura', cap:'flex', comodin:true},
+    {id:'equipos', n:'Aula de trabajo en equipo / idiomas', cap:'entero'},
+    {id:'ordinaria', n:'Aula de referencia (refuerzo)', cap:'entero'}
   ];
+  // Migracion: asegurar campo capacidad en espacios ya guardados
+  (L.espacios||[]).forEach(function(e){ if(!e.cap)e.cap='entero'; });
   if(!L.maestrosLuc) L.maestrosLuc = {zts:null, refuerzo:null, flotantes:[]};
   if(!L.diasActivos) L.diasActivos = ['Lunes','Miercoles','Viernes'];
   if(!L.trimestre) L.trimestre = 1;
@@ -4927,20 +4930,26 @@ function renderLucConfig(){
   h += '</div>';
 
   // Espacios disponibles (editables)
+  var CAP_OPTS=[['entero','Grupo entero'],['medio','Medio grupo'],['reducido','Grupo reducido'],['flex','Flexible']];
   h += '<div class="card"><div class="ct">Espacios disponibles</div>';
-  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Anadir, editar o eliminar espacios. El exterior permite lectura con solo el tutor.</div>';
+  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">La hora Luciernaga sale del aula: elige el espacio y cuanto alumnado cabe. "Comodin" = casitas de lectura para competencia lectora.</div>';
   (L.espacios||[]).forEach(function(esp,ei){
-    h += '<div class="cfg-i">';
-    h += '<input type="text" value="'+esp.n+'" data-ei="'+ei+'" onchange="updEspacioLucEl(this)" style="flex:1;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 7px;font-size:12px">';
-    if(esp.id==='exterior'){
-      h += '<span style="font-size:10px;color:#15803d;font-weight:600;padding:0 6px">Solo tutor</span>';
+    h += '<div class="cfg-i" style="flex-wrap:wrap;gap:4px">';
+    h += '<input type="text" value="'+esp.n+'" data-ei="'+ei+'" onchange="updEspacioLucEl(this)" style="flex:1;min-width:120px;border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 7px;font-size:12px">';
+    h += '<select data-ei="'+ei+'" onchange="updCapEspacioLucEl(this)" style="border:1.5px solid #e2e8f0;border-radius:6px;padding:4px;font-size:11px">';
+    CAP_OPTS.forEach(function(o){ h += '<option value="'+o[0]+'"'+((esp.cap||'entero')===o[0]?' selected':'')+'>'+o[1]+'</option>'; });
+    h += '</select>';
+    if(esp.comodin){
+      h += '<span style="font-size:10px;color:#a16207;font-weight:600;padding:0 4px">Comodin lectura</span>';
     }
     h += '<button data-ei="'+ei+'" onclick="delEspacioLucEl(this)" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0 4px">x</button>';
     h += '</div>';
   });
-  h += '<div style="display:flex;gap:6px;margin-top:8px">';
-  h += '<input class="fi" type="text" id="nuevo-espacio-luc" placeholder="Nuevo espacio..." style="flex:1">';
-  h += '<input type="checkbox" id="nuevo-esp-ext" style="width:16px;height:16px"> <label style="font-size:11px;color:#15803d">Solo tutor</label>';
+  h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">';
+  h += '<input class="fi" type="text" id="nuevo-espacio-luc" placeholder="Nuevo espacio..." style="flex:1;min-width:120px">';
+  h += '<select class="fi" id="nuevo-esp-cap" style="width:auto">';
+  CAP_OPTS.forEach(function(o){ h += '<option value="'+o[0]+'">'+o[1]+'</option>'; });
+  h += '</select>';
   h += '<button class="btn bvd bsm" onclick="addEspacioLuc()">+ Anadir</button>';
   h += '</div>';
 
@@ -5051,6 +5060,12 @@ function updEspacioLucEl(el){
   save();
 }
 
+function updCapEspacioLucEl(el){
+  var ei = parseInt(el.getAttribute('data-ei'));
+  if(DB.luciernaga.espacios[ei])DB.luciernaga.espacios[ei].cap = el.value;
+  save();
+}
+
 function delEspacioLucEl(el){
   delEspacioLuc(parseInt(el.getAttribute('data-ei')));
 }
@@ -5064,9 +5079,9 @@ function delEspacioLuc(ei){
 function addEspacioLuc(){
   var n = (document.getElementById('nuevo-espacio-luc')||{}).value||'';
   if(!n)return;
-  var ext = (document.getElementById('nuevo-esp-ext')||{}).checked||false;
+  var cap = (document.getElementById('nuevo-esp-cap')||{}).value||'entero';
   if(!DB.luciernaga.espacios)DB.luciernaga.espacios=[];
-  DB.luciernaga.espacios.push({id:'esp'+Date.now(),n:n,soloTutor:ext});
+  DB.luciernaga.espacios.push({id:'esp'+Date.now(),n:n,cap:cap});
   save();renderLuciernaga();
 }
 
