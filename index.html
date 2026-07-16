@@ -5448,25 +5448,27 @@ function horasDispRefLuc(mId){
   return out;
 }
 
-// Listado de maestros disponibles para refuerzo/luciernaga: los que tienen horas
-// marcadas como Ref/Luciernaga en el horario, mas los maestros de refuerzo y la ZTS.
+// Listado de TODOS los maestros disponibles para refuerzo/luciernaga (excepto PT y AL),
+// con las horas que les quedan libres tras la asignacion, mas ZTS y refuerzo.
 function maestrosRefLuc(){
   var out=[];
   (DB.maestros||[]).forEach(function(m){
-    if(['PT','AL'].indexOf(m.e)>=0)return;
-    var disp=horasDispRefLuc(m.id);
-    var nLuc=disp.filter(function(x){return x.tipo==='luciernaga';}).length;
-    // Horas reales (segun la duracion de cada modulo), no numero de casillas
-    var minLuc=0, minLibre=0;
-    disp.forEach(function(x){ if(x.tipo==='luciernaga')minLuc+=(x.dur||0); else minLibre+=(x.dur||0); });
+    if(['PT','AL'].indexOf(m.e)>=0)return;               // PT y AL no entran en este horario
     var z=esZTS(m), r=!!m.ref;
-    if(nLuc>0||z||r){
-      out.push({id:m.id,n:m.n,esZTS:z,esRef:r,nLuc:nLuc,hLuc:minLuc/60,hLibre:minLibre/60});
+    var hDisp=(typeof hL==='function')?hL(m):0;           // horas libres tras la asignacion (max 22,5; ZTS 19,5 si tiene coord.)
+    // Horas ya marcadas como Ref/Luciernaga en el horario visual
+    var disp=horasDispRefLuc(m.id);
+    var minLuc=0; disp.forEach(function(x){ if(x.tipo==='luciernaga')minLuc+=(x.dur||0); });
+    var hLuc=minLuc/60;
+    if(hDisp>0||hLuc>0||z||r){
+      var rol = z?'ZTS' : r?'Refuerzo' : (m.t?'Tutor/a':'Maestro/a');
+      out.push({id:m.id,n:m.n,esZTS:z,esRef:r,rol:rol,hDisp:hDisp,hLuc:hLuc});
     }
   });
   out.sort(function(a,b){
-    var ra=a.nLuc>0?0:a.esRef?1:2, rb=b.nLuc>0?0:b.esRef?1:2;
-    return ra-rb;
+    var ra=a.esZTS?0:a.esRef?1:2, rb=b.esZTS?0:b.esRef?1:2;   // ZTS y refuerzo primero
+    if(ra!==rb)return ra-rb;
+    return b.hDisp-a.hDisp;                                   // luego, mas horas disponibles arriba
   });
   return out;
 }
@@ -5542,20 +5544,21 @@ function renderLucMaestros(){
 
   // 1) Listado de maestros disponibles con horas (restos horarios)
   h += '<div class="card"><div class="ct">Maestros disponibles para Refuerzo / Luciernaga</div>';
-  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Restos horarios: horas marcadas como <b>Ref. Luciernaga</b> en Horarios &gt; Horario, mas los maestros de refuerzo y la ZTS.</div>';
+  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Todos los maestros (excepto PT y AL) con las horas que les quedan libres tras la asignacion, mas la ZTS y los maestros de refuerzo. Esas horas se pueden dedicar a refuerzo tradicional o a Luciernaga.</div>';
   var lista = maestrosRefLuc();
+  var totalDisp = lista.reduce(function(a,x){return a+x.hDisp;},0);
   if(lista.length===0){
-    h += '<div class="al i"><span>i</span><span>Marca horas como "Ref. Luciernaga" en el horario de un maestro (Horarios &gt; Horario) o define maestros de refuerzo/ZTS.</span></div>';
+    h += '<div class="al i"><span>i</span><span>No hay maestros con horas libres. Asigna materias en Horarios &gt; Asignacion; las horas que sobren apareceran aqui.</span></div>';
   } else {
+    h += '<div style="font-size:11px;color:#0f3460;font-weight:700;margin-bottom:6px">Total disponible: '+(Math.round(totalDisp*10)/10)+' h para refuerzo / Luciernaga</div>';
     h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
     lista.forEach(function(x){
-      var etiq = x.esZTS?'ZTS':x.esRef?'Refuerzo':'Luciernaga';
-      var col  = x.esZTS?'#15803d':x.esRef?'#1d4ed8':'#a16207';
-      var bg   = x.esZTS?'#f0fdf4':x.esRef?'#eff6ff':'#fef9c3';
+      var col  = x.esZTS?'#15803d':x.esRef?'#1d4ed8':x.rol==='Tutor/a'?'#a16207':'#475569';
+      var bg   = x.esZTS?'#f0fdf4':x.esRef?'#eff6ff':x.rol==='Tutor/a'?'#fffbeb':'#f8fafc';
       h += '<div style="background:'+bg+';border:1px solid '+col+'55;border-radius:8px;padding:6px 10px;min-width:120px">';
-      h += '<div style="font-size:11px;font-weight:700">'+x.n.split(' ')[0]+' <span style="font-size:9px;color:'+col+'">'+etiq+'</span></div>';
-      if(x.nLuc>0)h += '<div style="font-size:12px;color:#a16207;font-weight:700">'+(Math.round(x.hLuc*10)/10)+' h Ref/Luc</div>';
-      h += '<div style="font-size:10px;color:#64748b">'+(Math.round(x.hLibre*10)/10)+' h libres</div>';
+      h += '<div style="font-size:11px;font-weight:700">'+x.n.split(' ')[0]+' <span style="font-size:9px;color:'+col+'">'+x.rol+'</span></div>';
+      h += '<div style="font-size:13px;color:'+col+';font-weight:800">'+(Math.round(x.hDisp*10)/10)+' h disponibles</div>';
+      if(x.hLuc>0)h += '<div style="font-size:10px;color:#a16207">de ellas '+(Math.round(x.hLuc*10)/10)+' h marcadas Ref/Luc</div>';
       h += '</div>';
     });
     h += '</div>';
