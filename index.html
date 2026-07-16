@@ -5441,8 +5441,8 @@ function horasDispRefLuc(mId){
       var sp=_sustSlotPropio(mId,d,ti);
       var tipo=(sp&&sp.tipo)||'';
       if(tipo==='reduccion')return;               // reduccion: no disponible
-      if(tipo==='luciernaga')out.push({dia:d,ti:ti,tipo:'luciernaga'});
-      else if(tipo===''||tipo==='libre')out.push({dia:d,ti:ti,tipo:'libre'});
+      if(tipo==='luciernaga')out.push({dia:d,ti:ti,tipo:'luciernaga',dur:t.dur||0});
+      else if(tipo===''||tipo==='libre')out.push({dia:d,ti:ti,tipo:'libre',dur:t.dur||0});
     });
   });
   return out;
@@ -5456,9 +5456,12 @@ function maestrosRefLuc(){
     if(['PT','AL'].indexOf(m.e)>=0)return;
     var disp=horasDispRefLuc(m.id);
     var nLuc=disp.filter(function(x){return x.tipo==='luciernaga';}).length;
+    // Horas reales (segun la duracion de cada modulo), no numero de casillas
+    var minLuc=0, minLibre=0;
+    disp.forEach(function(x){ if(x.tipo==='luciernaga')minLuc+=(x.dur||0); else minLibre+=(x.dur||0); });
     var z=esZTS(m), r=!!m.ref;
     if(nLuc>0||z||r){
-      out.push({id:m.id,n:m.n,esZTS:z,esRef:r,nLuc:nLuc,nLibre:disp.length-nLuc});
+      out.push({id:m.id,n:m.n,esZTS:z,esRef:r,nLuc:nLuc,hLuc:minLuc/60,hLibre:minLibre/60});
     }
   });
   out.sort(function(a,b){
@@ -5551,8 +5554,8 @@ function renderLucMaestros(){
       var bg   = x.esZTS?'#f0fdf4':x.esRef?'#eff6ff':'#fef9c3';
       h += '<div style="background:'+bg+';border:1px solid '+col+'55;border-radius:8px;padding:6px 10px;min-width:120px">';
       h += '<div style="font-size:11px;font-weight:700">'+x.n.split(' ')[0]+' <span style="font-size:9px;color:'+col+'">'+etiq+'</span></div>';
-      if(x.nLuc>0)h += '<div style="font-size:12px;color:#a16207;font-weight:700">'+x.nLuc+' h Ref/Luc</div>';
-      h += '<div style="font-size:10px;color:#64748b">'+x.nLibre+' h libres</div>';
+      if(x.nLuc>0)h += '<div style="font-size:12px;color:#a16207;font-weight:700">'+(Math.round(x.hLuc*10)/10)+' h Ref/Luc</div>';
+      h += '<div style="font-size:10px;color:#64748b">'+(Math.round(x.hLibre*10)/10)+' h libres</div>';
       h += '</div>';
     });
     h += '</div>';
