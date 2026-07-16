@@ -3284,7 +3284,9 @@ function genHorario(){
       var dias=DIAS2.slice().sort(function(x,y){return _modsDia(b.mId,x)-_modsDia(b.mId,y);});
       for(var di=0;di<dias.length&&!puesto;di++){
         var d=dias[di];
-        if(b.maxD>0&&_modsDia(b.mId,d)+b.n>b.maxD)continue;
+        // El maximo por dia nunca puede ser menor que el propio bloque (si no, el bloque no cabria nunca).
+        var maxDef=b.maxD>0?Math.max(b.maxD,b.n):0;
+        if(maxDef>0&&_modsDia(b.mId,d)+b.n>maxDef)continue;
         for(var k2=0;k2+b.n<=idxT.length&&!puesto;k2++){
           var vale=true;
           for(var j=0;j<b.n;j++){
@@ -3326,14 +3328,25 @@ function genHorario(){
     if(n>0)faltan.push(g.n+': '+n+' materia(s) sin maestro');
   });
 
+  // Diagnostico: materias con MAX/DIA menor que BLOQUE (config contradictoria)
+  var contradic=[];
+  DB.hMat.forEach(function(mat){
+    var blq=parseInt(mat.blq)||1, maxD=parseInt(mat.maxD)||0;
+    if(maxD>0&&maxD<blq)contradic.push(mat.n);
+  });
+
   var msg='Horario generado.';
+  if(contradic.length){
+    msg+='\n\nAVISO: estas materias tienen MAX/DIA menor que BLOQUE (config contradictoria): '+contradic.join(', ')+'.';
+    msg+='\nVe a Horarios > Materias y pon MAX/DIA igual o mayor que BLOQUE.';
+  }
   if(faltan.length){
     msg+='\n\nOJO: hay materias activas SIN maestro asignado (por eso quedan huecos). ';
     msg+='Ve a Horarios > Asignacion y asigna un maestro a cada materia:\n\n'+faltan.slice(0,12).join('\n');
     if(faltan.length>12)msg+='\n...y '+(faltan.length-12)+' grupo(s) mas';
   }
   if(GEN_AVISOS.length)msg+='\n\nSin hueco (revisa a mano): '+GEN_AVISOS.slice(0,8).join(', ');
-  if(!faltan.length&&!GEN_AVISOS.length)msg+=' Revisa y ajusta manualmente si necesitas cambios.';
+  if(!faltan.length&&!GEN_AVISOS.length&&!contradic.length)msg+=' Revisa y ajusta manualmente si necesitas cambios.';
   alert(msg);
 }
 
