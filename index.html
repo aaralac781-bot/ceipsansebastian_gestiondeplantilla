@@ -5277,39 +5277,55 @@ function renderLucHorario(){
 function renderResumenMaestrosLuc(horSem, DIAS, tramos){
   initLuciernaga();
   var L = DB.luciernaga;
-  var h = '<div class="card" style="margin-top:10px"><div class="ct">Carga semanal maestros Luciernaga</div>';
-  h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  var durMod = (DB.tramos.filter(function(t){return !t.r;})[0]||{dur:45}).dur;
 
-  var contMae = {};
-  Object.values(horSem).forEach(function(slot){
-    (slot.maestros||[]).forEach(function(mid){
-      contMae[mid] = (contMae[mid]||0)+1;
-    });
+  // Minutos usados por maestro: Luciernaga (semana actual) + refuerzo tradicional
+  var min = {};
+  Object.values(horSem).forEach(function(s){
+    (s.maestros||[]).forEach(function(mid){ min[mid] = (min[mid]||0)+durMod; });
+  });
+  Object.values(L.horarioRef||{}).forEach(function(r){
+    if(r.maestroId)min[r.maestroId] = (min[r.maestroId]||0)+durMod;
   });
 
-  // ZTS
-  var ztsId = L.maestrosLuc&&L.maestrosLuc.zts;
-  var zts = ztsId?(DB.maestros||[]).find(function(m){return m.id===ztsId;}):null;
-  if(zts){
-    h += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:6px 10px">';
-    h += '<div style="font-size:11px;font-weight:700"> ZTS: '+zts.n.split(' ')[0]+'</div>';
-    h += '<div style="font-size:12px;color:#15803d;font-weight:700">'+(contMae[ztsId]||0)+' h Luciernaga</div>';
-    h += '<div style="font-size:10px;color:#64748b">'+(22-(contMae[ztsId]||0))+' h disponibles</div>';
-    h += '</div>';
-  }
+  // Maestros a mostrar: los que participan + ZTS/refuerzo/refInf (aunque tengan 0)
+  var ids = Object.keys(min);
+  [L.maestrosLuc.zts, L.maestrosLuc.refuerzo, L.maestrosLuc.refInf].forEach(function(id){
+    if(id && ids.map(String).indexOf(String(id))<0)ids.push(String(id));
+  });
 
-  // Refuerzo
-  var refId = L.maestrosLuc&&L.maestrosLuc.refuerzo;
-  var ref = refId?(DB.maestros||[]).find(function(m){return m.id===refId;}):null;
-  if(ref){
-    h += '<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:6px 10px">';
-    h += '<div style="font-size:11px;font-weight:700">Refuerzo: '+ref.n.split(' ')[0]+'</div>';
-    h += '<div style="font-size:12px;color:#1d4ed8;font-weight:700">'+(contMae[refId]||0)+' h Luciernaga</div>';
-    h += '<div style="font-size:10px;color:#64748b">'+(22-(contMae[refId]||0))+' h disponibles</div>';
-    h += '</div>';
-  }
+  var rows = ids.map(function(mid){
+    var m = (DB.maestros||[]).find(function(x){return String(x.id)===String(mid);});
+    if(!m)return null;
+    var usadas = (min[mid]||0)/60;
+    var disp = (typeof hL==='function')?hL(m):22.5;   // horas libres tras la asignacion
+    var rol = esZTS(m)?'ZTS':m.ref?'Refuerzo':(m.t?'Tutor/a':'Maestro/a');
+    var pr = esZTS(m)?0:m.ref?1:2;
+    return {m:m, usadas:usadas, disp:disp, rol:rol, pr:pr};
+  }).filter(Boolean);
+  rows.sort(function(a,b){ return a.pr-b.pr || b.usadas-a.usadas; });
 
-  h += '</div></div>';
+  var h = '<div class="card" style="margin-top:10px"><div class="ct">Carga por maestro (Semana '+LUC_SEMANA+' + refuerzo)</div>';
+  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Horas de Luciernaga y refuerzo de cada maestro frente a sus horas libres. En rojo, quien se pasa.</div>';
+  var hayExc = false;
+  if(rows.length===0){
+    h += '<div class="al i"><span>i</span><span>Aun no hay horas asignadas. Genera el horario o asigna refuerzo.</span></div>';
+  }
+  rows.forEach(function(r){
+    var exc = r.usadas > r.disp+0.01;
+    if(exc)hayExc = true;
+    var pct = r.disp>0?Math.min(100, r.usadas/r.disp*100):(r.usadas>0?100:0);
+    var col = exc?'#b91c1c':(r.disp-r.usadas)<1?'#d97706':'#15803d';
+    h += '<div style="margin-bottom:6px">';
+    h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">';
+    h += '<span style="font-weight:600">'+r.m.n.split(' ')[0]+' <span style="font-size:9px;color:'+col+'">'+r.rol+'</span></span>';
+    h += '<span style="color:'+col+';font-weight:700">'+(exc?'EXCESO ':'')+(Math.round(r.usadas*10)/10)+'/'+(Math.round(r.disp*10)/10)+'h</span>';
+    h += '</div>';
+    h += '<div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden"><div style="width:'+pct.toFixed(0)+'%;height:100%;background:'+col+';border-radius:3px"></div></div>';
+    h += '</div>';
+  });
+  if(hayExc)h += '<div style="background:#fee2e2;border-radius:6px;padding:6px 8px;margin-top:4px;font-size:11px;color:#b91c1c;font-weight:700">Hay maestros que superan sus horas disponibles. Revisa el reparto.</div>';
+  h += '</div>';
   return h;
 }
 
@@ -5339,6 +5355,13 @@ function genHorarioLuc(){
   var hHor = DB.hHor||{};
   var rot = L.rotacion||2;
   var semanas = ['A','B','C'].slice(0,rot);
+  var durMod = (tramosSinRecreo[0]||{dur:45}).dur;
+
+  // Tope de minutos que un maestro puede dedicar a Luciernaga/refuerzo (sus horas libres)
+  function capMin(mid){
+    var m=(DB.maestros||[]).find(function(x){return String(x.id)===String(mid);});
+    return m&&typeof hL==='function'?hL(m)*60:1350;
+  }
 
   if(modulosActivos.length===0){alert('Activa al menos un modulo en Configurar.');return;}
   if(!ztsId&&!refId){alert('Asigna la ZTS y/o el Refuerzo de Primaria en Configurar.');return;}
@@ -5396,23 +5419,26 @@ function genHorarioLuc(){
             var am = (mod.areas||[]).some(function(a){return String(slot.mId)===String(a);});
             if(!am)continue;
           }
+          function libreYconHoras(mid){
+            return mid && !ocup.lider[mid+'_'+slotKey] && (ocup.min[mid]||0)+durMod <= capMin(mid)+1;
+          }
           var maestros;
           if(maestrosFijos){
-            maestros = maestrosFijos.filter(function(mid){return mid&&!ocup.lider[mid+'_'+slotKey];});
+            maestros = maestrosFijos.filter(libreYconHoras);
             if(maestros.length===0)continue;
           } else {
             var lider=null;
-            for(var li=0; li<lideres.length; li++){ if(!ocup.lider[lideres[li]+'_'+slotKey]){lider=lideres[li];break;} }
+            for(var li=0; li<lideres.length; li++){ if(libreYconHoras(lideres[li])){lider=lideres[li];break;} }
             if(!lider)continue;
             maestros=[lider];
             var tut=tutorDe(g);
-            if(tut&&!ocup.lider[tut+'_'+slotKey])maestros.push(tut);
+            if(tut&&libreYconHoras(tut))maestros.push(tut);   // el tutor acompana si le quedan horas libres
           }
           resultado[sem][g.id+'_'+dia+'_'+ti] = {
             gid:g.id, dia:dia, ti:ti, modulo:mod.id, espacio:esp,
             maestros:maestros, lider:maestros[0], infantil:!!maestrosFijos
           };
-          maestros.forEach(function(mid){ ocup.lider[mid+'_'+slotKey]=true; });
+          maestros.forEach(function(mid){ ocup.lider[mid+'_'+slotKey]=true; ocup.min[mid]=(ocup.min[mid]||0)+durMod; });
           if(!flex)ocup.espDia[espDiaKey]=true;
           ocup.carga[dia]=(ocup.carga[dia]||0)+1;
           return true;
@@ -5426,7 +5452,7 @@ function genHorarioLuc(){
     var modId = (L.ambitoSemana||{})[sem];
     var mod = modulosActivos.find(function(m){return m.id===modId;}) || modulosActivos[si%modulosActivos.length];
     if(!mod)return;
-    var ocup = {lider:{}, espDia:{}, carga:{}};
+    var ocup = {lider:{}, espDia:{}, carga:{}, min:{}};
 
     // Primaria: cada grupo 1 sesion (primero exigiendo area, luego sin exigir)
     primaria.forEach(function(g){
