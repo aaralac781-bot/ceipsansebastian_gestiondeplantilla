@@ -1798,6 +1798,70 @@ function priSust(m,gid,cicloD){
   return 3;
 }
 
+// ── Motor de sustituciones por horas disponibles ──
+function _grupoPorNombre(n){
+  if(!n)return null;
+  var gn=(''+n).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  return (DB.hGrupos||[]).find(function(g){
+    return (''+g.n).trim().toLowerCase().replace(/[^a-z0-9]/g,'')===gn;
+  });
+}
+
+// Categoria de prioridad para sustituir (menor = se usa antes)
+// 1 refuerzo/luciernaga en esa hora - 2 maestro/a de refuerzo - 3 otro/a libre
+// 4 ZTS - 5 equipo directivo (jefatura/secretaria) - 6 director (ultima opcion)
+function catSust(m,dia,ti){
+  var L=DB.luciernaga||{};
+  var zts=L.maestrosLuc&&L.maestrosLuc.zts;
+  var own=(DB.hHor&&DB.hHor['mae_'+m.id]&&DB.hHor['mae_'+m.id][dia])?DB.hHor['mae_'+m.id][dia][ti]:null;
+  var tag=own&&own.tipo?own.tipo:'';
+  if(tag==='refuerzo'||tag==='luciernaga')return 1;
+  if(m.ref)return 2;
+  if(m.cargo==='Director')return 6;
+  if(m.cargo==='Jefe de Estudios'||m.cargo==='Secretario')return 5;
+  if(m.rT==='ZTS'||String(m.id)===String(zts))return 4;
+  return 3;
+}
+
+// ¿El maestro/a esta libre (sin clase ni compromiso propio) en ese dia/tramo?
+function maeLibreParaSust(m,dia,ti,faltanIds){
+  if(faltanIds.indexOf(m.id)>=0)return false;
+  var s=getMaestroSlot(m.id,dia,ti);
+  if(s&&(s.mId||s.matNombre)&&(s.tipo||'clase')==='clase')return false;
+  var tipo=s?(s.tipo||'clase'):'libre';
+  if(['direccion','jefatura','secretaria','coord','reduccion'].indexOf(tipo)>=0)return false;
+  return true;
+}
+
+// Elige el sustituto para un tramo concreto del maestro/a ausente
+function elegirSustituto(absId,dia,ti,faltanIds,uso,slotAbs,grupoN){
+  // Caso Religion: el paralelo (Aten.Educativa) se queda con todo el grupo
+  var matN=slotAbs?(slotAbs.matNombre||(slotAbs.mId?((DB.hMat.find(function(m){return m.id===slotAbs.mId;})||{}).n||''):'')):'';
+  if(matN==='Religion'&&grupoN){
+    var g=_grupoPorNombre(grupoN);
+    if(g){
+      var gs=(DB.hHor&&DB.hHor[g.id]&&DB.hHor[g.id][dia])?DB.hHor[g.id][dia][ti]:null;
+      var atenId=gs&&gs.pIdAten?gs.pIdAten:null;
+      if(atenId&&faltanIds.indexOf(parseInt(atenId))<0){
+        var mp=DB.maestros.find(function(m){return String(m.id)===String(atenId);});
+        if(mp)return {id:mp.id,nombre:mp.n.split(' ')[0],nota:'paralelo Religion - queda con todo el grupo'};
+      }
+    }
+  }
+  var cand=DB.maestros.filter(function(m){return maeLibreParaSust(m,dia,ti,faltanIds);});
+  cand.sort(function(a,b){
+    var ca=catSust(a,dia,ti),cb=catSust(b,dia,ti);
+    if(ca!==cb)return ca-cb;
+    return (uso[a.id]||0)-(uso[b.id]||0);
+  });
+  if(cand.length>0){
+    var etiqueta={1:'refuerzo/luciernaga',2:'refuerzo',3:'',4:'ZTS',5:'equipo directivo',6:'direccion'};
+    var c0=catSust(cand[0],dia,ti);
+    return {id:cand[0].id,nombre:cand[0].n.split(' ')[0],nota:etiqueta[c0]||''};
+  }
+  return {id:null,nombre:'',nota:'sin cubrir'};
+}
+
 
 
 function getFechaDeSust(){
@@ -1929,8 +1993,15 @@ function renderSust(){
         var cel=tbl[key]||{};
         var sust=cel.sust||'';
         var grp=cel.grupo||'';
-        h+='<td style="padding:3px 6px;border:1px solid #e2e8f0;cursor:pointer;background:'+(sust?'#f0fdf4':'#fff')+'" data-key="'+key+'" data-dia="'+SUST_DIA+'" onclick="abrirCelda(this)">';
-        if(sust){h+='<div style="font-weight:600;font-size:11px">'+sust+'</div>';if(grp)h+='<div style="font-size:9px;color:#64748b">'+grp+'</div>';}
+        var bgCel=sust?'#f0fdf4':(cel.libre?'#f8fafc':'#fff');
+        h+='<td style="padding:3px 6px;border:1px solid #e2e8f0;cursor:pointer;background:'+bgCel+'" data-key="'+key+'" data-dia="'+SUST_DIA+'" onclick="abrirCelda(this)">';
+        if(sust){
+          h+='<div style="font-weight:600;font-size:11px">'+sust+'</div>';
+          if(grp)h+='<div style="font-size:9px;color:#64748b">'+grp+'</div>';
+          if(cel.nota)h+='<div style="font-size:8px;color:'+(cel.nota.indexOf('paralelo')>=0?'#7c3aed':'#94a3b8')+'">'+cel.nota+'</div>';
+        }
+        else if(cel.libre){h+='<span style="color:#cbd5e1;font-size:9px">libre</span>';}
+        else if(cel.nota==='sin cubrir'){h+='<span style="color:#dc2626;font-size:9px;font-weight:600">Sin cubrir</span>';}
         else{h+='<span style="color:#cbd5e1;font-size:10px">Asignar...</span>';}
         h+='</td>';
       });
@@ -1958,15 +2029,27 @@ function togFalta(el){
 }
 function genTabla(){
   var tbl=loadSust(SUST_DIA);
-  SUST_FALTAN.forEach(function(mFId){
+  var faltan=SUST_FALTAN.slice();
+  var uso={};
+  // Contabilizar sustituciones manuales ya existentes para repartir carga
+  Object.keys(tbl).forEach(function(k){
+    var c=tbl[k];
+    if(c&&c.manual&&c.sustId)uso[c.sustId]=(uso[c.sustId]||0)+1;
+  });
+  faltan.forEach(function(mFId){
     var mF=DB.maestros.find(function(m){return m.id===mFId;});
     if(!mF)return;
     (DB.tramos||[]).forEach(function(t,ti){
       if(t.r)return;
       var key=String(mFId)+'_'+ti;
-      if(tbl[key]&&tbl[key].sust)return;
-      var candidatos=DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0;});
-      tbl[key]={tipo:'sust',sust:candidatos.length>0?candidatos[0].n:'',grupo:'',txt:''};
+      if(tbl[key]&&tbl[key].manual)return; // respetar celdas editadas a mano
+      var slot=getMaestroSlot(mFId,SUST_DIA,ti);
+      var esClase=slot&&(slot.mId||slot.matNombre)&&(slot.tipo||'clase')==='clase';
+      if(!esClase){tbl[key]={tipo:'sust',sust:'',grupo:'',txt:'',libre:true};return;}
+      var grupoN=slot.grupo||'';
+      var sug=elegirSustituto(mFId,SUST_DIA,ti,faltan,uso,slot,grupoN);
+      tbl[key]={tipo:'sust',sust:sug.nombre,sustId:sug.id||null,grupo:grupoN,txt:sug.nombre,nota:sug.nota||''};
+      if(sug.id)uso[sug.id]=(uso[sug.id]||0)+1;
     });
   });
   saveSust(SUST_DIA,tbl);renderSust();
@@ -2000,6 +2083,9 @@ function guardarCeldaEl(el){
   var tbl=loadSust(dia);
   if(!tbl[key])tbl[key]={};
   tbl[key].sust=sust;tbl[key].txt=txt||sust;
+  tbl[key].manual=true;tbl[key].libre=false;
+  var mSel=DB.maestros.find(function(m){return m.n===sust;});
+  tbl[key].sustId=mSel?mSel.id:null;
   saveSust(dia,tbl);cerrarCelda();renderSust();
 }
 function cerrarCelda(){var p=document.getElementById('psc');if(p)p.remove();}
@@ -2749,7 +2835,8 @@ var SLOT_TIPOS={
   jefatura:{bg:'#e0e7ff',c:'#4338ca',label:'Jefatura'},
   secretaria:{bg:'#cffafe',c:'#0e7490',label:'Secretaria'},
   coord:{bg:'#ede9fe',c:'#6d28d9',label:'Coordinacion'},
-  luciernaga:{bg:'#fef9c3',c:'#a16207',label:'Ref. Luciernaga'},
+  refuerzo:{bg:'#ffedd5',c:'#c2410c',label:'Refuerzo'},
+  luciernaga:{bg:'#fef9c3',c:'#a16207',label:'Luciernaga'},
   reduccion:{bg:'#fee2e2',c:'#b91c1c',label:'Reduccion'},
   libre:{bg:'#f1f5f9',c:'#64748b',label:'Libre'}
 };
@@ -4721,6 +4808,72 @@ function initLuciernaga(){
   if(!L.horarioLuc) L.horarioLuc = {A:{},B:{},C:{}};
   if(!L.horarioRef) L.horarioRef = {};
   if(!L.horasLibresTutores) L.horasLibresTutores = {};
+  if(!L.horVisual) L.horVisual = {}; // { 'mae_'+id: { dia:[ {gid,tipo,fij,txt} ] } }
+}
+
+// ── Modulo visual de Refuerzo / Luciernaga ──
+var LUC_REF_VISTA = 'maestros'; // maestros | grupos | disponibles
+
+// Pool de maestros para refuerzo/luciernaga: refuerzo + ZTS + designados + con horas etiquetadas
+function getRefTeachers(){
+  var L=DB.luciernaga||{};
+  var ids={};
+  (DB.maestros||[]).forEach(function(m){
+    if(m.ref)ids[m.id]=true;
+    if(m.rT==='ZTS')ids[m.id]=true;
+  });
+  if(L.maestrosLuc){
+    if(L.maestrosLuc.zts)ids[L.maestrosLuc.zts]=true;
+    if(L.maestrosLuc.refuerzo)ids[L.maestrosLuc.refuerzo]=true;
+  }
+  ['Lunes','Martes','Miercoles','Jueves','Viernes'].forEach(function(d){
+    (DB.maestros||[]).forEach(function(m){
+      var hP=DB.hHor&&DB.hHor['mae_'+m.id];
+      if(!hP||!hP[d])return;
+      (hP[d]||[]).forEach(function(s){if(s&&(s.tipo==='refuerzo'||s.tipo==='luciernaga'))ids[m.id]=true;});
+    });
+  });
+  return (DB.maestros||[]).filter(function(m){return ids[m.id];});
+}
+
+function getHorVisual(mid){
+  initLuciernaga();
+  var k='mae_'+mid;
+  if(!DB.luciernaga.horVisual[k]){
+    DB.luciernaga.horVisual[k]={};
+    ['Lunes','Martes','Miercoles','Jueves','Viernes'].forEach(function(d){
+      DB.luciernaga.horVisual[k][d]=(DB.tramos||[]).map(function(t){return{gid:'',tipo:'refuerzo',fij:false,txt:''};});
+    });
+  }
+  return DB.luciernaga.horVisual[k];
+}
+
+// ¿Esta el maestro/a disponible (para refuerzo) en ese dia/tramo?
+// Devuelve '' si da clase/compromiso, o el tipo etiquetado ('refuerzo'/'luciernaga'/'libre')
+function refDispEn(mid,dia,ti){
+  var t=(DB.tramos||[])[ti];
+  if(!t||t.r)return '';
+  var s=getMaestroSlot(mid,dia,ti);
+  if(s&&(s.mId||s.matNombre)&&(s.tipo||'clase')==='clase')return '';
+  var tipo=s?(s.tipo||'libre'):'libre';
+  if(tipo==='refuerzo'||tipo==='luciernaga')return tipo;
+  if(['direccion','jefatura','secretaria','coord','reduccion'].indexOf(tipo)>=0)return '';
+  return 'libre';
+}
+
+function contarRefCapacidad(mid){
+  var n=0;
+  ['Lunes','Martes','Miercoles','Jueves','Viernes'].forEach(function(d){
+    (DB.tramos||[]).forEach(function(t,ti){if(t.r)return;if(refDispEn(mid,d,ti))n++;});
+  });
+  return n;
+}
+
+function contarRefAsignadas(mid){
+  var hv=(DB.luciernaga.horVisual||{})['mae_'+mid]||{};
+  var n=0;
+  Object.keys(hv).forEach(function(d){(hv[d]||[]).forEach(function(c){if(c&&c.gid)n++;});});
+  return n;
 }
 
 function renderLuciernaga(){
@@ -5331,44 +5484,303 @@ function cerrarPanelLuc(){
   var p = document.getElementById('panel-luc');if(p)p.remove();
 }
 
-//  REFUERZO TRADICIONAL 
+//  REFUERZO / LUCIERNAGA - GENERADOR VISUAL
 function renderLucRefuerzo(){
   initLuciernaga();
-  var L = DB.luciernaga;
-  var hGrupos = DB.hGrupos||[];
   var h = '<div style="padding:12px 14px">';
 
-  h += '<div class="card">';
-  h += '<div style="font-size:12px;color:#64748b;margin-bottom:8px">Refuerzo con ZTS, Maestro de Refuerzo y tutores libres por ciclo (1-2, 3-4, 5-6, Infantil).</div>';
-  h += '<div style="display:flex;gap:8px;margin-bottom:10px">';
-  h += '<button class="btn bvd bsm" onclick="genRefuerzoTrad()">Generar automatico</button>';
+  // Aviso si no hay horario construido
   if(!DB.hHor||Object.keys(DB.hHor).length===0){
-    h += '<div class="al w" style="margin-top:6px"><span>!</span><span><strong>Construye el horario general primero</strong> (Horarios > Asignacion > Generar). Los tutores libres solo se detectan cuando el horario esta construido.</span></div>';
-  };
+    h += '<div class="al w" style="margin-bottom:10px"><span>!</span><span><strong>Construye el horario general primero</strong> (Horarios &gt; Asignacion &gt; Generar). Las horas de refuerzo/luciernaga se leen del horario del profesorado.</span></div>';
+  }
+
+  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.4"><strong>Refuerzo</strong>: siempre en el aula de referencia. &nbsp;<strong>Luciernaga</strong>: el grupo puede moverse a otro espacio. Las horas salen del horario del profesorado (marca celdas como Refuerzo o Luciernaga en el horario general).</div>';
+
+  // Barra de acciones
+  h += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">';
+  h += '<button class="btn bvd bsm" onclick="genRefVisual()">Generar automatico</button>';
+  h += '<button class="btn bgy bsm" onclick="limpiarRefVisual()">Limpiar no fijadas</button>';
   h += '</div>';
 
-  var refData = L.horarioRef||{};
+  // Sub-vistas
+  h += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">';
+  [{v:'maestros',l:'Por maestro/a'},{v:'grupos',l:'Por grupo'},{v:'disponibles',l:'Disponibles'}].forEach(function(op){
+    var sel = LUC_REF_VISTA===op.v;
+    h += '<button class="dtab'+(sel?' on':'')+'" data-rv="'+op.v+'" onclick="setVistaRef(this)">'+op.l+'</button>';
+  });
+  h += '</div>';
 
-  if(Object.keys(refData).length===0){
-    h += '<div class="al i"><span>i</span><span>Pulsa "Generar automatico" para crear el refuerzo tradicional con las horas disponibles de ZTS y Refuerzo.</span></div>';
-  } else {
-    // Tabla simple: grupo, dia, hora, maestro
-    h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px;width:100%">';
-    h += '<tr style="background:#374151"><th style="color:#fff;padding:4px 8px;text-align:left">Grupo</th><th style="color:#fff;padding:4px 8px">Dia</th><th style="color:#fff;padding:4px 8px">Hora</th><th style="color:#fff;padding:4px 8px">Maestro/a</th></tr>';
-    Object.keys(refData).sort().forEach(function(key){
-      var r = refData[key];
-      var g = hGrupos.find(function(x){return x.id===r.gid;})||{n:r.gid};
-      var mae = (DB.maestros||[]).find(function(m){return String(m.id)===String(r.maestroId);})||{n:'?'};
-      var tipoColor = r.tipo==='ZTS'?'#15803d':r.tipo==='Refuerzo'?'#1d4ed8':'#92400e';
-      h += '<tr style="background:#f8fafc"><td style="padding:3px 8px;border:1px solid #e2e8f0">'+g.n+'</td>';
-      h += '<td style="padding:3px 8px;border:1px solid #e2e8f0">'+r.dia+'</td>';
-      h += '<td style="padding:3px 8px;border:1px solid #e2e8f0">'+r.hora+'</td>';
-      h += '<td style="padding:3px 8px;border:1px solid #e2e8f0"><span style="color:'+tipoColor+';font-weight:600">'+mae.n+'</span> <span style="font-size:9px;color:#94a3b8">'+(r.tipo||'')+'</span></td></tr>';
-    });
-    h += '</table></div>';
+  if(LUC_REF_VISTA==='disponibles') h += renderRefDisponibles();
+  else if(LUC_REF_VISTA==='grupos') h += renderRefGrupos();
+  else h += renderRefMaestros();
+
+  h += '</div>';
+  return h;
+}
+
+function setVistaRef(el){
+  LUC_REF_VISTA = el.getAttribute('data-rv');
+  renderLuciernaga();
+}
+
+// ── Listado de maestros disponibles con horas (como Asignacion) ──
+function renderRefDisponibles(){
+  var teachers = getRefTeachers();
+  var h = '<div class="card"><div class="ct">Maestros/as para refuerzo / luciernaga</div>';
+  if(teachers.length===0){
+    h += '<div class="al i"><span>i</span><span>No hay maestros de refuerzo ni ZTS. Marca "Es maestro/a de refuerzo" en Claustro, o asigna la ZTS/Refuerzo en Configurar.</span></div></div>';
+    return h;
   }
+  h += '<div style="font-size:11px;color:#64748b;margin-bottom:8px">Restos horarios disponibles para refuerzo/luciernaga (horas libres del horario menos lo ya asignado).</div>';
+  h += '<div style="display:flex;flex-direction:column;gap:6px">';
+  teachers.forEach(function(m){
+    var cap = contarRefCapacidad(m.id);
+    var asig = contarRefAsignadas(m.id);
+    var disp = Math.max(0, cap-asig);
+    var tipoTxt = m.rT==='ZTS'?'ZTS':(m.rT?('Refuerzo '+m.rT):(m.ref?'Refuerzo':'Luciernaga'));
+    var col = disp>0?'#15803d':'#94a3b8';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px">';
+    h += '<div><div style="font-size:13px;font-weight:700">'+m.n+'</div><div style="font-size:10px;color:#64748b">'+tipoTxt+'</div></div>';
+    h += '<div style="text-align:right"><div style="font-size:15px;font-weight:800;color:'+col+'">'+disp+' h</div><div style="font-size:9px;color:#94a3b8">'+asig+' asignadas / '+cap+' total</div></div>';
+    h += '</div>';
+  });
   h += '</div></div>';
   return h;
+}
+
+// ── Tabla editable por cada maestro/a de refuerzo (fijar celdas) ──
+function renderRefMaestros(){
+  var teachers = getRefTeachers();
+  var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var tramos=DB.tramos||[];
+  if(teachers.length===0){
+    return '<div class="al i"><span>i</span><span>No hay maestros de refuerzo ni ZTS todavia. Configuralos en Claustro o en Configurar.</span></div>';
+  }
+  var h='';
+  teachers.forEach(function(m){
+    var hv=getHorVisual(m.id);
+    var tipoTxt=m.rT==='ZTS'?'ZTS':(m.rT?('Refuerzo '+m.rT):(m.ref?'Refuerzo':'Luciernaga'));
+    h+='<div class="card" style="padding:8px 10px">';
+    h+='<div style="font-size:13px;font-weight:800;color:#0f3460;margin-bottom:2px">'+m.n+' <span style="font-size:10px;font-weight:600;color:#64748b">('+tipoTxt+')</span></div>';
+    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:9px;width:100%;min-width:340px">';
+    h+='<tr style="background:#374151;color:#fff"><th style="padding:2px 4px;width:34px">h</th>';
+    DIAS.forEach(function(d){h+='<th style="padding:2px;font-size:9px">'+d.substr(0,3)+'</th>';});
+    h+='</tr>';
+    tramos.forEach(function(t,ti){
+      if(t.r){h+='<tr><td style="background:#fef3c7;color:#92400e;text-align:center;font-size:8px;border:1px solid #e2e8f0" colspan="6">RECREO</td></tr>';return;}
+      h+='<tr>';
+      h+='<td style="background:#f8fafc;font-size:8px;color:#94a3b8;padding:1px 3px;border:1px solid #e2e8f0;text-align:right;white-space:nowrap">'+fmt(t.ini).replace(':00','h')+'</td>';
+      DIAS.forEach(function(d){
+        var disp=refDispEn(m.id,d,ti);
+        var cell=(hv[d]&&hv[d][ti])?hv[d][ti]:{gid:'',tipo:'refuerzo'};
+        if(!disp){
+          // Ocupado: da clase o compromiso -> no editable
+          var s=getMaestroSlot(m.id,d,ti);
+          var lbl='';
+          if(s&&(s.mId||s.matNombre)){var mat=s.mId?DB.hMat.find(function(x){return x.id===s.mId;}):null;lbl=(s.matNombre||(mat?mat.n:'')).substr(0,4);}
+          else if(s&&s.tipo&&SLOT_TIPOS[s.tipo]){lbl=SLOT_TIPOS[s.tipo].label.substr(0,4);}
+          h+='<td style="background:#f1f5f9;border:1px solid #e2e8f0;text-align:center;color:#cbd5e1;font-size:7px;padding:1px">'+lbl+'</td>';
+          return;
+        }
+        var g=cell.gid?(DB.hGrupos||[]).find(function(x){return String(x.id)===String(cell.gid);}):null;
+        var bg=cell.gid?(cell.tipo==='luciernaga'?SLOT_TIPOS.luciernaga.bg:SLOT_TIPOS.refuerzo.bg):'#fff';
+        var tc=cell.gid?(cell.tipo==='luciernaga'?SLOT_TIPOS.luciernaga.c:SLOT_TIPOS.refuerzo.c):'#e2e8f0';
+        h+='<td style="background:'+bg+';color:'+tc+';border:1px solid #e2e8f0;text-align:center;cursor:pointer;padding:1px 2px;vertical-align:top" data-mid="'+m.id+'" data-dia="'+d+'" data-ti="'+ti+'" onclick="editRefCellEl(this)">';
+        if(cell.gid){
+          h+='<div style="font-size:8px;font-weight:700">'+(g?g.n:'?')+(cell.fij?' &#128274;':'')+'</div>';
+          h+='<div style="font-size:6px;text-transform:uppercase;letter-spacing:.3px">'+(cell.tipo==='luciernaga'?'Luci':'Ref')+'</div>';
+        } else {
+          h+='<span style="color:#cbd5e1;font-size:10px">+</span>';
+        }
+        h+='</td>';
+      });
+      h+='</tr>';
+    });
+    h+='</table></div>';
+    h+='</div>';
+  });
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">';
+  h+='<span style="background:'+SLOT_TIPOS.refuerzo.bg+';color:'+SLOT_TIPOS.refuerzo.c+';padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">Refuerzo (aula de referencia)</span>';
+  h+='<span style="background:'+SLOT_TIPOS.luciernaga.bg+';color:'+SLOT_TIPOS.luciernaga.c+';padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">Luciernaga (puede cambiar de espacio)</span>';
+  h+='</div>';
+  return h;
+}
+
+// ── Tabla por grupo: refuerzo + luciernaga que recibe cada grupo ──
+function renderRefGrupos(){
+  var grupos=DB.hGrupos||[];
+  var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var tramos=DB.tramos||[];
+  if(grupos.length===0)return '<div class="al i"><span>i</span><span>No hay grupos. Crealos en Horarios &gt; Grupos.</span></div>';
+
+  // Indexar asignaciones por grupo: gid -> { dia_ti: [ {tipo, mid} ] }
+  var porGrupo={};
+  getRefTeachers().forEach(function(m){
+    var hv=(DB.luciernaga.horVisual||{})['mae_'+m.id]||{};
+    DIAS.forEach(function(d){
+      (hv[d]||[]).forEach(function(c,ti){
+        if(!c||!c.gid)return;
+        if(!porGrupo[c.gid])porGrupo[c.gid]={};
+        var k=d+'_'+ti;
+        (porGrupo[c.gid][k]=porGrupo[c.gid][k]||[]).push({tipo:c.tipo,mid:m.id});
+      });
+    });
+  });
+
+  var h='';
+  var hayAlgo=false;
+  grupos.forEach(function(g){
+    var idx=porGrupo[g.id]||{};
+    var nAsig=Object.keys(idx).length;
+    if(nAsig>0)hayAlgo=true;
+    h+='<div class="card" style="padding:8px 10px">';
+    h+='<div style="font-size:13px;font-weight:800;color:#1e3a8a;margin-bottom:2px">'+g.n+' <span style="font-size:10px;font-weight:600;color:#64748b">('+nAsig+' h refuerzo/luciernaga)</span></div>';
+    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:9px;width:100%;min-width:340px">';
+    h+='<tr style="background:#374151;color:#fff"><th style="padding:2px 4px;width:34px">h</th>';
+    DIAS.forEach(function(d){h+='<th style="padding:2px;font-size:9px">'+d.substr(0,3)+'</th>';});
+    h+='</tr>';
+    tramos.forEach(function(t,ti){
+      if(t.r){h+='<tr><td style="background:#fef3c7;color:#92400e;text-align:center;font-size:8px;border:1px solid #e2e8f0" colspan="6">RECREO</td></tr>';return;}
+      h+='<tr>';
+      h+='<td style="background:#f8fafc;font-size:8px;color:#94a3b8;padding:1px 3px;border:1px solid #e2e8f0;text-align:right;white-space:nowrap">'+fmt(t.ini).replace(':00','h')+'</td>';
+      DIAS.forEach(function(d){
+        var arr=idx[d+'_'+ti]||[];
+        if(arr.length===0){h+='<td style="border:1px solid #e2e8f0"></td>';return;}
+        var c0=arr[0];
+        var bg=c0.tipo==='luciernaga'?SLOT_TIPOS.luciernaga.bg:SLOT_TIPOS.refuerzo.bg;
+        var tc=c0.tipo==='luciernaga'?SLOT_TIPOS.luciernaga.c:SLOT_TIPOS.refuerzo.c;
+        h+='<td style="background:'+bg+';color:'+tc+';border:1px solid #e2e8f0;text-align:center;padding:1px 2px;vertical-align:top">';
+        arr.forEach(function(c){
+          var mae=DB.maestros.find(function(x){return String(x.id)===String(c.mid);});
+          h+='<div style="font-size:7px;font-weight:700">'+(c.tipo==='luciernaga'?'Luci':'Ref')+'</div>';
+          h+='<div style="font-size:7px">'+(mae?mae.n.split(' ')[0]:'?')+'</div>';
+        });
+        h+='</td>';
+      });
+      h+='</tr>';
+    });
+    h+='</table></div></div>';
+  });
+  if(!hayAlgo){
+    h='<div class="al i"><span>i</span><span>Aun no hay refuerzo/luciernaga asignado a ningun grupo. Ve a "Por maestro/a" y asigna, o pulsa "Generar automatico".</span></div>'+h;
+  }
+  return h;
+}
+
+// ── Editor de celda de refuerzo ──
+function editRefCellEl(el){
+  editRefCell(el.getAttribute('data-mid'), el.getAttribute('data-dia'), parseInt(el.getAttribute('data-ti')));
+}
+function editRefCell(mid,dia,ti){
+  initLuciernaga();
+  var hv=getHorVisual(mid);
+  var cell=(hv[dia]&&hv[dia][ti])?hv[dia][ti]:{gid:'',tipo:'refuerzo',fij:false};
+  var mae=DB.maestros.find(function(m){return String(m.id)===String(mid);})||{n:'?'};
+  var t=(DB.tramos||[])[ti]||{};
+  var h='<div style="background:#fff;border-radius:16px;padding:16px;max-height:80vh;overflow-y:auto;width:100%;max-width:340px">';
+  h+='<div style="font-size:13px;font-weight:800;color:#0f3460;margin-bottom:4px">'+mae.n+' - '+dia+' '+fmt(t.ini||0)+'</div>';
+  h+='<div class="fr"><span class="fl">Grupo</span><select class="fi" id="ref-g"><option value="">-- Sin asignar --</option>';
+  (DB.hGrupos||[]).forEach(function(g){h+='<option value="'+g.id+'"'+(String(cell.gid)===String(g.id)?' selected':'')+'>'+g.n+'</option>';});
+  h+='</select></div>';
+  h+='<div class="fr"><span class="fl">Tipo</span><select class="fi" id="ref-t">';
+  h+='<option value="refuerzo"'+(cell.tipo!=='luciernaga'?' selected':'')+'>Refuerzo (aula de referencia)</option>';
+  h+='<option value="luciernaga"'+(cell.tipo==='luciernaga'?' selected':'')+'>Luciernaga (otro espacio)</option>';
+  h+='</select></div>';
+  h+='<div class="ck" style="margin-top:6px"><input type="checkbox" id="ref-fij"'+(cell.fij?' checked':'')+' style="width:15px;height:15px;accent-color:#1d4ed8"><span style="font-size:12px">Fijar celda (no cambiar al generar)</span></div>';
+  h+='<div style="display:flex;gap:8px;margin-top:12px">';
+  h+='<button class="btn bvd" style="flex:1" data-mid="'+mid+'" data-dia="'+dia+'" data-ti="'+ti+'" onclick="guardarRefCell(this)">Guardar</button>';
+  h+='<button class="btn brd" data-mid="'+mid+'" data-dia="'+dia+'" data-ti="'+ti+'" onclick="borrarRefCell(this)">Vaciar</button>';
+  h+='<button class="btn bgy" onclick="cerrarRefCell()">Cancelar</button>';
+  h+='</div></div>';
+  var old=document.getElementById('panel-ref');if(old)old.remove();
+  var div=document.createElement('div');div.id='panel-ref';
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
+  div.innerHTML=h;
+  document.body.appendChild(div);
+}
+function guardarRefCell(el){
+  var mid=el.getAttribute('data-mid'),dia=el.getAttribute('data-dia'),ti=parseInt(el.getAttribute('data-ti'));
+  var gid=(document.getElementById('ref-g')||{}).value||'';
+  var tipo=(document.getElementById('ref-t')||{}).value||'refuerzo';
+  var fij=(document.getElementById('ref-fij')||{}).checked||false;
+  var hv=getHorVisual(mid);
+  if(!hv[dia])hv[dia]=[];
+  hv[dia][ti]={gid:gid,tipo:tipo,fij:fij,txt:''};
+  save();cerrarRefCell();renderLuciernaga();
+}
+function borrarRefCell(el){
+  var mid=el.getAttribute('data-mid'),dia=el.getAttribute('data-dia'),ti=parseInt(el.getAttribute('data-ti'));
+  var hv=getHorVisual(mid);
+  if(hv[dia]&&hv[dia][ti])hv[dia][ti]={gid:'',tipo:'refuerzo',fij:false,txt:''};
+  save();cerrarRefCell();renderLuciernaga();
+}
+function cerrarRefCell(){var p=document.getElementById('panel-ref');if(p)p.remove();}
+
+function limpiarRefVisual(){
+  initLuciernaga();
+  if(!confirm('Limpiar las celdas de refuerzo/luciernaga no fijadas?'))return;
+  getRefTeachers().forEach(function(m){
+    var hv=getHorVisual(m.id);
+    ['Lunes','Martes','Miercoles','Jueves','Viernes'].forEach(function(d){
+      (hv[d]||[]).forEach(function(c,ti){if(c&&!c.fij)hv[d][ti]={gid:'',tipo:'refuerzo',fij:false,txt:''};});
+    });
+  });
+  save();renderLuciernaga();
+}
+
+function genRefVisual(){
+  initLuciernaga();
+  if(!confirm('Generar refuerzo/luciernaga automatico?\nSe respetan las celdas fijadas.'))return;
+  var teachers=getRefTeachers();
+  if(teachers.length===0){alert('No hay maestros de refuerzo ni ZTS. Marca "Es maestro/a de refuerzo" en Claustro o asigna ZTS/Refuerzo en Configurar.');return;}
+  var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var grupos=DB.hGrupos||[];
+  var ztsId=(DB.luciernaga.maestrosLuc||{}).zts;
+  // Limpiar no fijadas y recopilar ocupacion de grupos (solo fijadas)
+  var ocupGrupo={};
+  teachers.forEach(function(m){
+    var hv=getHorVisual(m.id);
+    DIAS.forEach(function(d){
+      (hv[d]||[]).forEach(function(c,ti){
+        if(c&&c.fij){if(c.gid)ocupGrupo[c.gid+'_'+d+'_'+ti]=true;}
+        else hv[d][ti]={gid:'',tipo:'refuerzo',fij:false,txt:''};
+      });
+    });
+  });
+  var total=0;
+  teachers.forEach(function(m){
+    var hv=getHorVisual(m.id);
+    var esZTS=(m.rT==='ZTS'||String(m.id)===String(ztsId));
+    var objetivo=grupos.filter(function(g){
+      var c=getCicloGrupo(g.niv||g.n);
+      if(m.rT==='Infantil')return c==='infantil';
+      if(m.rT==='Primaria')return c==='c12'||c==='c34'||c==='c56';
+      return true;
+    });
+    if(objetivo.length===0)objetivo=grupos;
+    var gi=0;
+    DIAS.forEach(function(d){
+      (DB.tramos||[]).forEach(function(t,ti){
+        if(t.r)return;
+        var tag=refDispEn(m.id,d,ti);
+        if(!tag)return;
+        var cell=hv[d][ti];
+        if(cell&&cell.fij)return;
+        var elegido=null;
+        for(var k=0;k<objetivo.length;k++){
+          var g=objetivo[(gi+k)%objetivo.length];
+          if(!ocupGrupo[g.id+'_'+d+'_'+ti]){elegido=g;gi=(gi+k+1)%(objetivo.length||1);break;}
+        }
+        if(!elegido)return;
+        var tipoCell = tag==='luciernaga'?'luciernaga':(tag==='refuerzo'?'refuerzo':(esZTS?'luciernaga':'refuerzo'));
+        hv[d][ti]={gid:elegido.id,tipo:tipoCell,fij:false,txt:''};
+        ocupGrupo[elegido.id+'_'+d+'_'+ti]=true;
+        total++;
+      });
+    });
+  });
+  save();renderLuciernaga();
+  alert('Refuerzo/Luciernaga generado: '+total+' horas asignadas.\nRevisa y ajusta; fija las celdas que no quieras que cambien.');
 }
 
 function getCicloGrupo(niv){
