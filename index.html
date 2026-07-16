@@ -6280,17 +6280,21 @@ function exportarBackup(){
     a.href=url; a.download=nombre;
     document.body.appendChild(a); a.click();
     setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},500);
-    var res=document.getElementById('ls-res');
+    var res=document.getElementById('ls-res-exp')||document.getElementById('ls-res');
     if(res)res.innerHTML='<span style="color:#15803d">Copia descargada: '+nombre+'. Compartela para revisar tus datos.</span>';
   }catch(e){
     // Si falla la descarga, mostrar el texto para copiar a mano
-    var res=document.getElementById('ls-res');
+    var res=document.getElementById('ls-res-exp')||document.getElementById('ls-res');
     if(res)res.innerHTML='<textarea style="width:100%;height:120px;font-size:10px" onclick="this.select()">'+esc(JSON.stringify(DB))+'</textarea>';
   }
 }
 
 function renderConfig(){
-  var h='<div class="card" style="background:#dbeafe;border:2px solid #3b82f6;margin-bottom:14px"><div class="ct">Gestión del Alumnado</div>';
+  var h='<div class="card" style="background:#ede9fe;border:2px solid #7c3aed;margin-bottom:14px"><div class="ct">Copia de seguridad / Exportar datos</div>';
+  h+='<div style="font-size:.82rem;color:#5b21b6;margin-bottom:10px">Descarga TODOS los datos de la app en un archivo, para guardarlos o compartirlos si hay que revisar algo.</div>';
+  h+='<button class="btn" style="background:#7c3aed;color:#fff" onclick="exportarBackup()">Exportar datos (descargar copia)</button>';
+  h+='<div id="ls-res-exp" style="margin-top:8px;font-size:12px"></div></div>';
+  h+='<div class="card" style="background:#dbeafe;border:2px solid #3b82f6;margin-bottom:14px"><div class="ct">Gestión del Alumnado</div>';
   h+='<div style="font-size:.82rem;color:#1e40af;margin-bottom:10px">Listado completo, grupos por nivel y datos del alumnado.</div>';
   h+='<button class="btn" style="background:#1e40af;color:#fff" onclick="goMod(\'alumnos\',document.getElementById(\'nb-config\'))">Abrir Alumnos</button></div>';
   h+='<div class="card" style="background:#d1fae5;border:2px solid #15803d;margin-bottom:14px"><div class="ct">Sincronizar con SSNet</div>';
