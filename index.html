@@ -2467,12 +2467,37 @@ function updMat(i,k,v){
   DB.hMat[i][k]=parseInt(v)||0;
   save();rHMaterias();
 }
+function updMatV(i,k,v){
+  if(!DB.hMat[i])return;
+  DB.hMat[i][k]=v;
+  save();rHMaterias();
+}
+function updMatB(i,k,v){
+  if(!DB.hMat[i])return;
+  DB.hMat[i][k]=!!v;
+  save();rHMaterias();
+}
+function toggleMatDia(i,dia){
+  var mat=DB.hMat[i]; if(!mat)return;
+  var TODOS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  // Si no hay lista (o estan todos), empezar desde "todos" y quitar el pulsado
+  if(!mat.dias||!mat.dias.length)mat.dias=TODOS.slice();
+  var idx=mat.dias.indexOf(dia);
+  if(idx>=0)mat.dias.splice(idx,1); else mat.dias.push(dia);
+  // Si quedan todos, guardarlo como "sin restriccion" (vacio)
+  if(mat.dias.length>=TODOS.length)mat.dias=[];
+  // No permitir dejar 0 dias: si se queda vacio por quitar, volver a todos
+  save();rHMaterias();
+}
 function rHMaterias(){
-  var h='<div class="al i" style="margin-bottom:8px"><span>i</span><span><b>BLOQUE</b>: cuantos modulos seguidos da la materia en cada sesion (ej. con modulos de 30 min, poner 2 = sesiones de 1h).<br><b>MAX/DIA</b>: cuantos modulos como maximo puede tener esa materia en un mismo dia (ej. Ingles con bloque 2 y max/dia 2 = 1h al dia).</span></div>';
+  var h='<div class="al i" style="margin-bottom:8px"><span>i</span><span><b>BLOQUE</b>: modulos seguidos por sesion (con modulos de 30 min, 2 = 1h).<br><b>MAX/DIA</b>: maximo de modulos al dia (0 = sin limite).<br><b>Opciones</b>: preferencias que el generador cumple <i>siempre que puede</i> (franja, dias, repartir, prioridad).</span></div>';
+  var DIASM=['Lunes','Martes','Miercoles','Jueves','Viernes'];
   DB.hMat.forEach(function(mat,i){
-    h+='<div class="cfg-i">';
+    h+='<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-bottom:8px">';
+    // Linea 1: color, nombre, bloque, max/dia, borrar
+    h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
     h+='<div style="width:14px;height:14px;border-radius:50%;background:'+mat.c+';border:1px solid rgba(0,0,0,.1);flex-shrink:0"></div>';
-    h+='<div style="flex:1;font-size:13px;font-weight:600">'+mat.n+'</div>';
+    h+='<div style="flex:1;min-width:90px;font-size:13px;font-weight:600">'+mat.n+'</div>';
     h+='<div style="display:flex;align-items:center;gap:4px" title="Modulos seguidos en cada sesion">';
     h+='<span style="font-size:9px;color:#94a3b8;font-weight:700">BLOQUE</span>';
     h+='<select style="font-size:11px;border:1.5px solid #e2e8f0;border-radius:6px;padding:2px" onchange="updMat('+i+',\'blq\',this.value)">';
@@ -2484,6 +2509,28 @@ function rHMaterias(){
     [0,1,2,3,4].forEach(function(v){h+='<option value="'+v+'"'+((parseInt(mat.maxD)||0)===v?' selected':'')+'>'+(v===0?'-':v)+'</option>';});
     h+='</select></div>';
     h+='<button class="btn brd bsm" onclick="delHMat('+i+')">x</button>';
+    h+='</div>';
+    // Linea 2: opciones (franja, repartir, prioridad)
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px dashed #f1f5f9">';
+    h+='<div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:#94a3b8;font-weight:700">FRANJA</span>';
+    h+='<select style="font-size:11px;border:1.5px solid #e2e8f0;border-radius:6px;padding:2px" onchange="updMatV('+i+',\'franja\',this.value)">';
+    [['','Indiferente'],['primera','A primera hora'],['ultima','A ultima hora']].forEach(function(o){
+      h+='<option value="'+o[0]+'"'+((mat.franja||'')===o[0]?' selected':'')+'>'+o[1]+'</option>';
+    });
+    h+='</select></div>';
+    h+='<label class="ck" style="font-size:11px"><input type="checkbox"'+(mat.repartir?' checked':'')+' onchange="updMatB('+i+',\'repartir\',this.checked)" style="width:14px;height:14px"> Repartir</label>';
+    h+='<label class="ck" style="font-size:11px"><input type="checkbox"'+(mat.prio?' checked':'')+' onchange="updMatB('+i+',\'prio\',this.checked)" style="width:14px;height:14px"> Prioritaria</label>';
+    h+='</div>';
+    // Linea 3: dias permitidos
+    h+='<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:6px">';
+    h+='<span style="font-size:9px;color:#94a3b8;font-weight:700">DIAS</span>';
+    var LBLDIA={'Lunes':'L','Martes':'M','Miercoles':'X','Jueves':'J','Viernes':'V'};
+    DIASM.forEach(function(d){
+      var sel=(mat.dias&&mat.dias.length)?mat.dias.indexOf(d)>=0:true;
+      h+='<button onclick="toggleMatDia('+i+',\''+d+'\')" style="font-size:10px;font-weight:700;border:1.5px solid '+(sel?'#15803d':'#e2e8f0')+';background:'+(sel?'#dcfce7':'#fff')+';color:'+(sel?'#15803d':'#94a3b8')+';border-radius:6px;padding:2px 7px;cursor:pointer">'+(LBLDIA[d]||d.charAt(0))+'</button>';
+    });
+    h+='<span style="font-size:9px;color:#cbd5e1;margin-left:2px">(todos = cualquier dia)</span>';
+    h+='</div>';
     h+='</div>';
   });
   h+='<div style="display:flex;gap:7px;margin-top:10px;align-items:flex-end">';
@@ -3260,7 +3307,7 @@ function genHorario(){
         }
       }
     }
-    // Agrupar los modulos de cada materia en bloques
+    // Agrupar los modulos de cada materia en bloques (con sus parametros)
     var porMat={};
     tareas.forEach(function(t){(porMat[t.mId]=porMat[t.mId]||[]).push(t);});
     var bloques=[];
@@ -3271,39 +3318,57 @@ function genHorario(){
       var k=0;
       while(k<lista.length){
         var n=Math.min(tam,lista.length-k);
-        bloques.push({mId:lista[k].mId,pId:lista[k].pId,n:n,maxD:parseInt(mat.maxD)||0});
+        bloques.push({mId:lista[k].mId,pId:lista[k].pId,n:n,maxD:parseInt(mat.maxD)||0,
+          prio:!!mat.prio, franja:mat.franja||'', dias:(mat.dias&&mat.dias.length?mat.dias.slice():null), repartir:!!mat.repartir});
         k+=n;
       }
     });
-    bloques.sort(function(a,b){return b.n-a.n;});
+    // Materias prioritarias primero; luego los bloques mas grandes
+    bloques.sort(function(a,b){return (b.prio?1:0)-(a.prio?1:0) || b.n-a.n;});
     var idxT=[];
     (DB.tramos||[]).forEach(function(t,ti){if(!t.r)idxT.push(ti);});
     var sinSitio=0;
-    bloques.forEach(function(b){
-      var puesto=false;
-      var dias=DIAS2.slice().sort(function(x,y){return _modsDia(b.mId,x)-_modsDia(b.mId,y);});
-      for(var di=0;di<dias.length&&!puesto;di++){
+
+    // Un dia es "adyacente" para una materia si el dia anterior o siguiente ya la tiene (para repartir)
+    function _adyacenteMat(mId,d){
+      var i=DIAS2.indexOf(d);
+      return (i>0&&_modsDia(mId,DIAS2[i-1])>0)||(i<DIAS2.length-1&&_modsDia(mId,DIAS2[i+1])>0);
+    }
+    // Intenta colocar un bloque. respetar=true aplica franja/dias/repartir; false = coloca donde sea.
+    function _colocaBloque(b,respetar){
+      var dias=DIAS2.slice();
+      if(respetar&&b.dias)dias=dias.filter(function(d){return b.dias.indexOf(d)>=0;});
+      dias.sort(function(x,y){
+        var sx=_modsDia(b.mId,x), sy=_modsDia(b.mId,y);
+        if(respetar&&b.repartir){ if(_adyacenteMat(b.mId,x))sx+=10; if(_adyacenteMat(b.mId,y))sy+=10; }
+        return sx-sy;
+      });
+      var maxDef=b.maxD>0?Math.max(b.maxD,b.n):0;
+      for(var di=0;di<dias.length;di++){
         var d=dias[di];
-        // El maximo por dia nunca puede ser menor que el propio bloque (si no, el bloque no cabria nunca).
-        var maxDef=b.maxD>0?Math.max(b.maxD,b.n):0;
         if(maxDef>0&&_modsDia(b.mId,d)+b.n>maxDef)continue;
-        for(var k2=0;k2+b.n<=idxT.length&&!puesto;k2++){
-          var vale=true;
-          for(var j=0;j<b.n;j++){
-            var ti=idxT[k2+j];
-            if(!_libre(d,ti)||maestroOcupado(b.pId,d,ti)){vale=false;break;}
-          }
+        var starts=[];
+        for(var k2=0;k2+b.n<=idxT.length;k2++)starts.push(k2);
+        if(respetar&&b.franja==='ultima')starts.reverse();   // a ultima hora: probar desde el final
+        for(var si=0;si<starts.length;si++){
+          var kk=starts[si], vale=true;
+          for(var j=0;j<b.n;j++){ var ti=idxT[kk+j]; if(!_libre(d,ti)||maestroOcupado(b.pId,d,ti)){vale=false;break;} }
           if(!vale)continue;
           for(var j2=0;j2<b.n;j2++){
-            var ti2=idxT[k2+j2];
+            var ti2=idxT[kk+j2];
             if(!hor[d])hor[d]=[];
             if(!hor[d][ti2])hor[d][ti2]={};
             hor[d][ti2].mId=b.mId;hor[d][ti2].pId=b.pId;hor[d][ti2].tipo='clase';hor[d][ti2].txt='';
             _paralelo(d,ti2,b.mId);
           }
-          puesto=true;
+          return true;
         }
       }
+      return false;
+    }
+    bloques.forEach(function(b){
+      // Primero respetando las preferencias; si no cabe, se coloca igualmente (blando: sin huecos)
+      var puesto=_colocaBloque(b,true)||_colocaBloque(b,false);
       if(!puesto)sinSitio+=b.n;
     });
     if(sinSitio)GEN_AVISOS.push(g.n+': '+sinSitio+' modulos sin hueco');
