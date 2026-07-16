@@ -3308,7 +3308,33 @@ function genHorario(){
 
   });
   save();rHHorario();
-  alert('Horario generado. Revisa y ajusta manualmente si necesitas cambios.');
+
+  // Diagnostico: materias activas con horas pero SIN maestro asignado (no se colocan)
+  var faltan=[];
+  DB.hGrupos.forEach(function(g){
+    var carga=DB.hCarga[g.id]||{};
+    var activas=carga._activas||{};
+    var n=0;
+    DB.hMat.forEach(function(mat){
+      if(mat.n==='Aten.Educativa')return;
+      var hBoja=getBojaH(g.id,mat.id);
+      var cv=carga[mat.id];
+      var horas=hBoja>0?hBoja:(cv&&cv.h?cv.h:0);
+      var activa=activas[mat.id]!==false&&(hBoja>0||(cv&&cv.m));
+      if(horas>0&&activa&&(!cv||!cv.m))n++;
+    });
+    if(n>0)faltan.push(g.n+': '+n+' materia(s) sin maestro');
+  });
+
+  var msg='Horario generado.';
+  if(faltan.length){
+    msg+='\n\nOJO: hay materias activas SIN maestro asignado (por eso quedan huecos). ';
+    msg+='Ve a Horarios > Asignacion y asigna un maestro a cada materia:\n\n'+faltan.slice(0,12).join('\n');
+    if(faltan.length>12)msg+='\n...y '+(faltan.length-12)+' grupo(s) mas';
+  }
+  if(GEN_AVISOS.length)msg+='\n\nSin hueco (revisa a mano): '+GEN_AVISOS.slice(0,8).join(', ');
+  if(!faltan.length&&!GEN_AVISOS.length)msg+=' Revisa y ajusta manualmente si necesitas cambios.';
+  alert(msg);
 }
 
 function imprimirHorario(){
