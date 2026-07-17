@@ -3104,25 +3104,9 @@ function rHHorario(){
   h+='<div id="panel-editor" style="width:220px;flex-shrink:0;position:sticky;top:8px">';
   if(SEL_MODO){
     h+='<div style="background:#fff7ed;border:2px solid #f59e0b;border-radius:10px;padding:12px">';
-    h+='<div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px">Asignar a '+SEL_MULTI.length+' celda(s)</div>';
-    h+='<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px">TIPO</div>';
-    h+='<select class="fi" id="sel-tipo-multi" style="font-size:12px;padding:5px;margin-bottom:6px">';
-    [['clase','Clase (materia + maestro)'],['luciernaga','Ref. Luciernaga'],['coord','Coordinacion'],['reduccion','Reduccion (RH)'],['direccion','Direccion'],['jefatura','Jefatura'],['secretaria','Secretaria'],['libre','Libre / vaciar']].forEach(function(o){
-      h+='<option value="'+o[0]+'">'+o[1]+'</option>';
-    });
-    h+='</select>';
-    h+='<div class="fr"><span class="fl">Materia (si es clase de grupo)</span><select class="fi" id="sel-mat-multi" style="font-size:12px;padding:5px"><option value="">Sin materia</option>';
-    DB.hMat.forEach(function(m){h+='<option value="'+m.id+'">'+m.n+'</option>';});
-    h+='</select></div>';
-    h+='<div class="fr"><span class="fl">Maestro/a</span><select class="fi" id="sel-prof-multi" style="font-size:12px;padding:5px"><option value="">Sin asignar</option>';
-    DB.maestros.filter(function(m){return['PT','AL'].indexOf(m.e)<0;}).forEach(function(m){h+='<option value="'+m.id+'">'+m.n+'</option>';});
-    h+='</select></div>';
-    h+='<div class="ck" style="margin-top:4px"><input type="checkbox" id="sel-fij-multi" checked style="width:15px;height:15px;accent-color:#f59e0b"><span style="font-size:11px">Fijar celdas (el generador no las tocara)</span></div>';
-    h+='<div style="display:flex;gap:5px;margin-top:8px">';
-    h+='<button class="btn bvd bsm" style="flex:1" onclick="aplicarSelMulti()">Aplicar</button>';
-    h+='<button class="btn bgy bsm" onclick="limpiarSelMulti()">Limpiar</button>';
-    h+='</div>';
-    h+='<button class="btn bgy bsm" onclick="toggleSelMulti()" style="width:100%;margin-top:5px">Salir del modo seleccion</button>';
+    h+='<div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:6px">Modo seleccion</div>';
+    h+='<div style="font-size:11px;color:#92400e">Toca las celdas que quieras (se marcan en naranja). Abajo aparecera el panel para asignarlas.</div>';
+    h+='<div style="font-size:12px;font-weight:700;color:#b45309;margin-top:6px">'+SEL_MULTI.length+' celda(s) seleccionada(s)</div>';
     h+='</div>';
   }
   else if(SLOT_ACTIVO){
@@ -3185,6 +3169,31 @@ function rHHorario(){
   h+='</div>'; // fin panel editor
 
   h+='</div>'; // fin layout flex
+
+  // POPUP FIJO ABAJO para asignar en lote (visible tambien en movil)
+  if(SEL_MODO && SEL_MULTI.length>0){
+    h+='<div style="position:fixed;left:50%;transform:translateX(-50%);bottom:70px;z-index:400;background:#fff;border:2px solid #f59e0b;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);padding:12px;width:92%;max-width:360px;max-height:70vh;overflow-y:auto">';
+    h+='<div style="font-weight:800;color:#b45309;font-size:13px;margin-bottom:8px">Asignar a '+SEL_MULTI.length+' celda(s) seleccionada(s)</div>';
+    h+='<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px">TIPO</div>';
+    h+='<select class="fi" id="sel-tipo-multi" style="font-size:13px;padding:6px;margin-bottom:6px;width:100%">';
+    [['clase','Clase (materia + maestro)'],['luciernaga','Ref. Luciernaga'],['coord','Coordinacion'],['reduccion','Reduccion (RH)'],['direccion','Direccion'],['jefatura','Jefatura'],['secretaria','Secretaria'],['libre','Libre / vaciar']].forEach(function(o){
+      h+='<option value="'+o[0]+'">'+o[1]+'</option>';
+    });
+    h+='</select>';
+    h+='<div class="fr"><span class="fl">Materia (si es clase de grupo)</span><select class="fi" id="sel-mat-multi" style="font-size:13px;padding:6px"><option value="">Sin materia</option>';
+    DB.hMat.forEach(function(m){h+='<option value="'+m.id+'">'+m.n+'</option>';});
+    h+='</select></div>';
+    h+='<div class="fr"><span class="fl">Maestro/a</span><select class="fi" id="sel-prof-multi" style="font-size:13px;padding:6px"><option value="">Sin asignar</option>';
+    DB.maestros.filter(function(m){return['PT','AL'].indexOf(m.e)<0;}).forEach(function(m){h+='<option value="'+m.id+'">'+m.n+'</option>';});
+    h+='</select></div>';
+    h+='<div class="ck" style="margin-top:6px"><input type="checkbox" id="sel-fij-multi" checked style="width:16px;height:16px;accent-color:#f59e0b"><span style="font-size:12px">Fijar celdas (el generador no las tocara)</span></div>';
+    h+='<div style="display:flex;gap:6px;margin-top:10px">';
+    h+='<button class="btn bvd" style="flex:1;padding:9px" onclick="aplicarSelMulti()">Aplicar a las '+SEL_MULTI.length+'</button>';
+    h+='<button class="btn bgy" onclick="limpiarSelMulti()">Limpiar</button>';
+    h+='</div>';
+    h+='<button class="btn bgy bsm" onclick="toggleSelMulti()" style="width:100%;margin-top:6px">Salir del modo seleccion</button>';
+    h+='</div>';
+  }
 
   document.getElementById('s-hhorario').innerHTML=h;
 }
