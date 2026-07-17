@@ -2490,7 +2490,8 @@ function toggleMatDia(i,dia){
   save();rHMaterias();
 }
 function rHMaterias(){
-  var h='<div class="al i" style="margin-bottom:8px"><span>i</span><span><b>BLOQUE</b>: modulos seguidos por sesion (con modulos de 30 min, 2 = 1h).<br><b>MAX/DIA</b>: maximo de modulos al dia (0 = sin limite).<br><b>Opciones</b>: preferencias que el generador cumple <i>siempre que puede</i> (franja, dias, repartir, prioridad).</span></div>';
+  var durModM=(DB.tramos.filter(function(t){return !t.r;})[0]||{dur:45}).dur;
+  var h='<div class="al i" style="margin-bottom:8px"><span>i</span><span><b>SESION</b>: duracion preferida de cada sesion. El generador reparte las horas de la materia en sesiones de ese tamano y el resto lo une a otra sesion (una materia de 1,5h saldra como 1,5h o 1h+0,5h, nunca 0,5h sueltos varios dias).<br><b>MAX/DIA</b>: maximo al dia (0 = sin limite).<br><b>Opciones</b>: preferencias que el generador cumple <i>siempre que puede</i> (franja, dias, repartir, prioridad).</span></div>';
   var DIASM=['Lunes','Martes','Miercoles','Jueves','Viernes'];
   DB.hMat.forEach(function(mat,i){
     h+='<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-bottom:8px">';
@@ -2498,10 +2499,11 @@ function rHMaterias(){
     h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
     h+='<div style="width:14px;height:14px;border-radius:50%;background:'+mat.c+';border:1px solid rgba(0,0,0,.1);flex-shrink:0"></div>';
     h+='<div style="flex:1;min-width:90px;font-size:13px;font-weight:600">'+mat.n+'</div>';
-    h+='<div style="display:flex;align-items:center;gap:4px" title="Modulos seguidos en cada sesion">';
-    h+='<span style="font-size:9px;color:#94a3b8;font-weight:700">BLOQUE</span>';
-    h+='<select style="font-size:11px;border:1.5px solid #e2e8f0;border-radius:6px;padding:2px" onchange="updMat('+i+',\'blq\',this.value)">';
-    [1,2,3,4].forEach(function(v){h+='<option value="'+v+'"'+((parseInt(mat.blq)||1)===v?' selected':'')+'>'+v+'</option>';});
+    h+='<div style="display:flex;align-items:center;gap:4px" title="Duracion preferida de cada sesion. El generador reparte la carga en sesiones de este tamano, siempre que puede.">';
+    h+='<span style="font-size:9px;color:#94a3b8;font-weight:700">SESION</span>';
+    h+='<select style="font-size:11px;border:1.5px solid #e2e8f0;border-radius:6px;padding:2px" onchange="updMat('+i+',\'sesionMin\',this.value)">';
+    var sesActual=parseInt(mat.sesionMin)||((parseInt(mat.blq)||1)*durModM);
+    [[30,'30 min'],[60,'1 h'],[90,'1,5 h'],[120,'2 h']].forEach(function(o){h+='<option value="'+o[0]+'"'+(sesActual===o[0]?' selected':'')+'>'+o[1]+'</option>';});
     h+='</select></div>';
     h+='<div style="display:flex;align-items:center;gap:4px" title="Maximo de modulos de esta materia al dia (0 = sin limite)">';
     h+='<span style="font-size:9px;color:#94a3b8;font-weight:700">MAX/DIA</span>';
@@ -3314,14 +3316,27 @@ function genHorario(){
     Object.keys(porMat).forEach(function(mid){
       var lista=porMat[mid];
       var mat=_matDe(mid);
-      var tam=Math.max(1,parseInt(mat.blq)||1);
-      var k=0;
-      while(k<lista.length){
-        var n=Math.min(tam,lista.length-k);
-        bloques.push({mId:lista[k].mId,pId:lista[k].pId,n:n,maxD:parseInt(mat.maxD)||0,
-          prio:!!mat.prio, franja:mat.franja||'', dias:(mat.dias&&mat.dias.length?mat.dias.slice():null), repartir:!!mat.repartir});
-        k+=n;
+      // Duracion de sesion preferida (en modulos): mat.sesionMin (minutos) o, si no, el antiguo BLOQUE
+      var sesMin=parseInt(mat.sesionMin)|| ((parseInt(mat.blq)||1)*durMod);
+      var S=Math.max(1,Math.round(sesMin/durMod));
+      var T=lista.length;
+      // Reparto natural: sesiones enteras de tamano S; el resto se une a la ultima sesion
+      // (asi una materia de 1,5h sale como 1,5h o 1h+0,5h, nunca 0,5h x3).
+      var sizes=[];
+      if(T>0){
+        if(T<=S)sizes=[T];
+        else{
+          var kk=Math.floor(T/S), rem=T%S;
+          for(var q=0;q<kk;q++)sizes.push(S);
+          if(rem>0)sizes[sizes.length-1]+=rem;
+        }
       }
+      var pos=0;
+      sizes.forEach(function(sz){
+        bloques.push({mId:lista[pos].mId,pId:lista[pos].pId,n:sz,maxD:parseInt(mat.maxD)||0,
+          prio:!!mat.prio, franja:mat.franja||'', dias:(mat.dias&&mat.dias.length?mat.dias.slice():null), repartir:!!mat.repartir});
+        pos+=sz;
+      });
     });
     // Materias prioritarias primero; luego los bloques mas grandes
     bloques.sort(function(a,b){return (b.prio?1:0)-(a.prio?1:0) || b.n-a.n;});
