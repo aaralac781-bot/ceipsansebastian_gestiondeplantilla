@@ -2943,6 +2943,8 @@ var HOR_PAG=0;
 var SLOT_ACTIVO=null;
 var HOR_VISTA='grupos';
 var HOR_PAG=0;
+var SEL_MODO=false;      // seleccion multiple de celdas activada
+var SEL_MULTI=[];        // celdas seleccionadas [{key,eid,dia,ti,esGrupo}]
 
 /* SLOT_TIPOS unificado arriba */
 
@@ -2989,6 +2991,7 @@ function renderCelda(slot,t,eid,dia,ti,esGrupo){
     }
   }
   var border=isActive?'2px solid #1d4ed8':'1px solid #e2e8f0';
+  if(celdaSeleccionada(eid,dia,ti,esGrupo)){border='2px solid #f59e0b';bg='#fef3c7';}
   var out='<td style="background:'+bg+';color:'+tc+';padding:2px 3px;border:'+border+';cursor:pointer;min-width:34px;min-height:26px;vertical-align:top;word-break:break-word"';
   out+=' data-eid="'+eid+'" data-dia="'+dia+'" data-ti="'+ti+'" data-esgrupo="'+(esGrupo?'1':'0')+'"';
   out+=' onclick="celdaClick(this)">';
@@ -3031,9 +3034,11 @@ function rHHorario(){
   h+='<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">';
   h+='<button class="btn bvd bsm" onclick="genHorario()">Generar automatico</button>';
   h+='<button class="btn bgy bsm" onclick="limpiarHorario()">Limpiar no fijadas</button>';
+  h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0f9d58;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarSheets()">Exportar a Sheets</button>';
   h+='</div>';
+  if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
 
   // Layout: horarios a la izquierda, panel editor flotante a la derecha
   h+='<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">';
@@ -3097,7 +3102,30 @@ function rHHorario(){
 
   // PANEL EDITOR - derecha, sticky
   h+='<div id="panel-editor" style="width:220px;flex-shrink:0;position:sticky;top:8px">';
-  if(SLOT_ACTIVO){
+  if(SEL_MODO){
+    h+='<div style="background:#fff7ed;border:2px solid #f59e0b;border-radius:10px;padding:12px">';
+    h+='<div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:8px">Asignar a '+SEL_MULTI.length+' celda(s)</div>';
+    h+='<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px">TIPO</div>';
+    h+='<select class="fi" id="sel-tipo-multi" style="font-size:12px;padding:5px;margin-bottom:6px">';
+    [['clase','Clase (materia + maestro)'],['luciernaga','Ref. Luciernaga'],['coord','Coordinacion'],['reduccion','Reduccion (RH)'],['direccion','Direccion'],['jefatura','Jefatura'],['secretaria','Secretaria'],['libre','Libre / vaciar']].forEach(function(o){
+      h+='<option value="'+o[0]+'">'+o[1]+'</option>';
+    });
+    h+='</select>';
+    h+='<div class="fr"><span class="fl">Materia (si es clase de grupo)</span><select class="fi" id="sel-mat-multi" style="font-size:12px;padding:5px"><option value="">Sin materia</option>';
+    DB.hMat.forEach(function(m){h+='<option value="'+m.id+'">'+m.n+'</option>';});
+    h+='</select></div>';
+    h+='<div class="fr"><span class="fl">Maestro/a</span><select class="fi" id="sel-prof-multi" style="font-size:12px;padding:5px"><option value="">Sin asignar</option>';
+    DB.maestros.filter(function(m){return['PT','AL'].indexOf(m.e)<0;}).forEach(function(m){h+='<option value="'+m.id+'">'+m.n+'</option>';});
+    h+='</select></div>';
+    h+='<div class="ck" style="margin-top:4px"><input type="checkbox" id="sel-fij-multi" checked style="width:15px;height:15px;accent-color:#f59e0b"><span style="font-size:11px">Fijar celdas (el generador no las tocara)</span></div>';
+    h+='<div style="display:flex;gap:5px;margin-top:8px">';
+    h+='<button class="btn bvd bsm" style="flex:1" onclick="aplicarSelMulti()">Aplicar</button>';
+    h+='<button class="btn bgy bsm" onclick="limpiarSelMulti()">Limpiar</button>';
+    h+='</div>';
+    h+='<button class="btn bgy bsm" onclick="toggleSelMulti()" style="width:100%;margin-top:5px">Salir del modo seleccion</button>';
+    h+='</div>';
+  }
+  else if(SLOT_ACTIVO){
     var sa=SLOT_ACTIVO;
     var t3=DB.tramos[sa.ti]||{};
     var entNombre='';
@@ -3172,9 +3200,60 @@ function celdaClick(el){
     var m=DB.maestros.find(function(m){return String(m.id)===eid;});
     if(m)eid=m.id;
   }
+  if(SEL_MODO){
+    var key=eid+'|'+dia+'|'+ti+'|'+(esGrupo?1:0);
+    var idx=-1;
+    for(var i=0;i<SEL_MULTI.length;i++){if(SEL_MULTI[i].key===key){idx=i;break;}}
+    if(idx>=0)SEL_MULTI.splice(idx,1); else SEL_MULTI.push({key:key,eid:eid,dia:dia,ti:ti,esGrupo:esGrupo});
+    rHHorario();
+    return;
+  }
   SLOT_ACTIVO={eid:eid,dia:dia,ti:ti,esGrupo:esGrupo};
   rHHorario();
 }
+
+function toggleSelMulti(){
+  SEL_MODO=!SEL_MODO;
+  if(!SEL_MODO)SEL_MULTI=[];
+  else SLOT_ACTIVO=null;
+  rHHorario();
+}
+
+function celdaSeleccionada(eid,dia,ti,esGrupo){
+  if(!SEL_MODO)return false;
+  for(var i=0;i<SEL_MULTI.length;i++){
+    var c=SEL_MULTI[i];
+    if(String(c.eid)===String(eid)&&c.dia===dia&&c.ti===ti&&c.esGrupo===esGrupo)return true;
+  }
+  return false;
+}
+
+function aplicarSelMulti(){
+  if(SEL_MULTI.length===0){alert('No has seleccionado ninguna celda.');return;}
+  var matEl=document.getElementById('sel-mat-multi');
+  var profEl=document.getElementById('sel-prof-multi');
+  var tipoEl=document.getElementById('sel-tipo-multi');
+  var fijEl=document.getElementById('sel-fij-multi');
+  var mId=matEl&&matEl.value?matEl.value:null;
+  var pId=profEl&&profEl.value?parseInt(profEl.value):null;
+  var tipo=tipoEl?tipoEl.value:'clase';
+  var fij=fijEl?fijEl.checked:false;
+  SEL_MULTI.forEach(function(c){
+    var hor=c.esGrupo?getHorGrupo(c.eid):getHorMaePropio(c.eid);
+    if(!hor[c.dia]||!hor[c.dia][c.ti])return;
+    var s=hor[c.dia][c.ti];
+    if(s.r)return; // recreo, no tocar
+    if(tipo==='clase'){
+      s.tipo='clase'; s.mId=(c.esGrupo?mId:null); s.pId=pId; s.txt='';
+    } else {
+      s.tipo=tipo; s.mId=null; s.pId=(tipo==='clase'?pId:null); s.txt='';
+    }
+    s.fij=fij;
+  });
+  SEL_MULTI=[]; save(); rHHorario();
+}
+
+function limpiarSelMulti(){ SEL_MULTI=[]; rHHorario(); }
 
 function setSlotTipo(btn){
   if(!SLOT_ACTIVO)return;
