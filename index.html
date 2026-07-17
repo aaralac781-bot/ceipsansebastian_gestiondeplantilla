@@ -3389,6 +3389,48 @@ function genHorario(){
     if(sinSitio)GEN_AVISOS.push(g.n+': '+sinSitio+' modulos sin hueco');
 
   });
+
+  // Rellenar el horario PROPIO de cada maestro para que no quede ningun hueco:
+  // primero Coordinacion, luego Reduccion horaria (RH) y el resto Ref/Luciernaga
+  // (esas horas libres viajan al modulo Luciernaga automaticamente).
+  var DIAS3=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var durMod3=(DB.tramos.filter(function(t){return !t.r;})[0]||{dur:45}).dur;
+  function _daClaseEn(mid,d,ti){
+    for(var gi=0;gi<DB.hGrupos.length;gi++){
+      var hh=DB.hHor[DB.hGrupos[gi].id];
+      if(hh&&hh[d]&&hh[d][ti]&&String(hh[d][ti].pId)===String(mid))return true;
+    }
+    return false;
+  }
+  (DB.maestros||[]).forEach(function(m){
+    if(['PT','AL'].indexOf(m.e)>=0)return;
+    var hp=getHorMaePropio(m.id);
+    // limpiar auto-rellenos previos no fijados
+    DIAS3.forEach(function(d){
+      (hp[d]||[]).forEach(function(s){
+        if(s&&!s.fij&&['coord','reduccion','luciernaga'].indexOf(s.tipo)>=0){s.tipo='libre';s.txt='';s.mId=null;s.pId=null;}
+      });
+    });
+    var coordMods=Math.round(hCoordTotal(m)*60/durMod3);
+    var rhMods=Math.round(((m.rC||0)+(m.rE||0)+(m.rJ||0))*60/durMod3);
+    DIAS3.forEach(function(d){
+      (DB.tramos||[]).forEach(function(t,ti){
+        if(t.r)return;
+        if(_daClaseEn(m.id,d,ti))return;           // esta dando clase en un grupo
+        if(!hp[d]||!hp[d][ti])return;
+        var s=hp[d][ti];
+        if(s.fij)return;                            // celda fijada a mano: no se toca
+        if(s.tipo&&s.tipo!=='libre'&&s.tipo!=='clase')return; // ya tiene algo puesto a mano
+        var tipo;
+        if(coordMods>0){tipo='coord';coordMods--;}
+        else if(rhMods>0){tipo='reduccion';rhMods--;}
+        else tipo='luciernaga';
+        s.tipo=tipo; s.mId=null; s.pId=null;
+        s.txt = tipo==='reduccion'?'RH':(tipo==='coord'?'Coordinacion':'');
+      });
+    });
+  });
+
   save();rHHorario();
 
   // Diagnostico: materias activas con horas pero SIN maestro asignado (no se colocan)
