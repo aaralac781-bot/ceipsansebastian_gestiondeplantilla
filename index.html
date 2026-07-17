@@ -3100,16 +3100,17 @@ function rHHorario(){
 
   h+='</div>'; // fin columna izquierda
 
-  // PANEL EDITOR - derecha, sticky
-  h+='<div id="panel-editor" style="width:220px;flex-shrink:0;position:sticky;top:8px">';
-  if(SEL_MODO){
-    h+='<div style="background:#fff7ed;border:2px solid #f59e0b;border-radius:10px;padding:12px">';
-    h+='<div style="font-weight:800;color:#b45309;font-size:12px;margin-bottom:6px">Modo seleccion</div>';
-    h+='<div style="font-size:11px;color:#92400e">Toca las celdas que quieras (se marcan en naranja). Abajo aparecera el panel para asignarlas.</div>';
-    h+='<div style="font-size:12px;font-weight:700;color:#b45309;margin-top:6px">'+SEL_MULTI.length+' celda(s) seleccionada(s)</div>';
-    h+='</div>';
-  }
-  else if(SLOT_ACTIVO){
+  // PANEL EDITOR lateral: solo una pista; el editor real es un popup flotante (abajo)
+  h+='<div id="panel-editor" style="width:200px;flex:0 1 200px">';
+  h+='<div style="background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px;padding:12px;text-align:center;color:#94a3b8;font-size:11px">';
+  if(SEL_MODO)h+='Modo seleccion: toca celdas y usa el panel flotante de abajo.';
+  else h+='Pulsa una celda y se abrira un panel flotante para editarla sin perder de vista las tablas.';
+  h+='</div></div>';
+
+  h+='</div>'; // fin layout flex
+
+  // POPUP FLOTANTE del editor de UNA celda (siempre a la vista, no hay que subir/bajar)
+  if(SLOT_ACTIVO && !SEL_MODO){
     var sa=SLOT_ACTIVO;
     var t3=DB.tramos[sa.ti]||{};
     var entNombre='';
@@ -3123,52 +3124,46 @@ function rHHorario(){
     var hor2=sa.esGrupo?getHorGrupo(sa.eid):getHorMaePropio(sa.eid);
     var slot2=(hor2[sa.dia]&&hor2[sa.dia][sa.ti])?hor2[sa.dia][sa.ti]:{tipo:'clase'};
 
-    h+='<div style="background:#dbeafe;border:2px solid #1d4ed8;border-radius:10px;padding:12px">';
-    h+='<div style="font-weight:800;color:#1d4ed8;font-size:12px;margin-bottom:8px">'+entNombre+'<br><span style="font-size:10px;font-weight:600">'+sa.dia+' '+fmt(t3.ini)+'</span></div>';
+    h+='<div id="pop-editor-slot" style="position:fixed;left:50%;transform:translateX(-50%);bottom:70px;z-index:400;background:#fff;border:2px solid #1d4ed8;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.28);padding:12px;width:92%;max-width:360px;max-height:72vh;overflow-y:auto">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    h+='<div style="font-weight:800;color:#1d4ed8;font-size:13px">'+entNombre+' <span style="font-size:11px;font-weight:600;color:#64748b">'+sa.dia+' '+fmt(t3.ini)+'</span></div>';
+    h+='<button onclick="SLOT_ACTIVO=null;rHHorario()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1">&times;</button>';
+    h+='</div>';
 
-    // Tipo de franja
     h+='<div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px">TIPO</div>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:8px">';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
     Object.keys(SLOT_TIPOS).forEach(function(k){
       var st=SLOT_TIPOS[k];
       var sel=(slot2.tipo||'clase')===k;
-      h+='<button style="padding:3px 7px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;border:1.5px solid '+(sel?'#1d4ed8':'#e2e8f0')+';background:'+(sel?'#1d4ed8':st.bg||'#f8fafc')+';color:'+(sel?'#fff':st.c||'#374151')+'" data-tipo="'+k+'" onclick="setSlotTipo(this)">'+st.label+'</button>';
+      h+='<button style="padding:4px 8px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid '+(sel?'#1d4ed8':'#e2e8f0')+';background:'+(sel?'#1d4ed8':st.bg||'#f8fafc')+';color:'+(sel?'#fff':st.c||'#374151')+'" data-tipo="'+k+'" onclick="setSlotTipo(this)">'+st.label+'</button>';
     });
     h+='</div>';
 
     var tipoActual=slot2.tipo||'clase';
     if(tipoActual==='clase'&&sa.esGrupo){
-      h+='<div class="fr"><span class="fl">Materia</span><select class="fi" id="slot-mat" style="font-size:12px;padding:5px">';
+      h+='<div class="fr"><span class="fl">Materia</span><select class="fi" id="slot-mat" style="font-size:13px;padding:6px">';
       h+='<option value="">Libre</option>';
       DB.hMat.forEach(function(m){h+='<option value="'+m.id+'"'+(slot2.mId===m.id?' selected':'')+'>'+m.n+'</option>';});
       h+='</select></div>';
-      h+='<div class="fr"><span class="fl">Maestro/a</span><select class="fi" id="slot-prof" style="font-size:12px;padding:5px">';
+      h+='<div class="fr"><span class="fl">Maestro/a</span><select class="fi" id="slot-prof" style="font-size:13px;padding:6px">';
       h+='<option value="">Sin asignar</option>';
       DB.maestros.filter(function(m){return['PT','AL'].indexOf(m.e)<0;}).forEach(function(m){
         h+='<option value="'+m.id+'"'+(String(slot2.pId)===String(m.id)?' selected':'')+'>'+m.n+'</option>';
       });
       h+='</select></div>';
-      h+='<div class="fr"><span class="fl">Texto</span><input class="fi" type="text" id="slot-txt" value="'+(slot2.txt||'')+'" placeholder="Asamblea..." style="font-size:12px"></div>';
+      h+='<div class="fr"><span class="fl">Texto</span><input class="fi" type="text" id="slot-txt" value="'+(slot2.txt||'')+'" placeholder="Asamblea..." style="font-size:13px"></div>';
     }else{
-      h+='<div class="fr"><span class="fl">Descripcion</span><input class="fi" type="text" id="slot-txt" value="'+(slot2.txt||'')+'" placeholder="'+(SLOT_TIPOS[tipoActual]||{label:''}).label+'..." style="font-size:12px"></div>';
+      h+='<div class="fr"><span class="fl">Descripcion</span><input class="fi" type="text" id="slot-txt" value="'+(slot2.txt||'')+'" placeholder="'+(SLOT_TIPOS[tipoActual]||{label:''}).label+'..." style="font-size:13px"></div>';
     }
 
-    h+='<div class="ck" style="margin-top:4px"><input type="checkbox" id="slot-fij"'+(slot2.fij?' checked':'')+' style="width:15px;height:15px;accent-color:#1d4ed8"><span style="font-size:11px">Fijar celda</span></div>';
+    h+='<div class="ck" style="margin-top:6px"><input type="checkbox" id="slot-fij"'+(slot2.fij?' checked':'')+' style="width:16px;height:16px;accent-color:#1d4ed8"><span style="font-size:12px">Fijar celda</span></div>';
 
-    h+='<div style="display:flex;gap:5px;margin-top:8px">';
-    h+='<button class="btn bvd bsm" onclick="guardarSlot()" style="flex:1">Guardar</button>';
-    h+='<button class="btn brd bsm" onclick="vaciarSlot()">X</button>';
+    h+='<div style="display:flex;gap:6px;margin-top:10px">';
+    h+='<button class="btn bvd" style="flex:1;padding:9px" onclick="guardarSlot()">Guardar</button>';
+    h+='<button class="btn brd" onclick="vaciarSlot()">Vaciar</button>';
     h+='</div>';
-    h+='<button class="btn bgy bsm" onclick="SLOT_ACTIVO=null;rHHorario()" style="width:100%;margin-top:5px">Cerrar</button>';
-    h+='</div>';
-  }else{
-    h+='<div style="background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px;padding:12px;text-align:center;color:#94a3b8;font-size:11px">';
-    h+='Pulsa cualquier celda del horario para editarla';
     h+='</div>';
   }
-  h+='</div>'; // fin panel editor
-
-  h+='</div>'; // fin layout flex
 
   // POPUP FIJO ABAJO para asignar en lote (visible tambien en movil)
   if(SEL_MODO && SEL_MULTI.length>0){
