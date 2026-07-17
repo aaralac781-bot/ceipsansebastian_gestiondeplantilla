@@ -1927,11 +1927,25 @@ function renderSust(){
         if(!mF3){h+='<td style="border:1px solid #e2e8f0"></td>';return;}
         var key=String(mFId)+'_'+ti;
         var cel=tbl[key]||{};
+        if(cel.libre){
+          // El ausente no daba clase a esa hora: nada que cubrir
+          h+='<td style="padding:3px 6px;border:1px solid #e2e8f0;background:#f8fafc;text-align:center;color:#cbd5e1;font-size:12px">&mdash;</td>';
+          return;
+        }
         var sust=cel.sust||'';
         var grp=cel.grupo||'';
-        h+='<td style="padding:3px 6px;border:1px solid #e2e8f0;cursor:pointer;background:'+(sust?'#f0fdf4':'#fff')+'" data-key="'+key+'" data-dia="'+SUST_DIA+'" onclick="abrirCelda(this)">';
-        if(sust){h+='<div style="font-weight:600;font-size:11px">'+sust+'</div>';if(grp)h+='<div style="font-size:9px;color:#64748b">'+grp+'</div>';}
-        else{h+='<span style="color:#cbd5e1;font-size:10px">Asignar...</span>';}
+        var nota=cel.txt||'';
+        var bg=sust?'#f0fdf4':(cel.sinCubrir?'#fff5f5':'#fff');
+        h+='<td style="padding:3px 6px;border:1px solid #e2e8f0;cursor:pointer;background:'+bg+'" data-key="'+key+'" data-dia="'+SUST_DIA+'" onclick="abrirCelda(this)">';
+        if(grp)h+='<div style="font-size:9px;color:#64748b">'+grp+'</div>';
+        if(sust){
+          h+='<div style="font-weight:700;font-size:11px;color:#15803d">'+sust+'</div>';
+          if(nota)h+='<div style="font-size:8px;color:#94a3b8">'+nota+'</div>';
+        } else if(cel.sinCubrir){
+          h+='<div style="font-weight:700;font-size:10px;color:#dc2626">Sin cubrir</div>';
+        } else {
+          h+='<span style="color:#cbd5e1;font-size:10px">Asignar...</span>';
+        }
         h+='</td>';
       });
       h+='</tr>';
@@ -2000,11 +2014,14 @@ function _sustParaleloRelig(faltaId,dia,ti){
 }
 // Orden de preferencia: 1 Luciernaga · 2 Maestro de refuerzo · 3 Hora libre
 // · 4 Coordinacion · 5 ZTS · 6 Jefatura/Secretaria · 7 Director (ultimo)
-function _sustMejor(dia,ti,carga){
+function _sustMejor(dia,ti,carga,usados){
+  usados=usados||{};
   var cands=[];
   DB.maestros.forEach(function(m){
     if(SUST_FALTAN.indexOf(m.id)>=0)return;
-    if(_sustOcupado(m.id,dia,ti))return;
+    if(usados[String(m.id)])return;         // ya cubre otra ausencia a esta misma hora
+    if(['PT','AL'].indexOf(m.e)>=0)return;   // PT/AL no sustituyen
+    if(_sustOcupado(m.id,dia,ti))return;     // esta dando clase
     var sp=_sustSlotPropio(m.id,dia,ti);
     var tipo=(sp&&sp.tipo)||'';
     if(tipo==='reduccion')return; // reduccion: no se toca
@@ -2027,27 +2044,38 @@ function genTabla(){
   var dia=SUST_DIA;
   var carga={};
   var sinCubrir=0;
-  SUST_FALTAN.forEach(function(mFId){
-    var mF=DB.maestros.find(function(m){return m.id===mFId;});
-    if(!mF)return;
-    (DB.tramos||[]).forEach(function(t,ti){
-      if(t.r)return;
+  // Recorremos por TRAMO y, dentro, cada ausente: asi un mismo sustituto no
+  // cubre a dos ausentes a la vez (se marca en "usados" por tramo).
+  (DB.tramos||[]).forEach(function(t,ti){
+    if(t.r)return;
+    var usados={};
+    // respetar sustitutos ya puestos a mano en este tramo
+    SUST_FALTAN.forEach(function(mFId){
+      var cel=tbl[String(mFId)+'_'+ti];
+      if(cel&&cel.sustId)usados[String(cel.sustId)]=true;
+    });
+    SUST_FALTAN.forEach(function(mFId){
       var key=String(mFId)+'_'+ti;
-      if(tbl[key]&&tbl[key].sust)return;
+      if(tbl[key]&&tbl[key].sust)return;   // respetar lo puesto a mano
       // Solo hace falta sustituto si el maestro TENIA clase en ese tramo
       var grupo=_sustGrupoDe(mFId,dia,ti);
-      if(!grupo){delete tbl[key];return;}
-      var nota='';
+      if(!grupo){ tbl[key]={libre:true}; return; }   // no da clase: nada que cubrir
       var elegido=_sustParaleloRelig(mFId,dia,ti);
+      var nota='';
       if(elegido)nota='Se queda con todo el grupo';
-      else elegido=_sustMejor(dia,ti,carga);
-      if(!elegido)sinCubrir++;
-      tbl[key]={tipo:'sust',sust:elegido?elegido.n:'',grupo:grupo,txt:nota};
-      if(elegido)carga[elegido.id]=(carga[elegido.id]||0)+1;
+      else elegido=_sustMejor(dia,ti,carga,usados);
+      if(elegido){
+        usados[String(elegido.id)]=true;
+        carga[elegido.id]=(carga[elegido.id]||0)+1;
+        tbl[key]={tipo:'sust',sustId:elegido.id,sust:elegido.n,grupo:grupo,txt:nota};
+      } else {
+        sinCubrir++;
+        tbl[key]={tipo:'sust',sust:'',grupo:grupo,txt:'',sinCubrir:true};
+      }
     });
   });
   saveSust(SUST_DIA,tbl);renderSust();
-  if(sinCubrir)alert('\u26A0\uFE0F '+sinCubrir+' tramos sin nadie disponible.\nRevisa la tabla y asigna a mano.');
+  if(sinCubrir)alert('\u26A0\uFE0F '+sinCubrir+' tramo(s) con clase y sin nadie libre para cubrir.\nRevisa la tabla y asigna a mano.');
 }
 function limpTabla(){saveSust(SUST_DIA,{});SUST_FALTAN=[];renderSust();}
 function abrirCelda(el){
@@ -2077,7 +2105,13 @@ function guardarCeldaEl(el){
   var txt=(document.getElementById('txt-sc')||{}).value||'';
   var tbl=loadSust(dia);
   if(!tbl[key])tbl[key]={};
-  tbl[key].sust=sust;tbl[key].txt=txt||sust;
+  delete tbl[key].libre; delete tbl[key].sinCubrir;   // al tocar a mano deja de ser "no da clase"
+  var nombre=sust||txt;
+  tbl[key].sust=nombre;
+  tbl[key].txt=(txt&&txt!==sust)?txt:'';
+  var m=DB.maestros.find(function(x){return x.n===nombre;});
+  tbl[key].sustId=m?m.id:null;
+  if(!nombre)tbl[key].sinCubrir=true;                 // se dejo "Sin cubrir" a proposito
   saveSust(dia,tbl);cerrarCelda();renderSust();
 }
 function cerrarCelda(){var p=document.getElementById('psc');if(p)p.remove();}
