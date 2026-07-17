@@ -3487,11 +3487,13 @@ function genHorario(){
     // limpiar auto-rellenos previos no fijados
     DIAS3.forEach(function(d){
       (hp[d]||[]).forEach(function(s){
-        if(s&&!s.fij&&['coord','reduccion','luciernaga'].indexOf(s.tipo)>=0){s.tipo='libre';s.txt='';s.mId=null;s.pId=null;}
+        if(s&&!s.fij&&['coord','reduccion','luciernaga','direccion','jefatura','secretaria'].indexOf(s.tipo)>=0){s.tipo='libre';s.txt='';s.mId=null;s.pId=null;}
       });
     });
     var coordMods=Math.round(hCoordTotal(m)*60/durMod3);
-    var rhMods=Math.round(((m.rC||0)+(m.rE||0)+(m.rJ||0))*60/durMod3);
+    var cargoMods=Math.round((m.rC||0)*60/durMod3);                 // horas de cargo (direccion/jefatura/secretaria)
+    var rhMods=Math.round(((m.rE||0)+(m.rJ||0))*60/durMod3);        // reduccion horaria (edad + jornada)
+    var cargoTipo=m.cargo==='Director'?'direccion':m.cargo==='Jefe de Estudios'?'jefatura':m.cargo==='Secretario'?'secretaria':'reduccion';
     DIAS3.forEach(function(d){
       (DB.tramos||[]).forEach(function(t,ti){
         if(t.r)return;
@@ -3502,10 +3504,11 @@ function genHorario(){
         if(s.tipo&&s.tipo!=='libre'&&s.tipo!=='clase')return; // ya tiene algo puesto a mano
         var tipo;
         if(coordMods>0){tipo='coord';coordMods--;}
+        else if(cargoMods>0){tipo=cargoTipo;cargoMods--;}
         else if(rhMods>0){tipo='reduccion';rhMods--;}
         else tipo='luciernaga';
         s.tipo=tipo; s.mId=null; s.pId=null;
-        s.txt = tipo==='reduccion'?'RH':(tipo==='coord'?'Coordinacion':'');
+        s.txt = tipo==='reduccion'?'RH':(tipo==='coord'?'Coordinacion':(SLOT_TIPOS[tipo]?SLOT_TIPOS[tipo].label:''));
       });
     });
   });
