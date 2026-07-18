@@ -3123,6 +3123,7 @@ function rHHorario(){
   h+='<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">';
   h+='<button class="btn bvd bsm" onclick="genHorario()">Generar automatico</button>';
   h+='<button class="btn bgy bsm" onclick="limpiarHorario()">Limpiar no fijadas</button>';
+  h+='<button class="btn bsm" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5" onclick="limpiarFijadas()">Limpiar fijadas</button>';
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
@@ -3274,8 +3275,9 @@ function rHHorario(){
     h+='<div class="ck" style="margin-top:6px"><input type="checkbox" id="sel-fij-multi" checked style="width:16px;height:16px;accent-color:#f59e0b"><span style="font-size:12px">Fijar celdas (el generador no las tocara)</span></div>';
     h+='<div style="display:flex;gap:6px;margin-top:10px">';
     h+='<button class="btn bvd" style="flex:1;padding:9px" onclick="aplicarSelMulti()">Aplicar a las '+SEL_MULTI.length+'</button>';
-    h+='<button class="btn bgy" onclick="limpiarSelMulti()">Limpiar</button>';
+    h+='<button class="btn bgy" onclick="limpiarSelMulti()">Quitar sel.</button>';
     h+='</div>';
+    h+='<button class="btn bsm" style="width:100%;margin-top:6px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5" onclick="borrarSelMulti()">Vaciar las '+SEL_MULTI.length+' celda(s) (aunque esten fijadas)</button>';
     h+='<button class="btn bgy bsm" onclick="toggleSelMulti()" style="width:100%;margin-top:6px">Salir del modo seleccion</button>';
     h+='</div>';
   }
@@ -3348,6 +3350,32 @@ function aplicarSelMulti(){
 }
 
 function limpiarSelMulti(){ SEL_MULTI=[]; rHHorario(); }
+// Vaciar las celdas seleccionadas (aunque esten fijadas) — borrado por tandas.
+function borrarSelMulti(){
+  if(SEL_MULTI.length===0){alert('No has seleccionado ninguna celda.');return;}
+  SEL_MULTI.forEach(function(c){
+    var hor=c.esGrupo?getHorGrupo(c.eid):getHorMaePropio(c.eid);
+    if(!hor[c.dia]||!hor[c.dia][c.ti])return;
+    var s=hor[c.dia][c.ti]; if(s.r)return;
+    s.fij=false; s.mId=null; s.pId=null; s.tipo=c.esGrupo?'clase':'libre'; s.txt='';
+    delete s.paralelo; delete s.pIdAten; delete s.mIdAten;
+  });
+  SEL_MULTI=[]; save(); rHHorario();
+}
+// Borrar TODAS las celdas fijadas a mano (en grupos y en el horario propio de cada maestro).
+function limpiarFijadas(){
+  if(!confirm('Borrar TODAS las celdas que fijaste a mano?\nSe vacian y dejan de estar fijadas. Las demas no se tocan.'))return;
+  var DD=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  DB.hGrupos.forEach(function(g){
+    var hor=DB.hHor&&DB.hHor[g.id]; if(!hor)return;
+    DD.forEach(function(d){ (hor[d]||[]).forEach(function(s){ if(s&&s.fij&&!s.r){s.fij=false;s.mId=null;s.pId=null;s.tipo='clase';s.txt='';delete s.paralelo;delete s.pIdAten;delete s.mIdAten;} }); });
+  });
+  (DB.maestros||[]).forEach(function(m){
+    var hp=DB.hHor&&DB.hHor['mae_'+m.id]; if(!hp)return;
+    DD.forEach(function(d){ (hp[d]||[]).forEach(function(s){ if(s&&s.fij&&!s.r){s.fij=false;s.mId=null;s.pId=null;s.tipo='libre';s.txt='';} }); });
+  });
+  SLOT_ACTIVO=null; save(); rHHorario();
+}
 
 function setSlotTipo(btn){
   if(!SLOT_ACTIVO)return;
