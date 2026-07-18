@@ -2014,9 +2014,11 @@ function _sustParaleloRelig(faltaId,dia,ti){
 }
 // Orden de preferencia: 1 Luciernaga · 2 Maestro de refuerzo · 3 Hora libre
 // · 4 Coordinacion · 5 ZTS · 6 Jefatura/Secretaria · 7 Director (ultimo)
-function _sustMejor(dia,ti,carga,usados){
+// Lista TODOS los maestros disponibles para cubrir un tramo, ordenados por prioridad,
+// con el motivo (para mostrarlos en el selector y que el usuario elija).
+function _sustCandidatos(dia,ti,usados){
   usados=usados||{};
-  var cands=[];
+  var out=[];
   DB.maestros.forEach(function(m){
     if(SUST_FALTAN.indexOf(m.id)>=0)return;
     if(usados[String(m.id)])return;         // ya cubre otra ausencia a esta misma hora
@@ -2024,20 +2026,30 @@ function _sustMejor(dia,ti,carga,usados){
     if(_sustOcupado(m.id,dia,ti))return;     // esta dando clase
     var sp=_sustSlotPropio(m.id,dia,ti);
     var tipo=(sp&&sp.tipo)||'';
-    if(tipo==='reduccion')return; // reduccion: no se toca
-    var p;
-    if(tipo==='luciernaga')p=1;         // 1. horas de refuerzo/luciernaga del horario
-    else if(esZTS(m))p=5;                // 5. ZTS (ultimo recurso antes del equipo directivo)
-    else if(m.ref)p=2;                   // 2. maestros de refuerzo
-    else if(tipo==='coord')p=4;          // 4. coordinacion
-    else if(tipo==='direccion'||tipo==='jefatura'||tipo==='secretaria')p=6;
-    else p=3;                            // 3. hora libre
-    if(m.cargo==='Jefe de Estudios'||m.cargo==='Secretario')p=Math.max(p,6); // 6. equipo directivo
-    if(m.cargo==='Director')p=7;         // 7. director (la ultima opcion)
-    cands.push({m:m,p:p,c:carga[m.id]||0});
+    if(tipo==='reduccion')return;            // reduccion horaria: no se toca
+    var p, motivo;
+    if(tipo==='luciernaga'){p=1;motivo='Refuerzo/Luciernaga';}
+    else if(esZTS(m)){p=5;motivo='ZTS';}
+    else if(m.ref){p=2;motivo='Maestro de refuerzo';}
+    else if(tipo==='coord'){p=4;motivo='Coordinacion';}
+    else if(tipo==='direccion'||tipo==='jefatura'||tipo==='secretaria'){p=6;motivo='Equipo directivo';}
+    else {p=3;motivo='Hora libre';}
+    if(m.cargo==='Jefe de Estudios'||m.cargo==='Secretario'){p=Math.max(p,6);motivo='Equipo directivo';}
+    if(m.cargo==='Director'){p=7;motivo='Director (ultimo recurso)';}
+    out.push({m:m,p:p,motivo:motivo});
   });
-  cands.sort(function(a,b){return a.p-b.p||a.c-b.c;});
-  return cands.length?cands[0].m:null;
+  out.sort(function(a,b){return a.p-b.p;});
+  return out;
+}
+function _sustMejor(dia,ti,carga,usados){
+  carga=carga||{};
+  var c=_sustCandidatos(dia,ti,usados);
+  if(!c.length)return null;
+  // dentro de la mejor prioridad, elegir al que menos veces se ha usado (reparto)
+  var minP=c[0].p;
+  var top=c.filter(function(x){return x.p===minP;});
+  top.sort(function(a,b){return (carga[a.m.id]||0)-(carga[b.m.id]||0);});
+  return top[0].m;
 }
 function genTabla(){
   var tbl=loadSust(SUST_DIA);
@@ -2081,16 +2093,41 @@ function limpTabla(){saveSust(SUST_DIA,{});SUST_FALTAN=[];renderSust();}
 function abrirCelda(el){
   var key=el.getAttribute('data-key');
   var dia=el.getAttribute('data-dia');
+  var parts=key.split('_');
+  var mFId=parts[0], ti=parseInt(parts[1]);
   var tbl=loadSust(dia);
   var cel=tbl[key]||{};
-  var opts='<option value="">Sin cubrir</option>';
-  DB.maestros.filter(function(m){return SUST_FALTAN.indexOf(m.id)<0;}).forEach(function(m){
-    opts+='<option value="'+m.n+'"'+(cel.sust===m.n?' selected':'')+'>'+m.n+'</option>';
+  var grupo=_sustGrupoDe(mFId,dia,ti);
+  var mAus=DB.maestros.find(function(m){return String(m.id)===String(mFId);});
+
+  // Sustitutos ya usados en este tramo por otras ausencias (no ofrecerlos)
+  var usados={};
+  SUST_FALTAN.forEach(function(fid){
+    if(String(fid)===String(mFId))return;
+    var c=tbl[String(fid)+'_'+ti];
+    if(c&&c.sustId)usados[String(c.sustId)]=true;
   });
-  var h='<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,.15);position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:90%;max-width:320px;z-index:300">';
+  var cands=_sustCandidatos(dia,ti,usados);
+  var par=_sustParaleloRelig(mFId,dia,ti);
+
+  var opts='<option value="">-- Dejar sin cubrir / vacio --</option>';
+  if(par){
+    opts+='<option value="'+par.id+'" data-n="'+par.n+'"'+(String(cel.sustId)===String(par.id)?' selected':'')+'>'+par.n+' → Paralelo Religion (todo el grupo)</option>';
+  }
+  cands.forEach(function(c){
+    if(par&&String(c.m.id)===String(par.id))return;
+    opts+='<option value="'+c.m.id+'" data-n="'+c.m.n+'"'+(String(cel.sustId)===String(c.m.id)?' selected':'')+'>'+c.m.n+' → '+c.motivo+'</option>';
+  });
+
+  var titulo = (mAus?mAus.n.split(' ')[0]:'')+' · '+fmt((DB.tramos[ti]||{}).ini||0)+(grupo?(' · '+grupo):' · (no da clase)');
+  var nOpc = cands.length+(par?1:0);
+
+  var h='<div style="background:#fff;border-radius:14px;padding:14px;box-shadow:0 4px 24px rgba(0,0,0,.2);position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:92%;max-width:340px;z-index:300">';
+  h+='<div style="font-size:12px;font-weight:800;color:#7f1d1d;margin-bottom:2px">'+titulo+'</div>';
+  h+='<div style="font-size:10px;color:#94a3b8;margin-bottom:8px">'+nOpc+' opcion(es) disponible(s), ordenadas por prioridad. Elige o deja vacio.</div>';
   h+='<select id="sel-sc" class="fi">'+opts+'</select>';
-  h+='<input class="fi" type="text" id="txt-sc" placeholder="O escribe..." value="'+(cel.txt||'')+'" style="margin-top:6px">';
-  h+='<div style="display:flex;gap:8px;margin-top:8px">';
+  h+='<input class="fi" type="text" id="txt-sc" placeholder="O escribe otra cosa..." value="'+(cel.sustId?'':(cel.txt||''))+'" style="margin-top:6px">';
+  h+='<div style="display:flex;gap:8px;margin-top:10px">';
   h+='<button class="btn bvd" style="flex:1" data-key="'+key+'" data-dia="'+dia+'" onclick="guardarCeldaEl(this)">Guardar</button>';
   h+='<button class="btn bgy" onclick="cerrarCelda()">Cancelar</button>';
   h+='</div></div>';
@@ -2101,17 +2138,19 @@ function abrirCelda(el){
 function guardarCeldaEl(el){
   var key=el.getAttribute('data-key');
   var dia=el.getAttribute('data-dia');
-  var sust=(document.getElementById('sel-sc')||{}).value||'';
+  var selEl=document.getElementById('sel-sc');
+  var id=selEl?selEl.value:'';
+  var nombre='';
+  if(selEl&&selEl.selectedIndex>=0)nombre=selEl.options[selEl.selectedIndex].getAttribute('data-n')||'';
   var txt=(document.getElementById('txt-sc')||{}).value||'';
   var tbl=loadSust(dia);
   if(!tbl[key])tbl[key]={};
-  delete tbl[key].libre; delete tbl[key].sinCubrir;   // al tocar a mano deja de ser "no da clase"
-  var nombre=sust||txt;
-  tbl[key].sust=nombre;
-  tbl[key].txt=(txt&&txt!==sust)?txt:'';
-  var m=DB.maestros.find(function(x){return x.n===nombre;});
-  tbl[key].sustId=m?m.id:null;
-  if(!nombre)tbl[key].sinCubrir=true;                 // se dejo "Sin cubrir" a proposito
+  delete tbl[key].libre; delete tbl[key].sinCubrir;
+  var finalName = nombre || txt;
+  tbl[key].sust=finalName;
+  tbl[key].sustId = id ? (isNaN(+id)?id:+id) : null;
+  tbl[key].txt = (txt&&txt!==finalName)?txt:'';
+  if(!finalName)tbl[key].sinCubrir=true;   // dejado vacio / sin cubrir a proposito
   saveSust(dia,tbl);cerrarCelda();renderSust();
 }
 function cerrarCelda(){var p=document.getElementById('psc');if(p)p.remove();}
