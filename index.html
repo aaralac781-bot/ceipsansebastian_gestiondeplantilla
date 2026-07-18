@@ -2342,6 +2342,14 @@ function exportarHorariosSSNet(){
           if(slot&&slot.pId===p.id&&slot.mId){ celda=slotTexto(slot,true,g); return true; }
           return false;
         });
+        // Si no da clase, mostrar su horario propio (Direccion/Jefatura/Secretaria/Coord/RH/Luciernaga)
+        if(!celda){
+          var hp=(DB.hHor||{})['mae_'+p.id];
+          var sp=hp&&hp[d]&&hp[d][ti];
+          if(sp&&sp.tipo&&sp.tipo!=='clase'&&sp.tipo!=='libre'){
+            celda = sp.tipo==='reduccion'?'RH':(typeof SLOT_TIPOS!=='undefined'&&SLOT_TIPOS[sp.tipo]?SLOT_TIPOS[sp.tipo].label:sp.tipo);
+          }
+        }
         if(celda) tiene=true;
         row.push(celda);
       });
