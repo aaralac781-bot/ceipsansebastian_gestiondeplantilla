@@ -2176,15 +2176,7 @@ function renderHorariosHome(){
   });
   h+='<button class="icard ic-vd full" onclick="goSec(\'horarios\',\'hhorario\',\'Horario visual\')">';
   h+='<div><div class="nom" style="font-size:15px">Horario visual completo</div>';
-  h+='<div class="des">Grupos y maestros - editable - 3 columnas</div></div></button>';
-  h+='<div style="margin-top:16px">';
-  h+='<button class="icard ic-vd" onclick="exportarHorariosSSNet()" style="width:100%;background:linear-gradient(135deg,#0B132B,#1c2541);color:white;border:none;border-radius:14px;padding:18px;cursor:pointer;display:flex;align-items:center;gap:14px">';
-  h+='<div style="font-size:1.8rem">📤</div>';
-  h+='<div style="text-align:left"><div style="font-weight:800;font-size:1rem">Exportar Horarios a SSNet</div>';
-  h+='<div style="font-size:.78rem;opacity:.7;margin-top:2px">Envía todos los horarios al Sheet del portal del claustro</div></div>';
-  h+='</button>';
-  h+='<div id="export-horario-res" style="display:none;margin-top:10px;padding:12px 14px;border-radius:10px;font-size:.85rem;font-weight:600"></div>';
-  h+='</div>';
+  h+='<div class="des">Grupos y maestros - editable - exportar a SSNet</div></div></button>';
   h+='</div>';
   document.getElementById('hh').innerHTML=h;
 }
@@ -3133,8 +3125,9 @@ function rHHorario(){
   h+='<button class="btn bgy bsm" onclick="limpiarHorario()">Limpiar no fijadas</button>';
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
-  h+='<button class="btn" style="background:#0f9d58;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarSheets()">Exportar a Sheets</button>';
+  h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
   h+='</div>';
+  h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
 
   // Layout: horarios a la izquierda, panel editor flotante a la derecha
@@ -6605,7 +6598,7 @@ function renderConfig(){
   h+='<div class="card" style="background:#d1fae5;border:2px solid #15803d;margin-bottom:14px"><div class="ct">Sincronizar con SSNet</div>';
   h+='<div style="font-size:.82rem;color:#065f46;margin-bottom:10px">Envía los datos del claustro al portal SSNet para que los maestros puedan acceder automáticamente.</div>';
   h+='<button class="btn" style="background:#15803d;color:#fff" onclick="syncMaestrosSSNet(false)">Sincronizar Maestros → SSNet</button>';
-  h+='<button class="btn bgy bsm" style="margin-left:8px" onclick="exportarHorariosSSNet()">Exportar Horarios → SSNet</button></div>';
+  h+='<div style="font-size:.75rem;color:#065f46;margin-top:8px">Los horarios se exportan desde <b>Horarios → Horario visual completo</b> (botón «Exportar horarios a SSNet»).</div></div>';
   h+='<div class="card" style="background:#fef9c3;border:2px solid #f59e0b"><div class="ct">Verificar guardado</div>';
   h+='<button class="btn" style="background:#f59e0b;color:#fff" onclick="testLS()">Probar ahora</button>';
   h+='<button class="btn bgy bsm" style="margin-left:8px" onclick="diagHoras()">Diag. horas</button>';
