@@ -3476,54 +3476,12 @@ function genHorario(){
       }
     }
   }
-  // Coloca una SESION de 'targetMin' minutos en una tira de tramos contiguos que
-  // sumen exactamente esos minutos (sin partir con el recreo). respetar aplica
-  // franja/dias/repartir; softMax ignora MAX/DIA. Dos pasadas: primero un unico
-  // tramo cuya duracion == targetMin (asi las sesiones de 1h usan los tramos de 1h),
-  // luego tiras de varios tramos (p.ej. dos de 30' para hacer 1h).
-  function _colocaSesion(b,targetMin,respetar,cap){
-    var hor=getHorGrupo(b.gid);
-    var dias=DIAS2.slice();
-    if(respetar&&b.dias)dias=dias.filter(function(d){return b.dias.indexOf(d)>=0;});
-    dias.sort(function(x,y){
-      var sx=_modsDia(hor,b.mId,x), sy=_modsDia(hor,b.mId,y);
-      if(respetar&&b.repartir){ if(_adyacenteMat(hor,b.mId,x))sx+=10; if(_adyacenteMat(hor,b.mId,y))sy+=10; }
-      if(sx!==sy)return sx-sy;                    // 1o: dias que aun no tienen esta materia (dias distintos)
-      return _fillDia(hor,x)-_fillDia(hor,y);     // 2o: el dia mas vacio (equilibra la carga diaria)
-    });
-    for(var di=0;di<dias.length;di++){
-      var d=dias[di];
-      if(cap&&cap<9000&&_minDiaMat(hor,b.mId,d)+targetMin>cap)continue;  // tope de minutos/dia por materia (1h / 1h30')
-      var pos=[]; for(var p=0;p<idxT.length;p++)pos.push(p);
-      if(respetar&&b.franja==='ultima')pos.reverse();
-      for(var pass=0;pass<2;pass++){
-        for(var pi=0;pi<pos.length;pi++){
-          var kk=pos[pi], sum=0, run=[], prev=-1;
-          for(var j=kk;j<idxT.length;j++){
-            var ti=idxT[j];
-            if(prev>=0&&(ti-prev)!==1)break;                              // recreo/hueco en medio: corta
-            if(!_libre(hor,d,ti)||maestroOcupado(b.pId,d,ti,b.gid))break; // ocupado: corta
-            sum+=_durT(ti); run.push(ti); prev=ti;
-            if(pass===0&&run.length>1)break;                             // pasada A: solo un tramo
-            if(sum===targetMin){
-              run.forEach(function(t2){
-                if(!hor[d])hor[d]=[]; if(!hor[d][t2])hor[d][t2]={};
-                hor[d][t2].mId=b.mId;hor[d][t2].pId=b.pId;hor[d][t2].tipo='clase';hor[d][t2].txt='';
-                _paralelo(hor,b.gid,d,t2,b.mId);
-              });
-              return true;
-            }
-            if(sum>targetMin)break;                                      // se paso: este inicio no vale
-          }
-        }
-      }
-    }
-    return false;
-  }
-  // ── FASE 1: construir TODAS las sesiones de TODOS los grupos ────────────
-  var allBloques=[];
+  // ── FASE 1: minutos que necesita cada materia en cada grupo ─────────────
+  var rem={}, info={};
+  function _troncal(n){return n==='Lengua'||n==='Matematicas';}
   DB.hGrupos.forEach(function(g){
     getHorGrupo(g.id); // asegura estructura
+    rem[g.id]={}; info[g.id]={};
     var carga=DB.hCarga[g.id]||{};
     DB.hMat.forEach(function(mat){
       var cv=carga[mat.id];
@@ -3534,71 +3492,138 @@ function genHorario(){
       var hBoja=getBojaH(g.id,mat.id);
       var horas=hBoja>0?hBoja:(cv&&cv.h?cv.h:0);
       if(horas<=0)return;
-      // Minutos necesarios, redondeados a la granularidad de los tramos (30').
-      var needMin=Math.round(horas*60/minGran)*minGran;
-      // Sesion por defecto = 1h (o lo que permita el tramo); mat.sesionMin/BLOQUE la fuerzan.
-      var sesMin=parseInt(mat.sesionMin)||(mat.blq?parseInt(mat.blq)*durMod:defSes);
-      sesMin=Math.max(minGran,Math.round(sesMin/minGran)*minGran);
-      // Reparto natural: sesiones de 1h en dias distintos; el resto (media hora)
-      // queda como sesion propia. 3h -> 1h+1h+1h en 3 dias; 1,5h -> 1h+0,5h.
-      var sizes=[], rest=needMin;
-      while(rest>=sesMin){ sizes.push(sesMin); rest-=sesMin; }
-      if(rest>0)sizes.push(rest);
-      sizes.forEach(function(mn,ronda){
-        allBloques.push({gid:g.id,gn:g.n,mId:mat.id,pId:parseInt(cv.m),min:mn,ronda:ronda,maxD:parseInt(mat.maxD)||0,
-          prio:!!mat.prio, franja:mat.franja||'', dias:(mat.dias&&mat.dias.length?mat.dias.slice():null), repartir:!!mat.repartir});
+      rem[g.id][mat.id]=Math.round(horas*60/minGran)*minGran;   // minutos, redondeados a 30'
+      var capD=parseInt(mat.maxD)>0?parseInt(mat.maxD)*durMod:90; // tope diario por materia (por defecto 1h30')
+      info[g.id][mat.id]={pId:parseInt(cv.m),nombre:mat.n,prio:!!mat.prio,franja:mat.franja||'',
+        dias:(mat.dias&&mat.dias.length?mat.dias.slice():null),troncal:_troncal(mat.n),capDia:Math.max(minGran,capD)};
+    });
+  });
+  // Cuantos grupos comparte cada maestro (especialistas = mas dificiles de encajar)
+  var gruposPorMae={};
+  DB.hGrupos.forEach(function(g){ Object.keys(info[g.id]).forEach(function(mid){
+    var p=info[g.id][mid].pId; (gruposPorMae[p]=gruposPorMae[p]||{})[g.id]=true;
+  }); });
+  function _nGrupos(pId){return Object.keys(gruposPorMae[pId]||{}).length;}
+
+  var primeraHoraTi=idxT.length?idxT[0]:-1;   // tramo de PRIMERA HORA del dia
+  var primeraCount={};                         // veces que cada materia va a 1a hora en cada grupo (para alternar L/M)
+  function _primeraCount(gid,mid){return (primeraCount[gid]&&primeraCount[gid][mid])||0;}
+  function _prevSubj(hor,d,ti){                // materia del tramo anterior contiguo (mismo bloque, sin recreo)
+    var p=idxT.indexOf(ti); if(p<=0)return null;
+    var pti=idxT[p-1]; if(ti-pti!==1)return null;
+    var s=hor[d]&&hor[d][pti]; return s&&s.mId?s.mId:null;
+  }
+  function _ocupa(gid,mid,d,ti){               // asigna la materia a la celda y descuenta minutos
+    var hor=getHorGrupo(gid), nf=info[gid][mid];
+    if(!hor[d])hor[d]=[]; if(!hor[d][ti])hor[d][ti]={};
+    hor[d][ti].mId=mid; hor[d][ti].pId=nf.pId; hor[d][ti].tipo='clase'; hor[d][ti].txt='';
+    _paralelo(hor,gid,d,ti,mid);
+    rem[gid][mid]-=_durT(ti);
+    if(ti===primeraHoraTi&&nf.troncal){ (primeraCount[gid]=primeraCount[gid]||{})[mid]=_primeraCount(gid,mid)+1; }
+  }
+  // Elige la mejor materia para el grupo en (d,ti). strict=true respeta tope propio y dias;
+  // si no, usa capMax como tope diario (relleno de repaso) e ignora la restriccion de dias.
+  function _elige(gid,d,ti,usados,strict,capMax){
+    var hor=getHorGrupo(gid), dur=_durT(ti), esPrimera=(ti===primeraHoraTi), prev=_prevSubj(hor,d,ti);
+    var mejor=null, mejorS=-1e9;
+    Object.keys(rem[gid]).forEach(function(mid){
+      if(rem[gid][mid]<dur)return;                       // no le quedan minutos para llenar el tramo entero
+      var nf=info[gid][mid], pid=nf.pId;
+      if(usados[pid])return;                             // el maestro ya da clase a esa hora (otro grupo/celda)
+      if(maestroOcupado(pid,d,ti,gid))return;
+      var minHoy=_minDiaMat(hor,mid,d);
+      var cap=strict?nf.capDia:(capMax||9999);
+      if(minHoy+dur>cap)return;                           // pasaria del tope diario
+      if(strict&&nf.dias&&nf.dias.indexOf(d)<0)return;    // materia restringida a ciertos dias
+      var s=0;
+      if(prev&&String(prev)===String(mid)&&minHoy>0&&minHoy<60)s+=2000; // continuidad: unir dos 30' en 1h (no pasar de 1h)
+      if(esPrimera){
+        if(nf.troncal)s+=1200-_primeraCount(gid,mid)*300; // 1a hora: Lengua/Mates, alternando la menos usada
+        else s-=400;                                      // en 1a hora, evitar lo que no sea troncal
+      }
+      if(nf.franja==='primera'&&esPrimera)s+=300;
+      if(nf.franja==='ultima'&&!esPrimera)s+=60;
+      if(_nGrupos(pid)>1)s+=500;                          // especialista: cogerlo cuando el profe esta libre (escaso)
+      if(minHoy>0)s-=250;                                 // ya tiene la materia hoy: preferimos repartir en dias
+      if(nf.prio)s+=120;
+      s+=rem[gid][mid]/30;                                // colocar antes las materias con mas horas pendientes
+      if(s>mejorS){mejorS=s;mejor=mid;}
+    });
+    return mejor;
+  }
+
+  // ── FASE 2: rellenar TRAMO A TRAMO, primero los tramos mas LARGOS ───────
+  // Asi los tramos de 1h se llenan con materias de 1h (no se quedan huecos), y
+  // entre tramos de igual duracion, los mas tempranos primero (para la 1a hora).
+  var slots=[];
+  DIAS2.forEach(function(d){ idxT.forEach(function(ti){ slots.push({d:d,ti:ti,dur:_durT(ti),ini:(DB.tramos[ti]||{}).ini||0}); }); });
+  slots.sort(function(a,b){ return b.dur-a.dur || a.ini-b.ini || DIAS2.indexOf(a.d)-DIAS2.indexOf(b.d); });
+  function _usadosEn(d,ti){
+    var u={};
+    DB.hGrupos.forEach(function(g){
+      var s=DB.hHor[g.id]&&DB.hHor[g.id][d]&&DB.hHor[g.id][d][ti];
+      if(s){ if(s.pId)u[s.pId]=true; if(s.pIdAten)u[s.pIdAten]=true; }
+    });
+    return u;
+  }
+  function _gruposOrden(d,ti,seed){   // rota el orden de grupos por dia/tramo (seed perturba el multi-arranque)
+    var arr=DB.hGrupos.slice();
+    var off=(DIAS2.indexOf(d)*idxT.length+idxT.indexOf(ti)+seed*3)%(arr.length||1);
+    return arr.slice(off).concat(arr.slice(0,off));
+  }
+  // Una pasada de relleno: principal (respeta topes propios) + repaso (tope capMax)
+  function _rellenar(seed,capMax){
+    [true,false].forEach(function(strict){
+      slots.forEach(function(sl){
+        var d=sl.d, ti=sl.ti, usados=_usadosEn(d,ti);
+        _gruposOrden(d,ti,seed).forEach(function(g){
+          var hor=getHorGrupo(g.id);
+          if(!_libre(hor,d,ti))return;
+          var mid=_elige(g.id,d,ti,usados,strict,capMax);
+          if(mid==null)return;
+          _ocupa(g.id,mid,d,ti);
+          usados[info[g.id][mid].pId]=true;
+        });
       });
     });
-  });
-
-  // ── FASE 2: ordenar globalmente y colocar ──────────────────────────────
-  // Se coloca por RONDAS: primero la 1a sesion de cada materia de cada grupo,
-  // luego la 2a, etc. Asi cada materia toca dias distintos antes de repetir, y
-  // ningun dia se llena de especialistas dejando otro sin Lengua/Mates.
-  // Dentro de cada ronda van primero los maestros mas compartidos (Ingles,
-  // Musica, EF, Religion, reducciones): son los mas dificiles de encajar.
-  var gruposPorMae={};
-  allBloques.forEach(function(b){
-    (gruposPorMae[b.pId]=gruposPorMae[b.pId]||{})[b.gid]=true;
-  });
-  function _nGrupos(pId){return Object.keys(gruposPorMae[pId]||{}).length;}
-  allBloques.sort(function(a,b){
-    return (b.prio?1:0)-(a.prio?1:0)      // materias prioritarias primero
-        || a.ronda-b.ronda                 // por rondas: 1a sesion de todas, luego 2a...
-        || _nGrupos(b.pId)-_nGrupos(a.pId) // maestros mas compartidos (especialistas) primero
-        || b.min-a.min;                     // sesiones mas largas primero
-  });
-  // Colocacion en PASADAS con tope de minutos/dia por materia:
-  //  1) sesion entera, maximo 1h/dia  -> lo ideal: 1h de cada materia cada dia
-  //  2) sesion entera, maximo 1h30'/dia -> para las horas que no caben a 1h/dia
-  //  3) en trozos (30'), maximo 1h30'/dia -> rellena tramos sueltos sin pasar de 1h30'
-  //  4) ULTIMO RECURSO: en trozos sin tope -> solo para no dejar un hueco imposible
-  // 'b.min' es lo que le queda por colocar a cada sesion (se va descontando).
-  function _pasada(cap,trozos){
-    allBloques.forEach(function(b){
-      if(b.min<=0)return;
-      if(!trozos){
-        if(_colocaSesion(b,b.min,true,cap))b.min=0;
-        return;
-      }
-      var progreso=true;
-      while(b.min>=minGran&&progreso){
-        progreso=false;
-        var sz=Math.min(b.min,90);                 // no crear trozos mayores de 1h30'
-        while(sz>=minGran){
-          if(_colocaSesion(b,sz,false,cap)){b.min-=sz;progreso=true;break;}
-          sz-=minGran;
-        }
-      }
-    });
   }
-  _pasada(60,false);    // 1h/dia, sesion entera
-  _pasada(90,false);    // 1h30'/dia, sesion entera
-  _pasada(90,true);     // 1h30'/dia, en trozos
-  _pasada(9999,true);   // sin tope (evitar hueco imposible)
+
+  // ── MULTI-ARRANQUE: probamos varios ordenes y nos quedamos con el mejor ──
+  // (menos huecos y, luego, menos minutos por encima de 1h30'). Un solo intento
+  // "avaricioso" a veces deja 1 hueco o pasa de 1h30'; probando varios se evita.
+  var celdasVacias=[];   // celdas que el generador puede rellenar (vacias al empezar)
+  DB.hGrupos.forEach(function(g){ var h=getHorGrupo(g.id); DIAS2.forEach(function(d){ idxT.forEach(function(ti){ if(_libre(h,d,ti))celdasVacias.push({gid:g.id,d:d,ti:ti}); }); }); });
+  var remInit=JSON.parse(JSON.stringify(rem));
+  function _reset(){
+    celdasVacias.forEach(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]; if(s){s.mId=null;s.pId=null;s.tipo='clase';s.txt='';delete s.paralelo;delete s.pIdAten;delete s.mIdAten;} });
+    rem=JSON.parse(JSON.stringify(remInit)); primeraCount={};
+  }
+  function _evalua(){
+    var huecos=0, viol=0;
+    celdasVacias.forEach(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]; if(!s||!s.mId)huecos++; });
+    DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; DIAS2.forEach(function(d){
+      var mm={}; idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.mId)mm[s.mId]=(mm[s.mId]||0)+_durT(ti); });
+      Object.keys(mm).forEach(function(mid){ if(mm[mid]>90)viol+=mm[mid]-90; });
+    }); });
+    return {huecos:huecos, viol:viol, score:huecos*100000+viol};
+  }
+  function _snap(){ return celdasVacias.map(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]||{}; return {mId:s.mId,pId:s.pId,tipo:s.tipo,txt:s.txt,paralelo:s.paralelo,pIdAten:s.pIdAten,mIdAten:s.mIdAten}; }); }
+  function _restore(snap){ celdasVacias.forEach(function(c,i){ var s=DB.hHor[c.gid][c.d][c.ti]; var v=snap[i]; s.mId=v.mId;s.pId=v.pId;s.tipo=v.tipo||'clase';s.txt=v.txt||''; if(v.paralelo)s.paralelo=v.paralelo; if(v.pIdAten){s.pIdAten=v.pIdAten;s.mIdAten=v.mIdAten;} }); }
+
+  var mejor=null;
+  for(var att=0; att<12; att++){
+    _reset();
+    _rellenar(att, att<9?90:9999);   // primeros intentos sin pasar de 1h30'; ultimos permiten mas para no dejar hueco
+    var ev=_evalua();
+    if(!mejor||ev.score<mejor.score){ mejor={score:ev.score,huecos:ev.huecos,viol:ev.viol,snap:_snap()}; }
+    if(ev.score===0)break;
+  }
+  _restore(mejor.snap);
+
   var sinSitioG={};
-  allBloques.forEach(function(b){ if(b.min>0)sinSitioG[b.gn]=(sinSitioG[b.gn]||0)+b.min; });
-  Object.keys(sinSitioG).forEach(function(gn){GEN_AVISOS.push(gn+': '+(Math.round(sinSitioG[gn]/60*10)/10)+'h sin hueco');});
+  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; DIAS2.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(_libre(h,d,ti))sinSitioG[g.n]=(sinSitioG[g.n]||0)+1; }); }); });
+  Object.keys(sinSitioG).forEach(function(gn){GEN_AVISOS.push(gn+': '+sinSitioG[gn]+' hueco(s)');});
+  if(mejor&&mejor.viol>0)GEN_AVISOS.push('Alguna materia pasa de 1h30\' en algun dia ('+(Math.round(mejor.viol/60*10)/10)+'h de mas) por no dejar huecos.');
 
   // Rellenar el horario PROPIO de cada maestro para que no quede ningun hueco:
   // primero Coordinacion, luego Reduccion horaria (RH) y el resto Ref/Luciernaga
