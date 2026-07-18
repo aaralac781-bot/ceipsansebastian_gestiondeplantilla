@@ -3509,9 +3509,10 @@ function genHorario(){
       var esEsp=tutorDe[g.id]!=null ? (String(pid)!==String(tutorDe[g.id])) : !_esTutorMat(mat.n);
       // Nº de dias en que puede aparecer la materia:
       //  - Tutor (Lengua/Mates/Cono...): flexible, repartidas.
-      //  - Especialistas: concentradas en pocos dias (bloques de hasta 1h30'), asi una de
-      //    1h30' cabe en 1 dia y una de 2h30' en 2 dias (no se trocea en 3).
-      var diasMax=esEsp?Math.max(1,Math.ceil(minTot/90)):5;
+      //  - Especialistas: hasta 1 dia por hora (p.ej. EF 3h -> 1h en 3 dias). La media
+      //    hora suelta va SIEMPRE pegada a una hora (1h30'), asi no se trocea; una de
+      //    1h30' sale en 1 bloque y una de 2h30' en 2 (nunca en 3 trozos).
+      var diasMax=esEsp?Math.max(1,Math.ceil(minTot/60)):5;
       info[g.id][mat.id]={pId:pid,nombre:mat.n,prio:!!mat.prio,franja:mat.franja||'',
         dias:(mat.dias&&mat.dias.length?mat.dias.slice():null),troncal:tron,esEsp:esEsp,capDia:Math.max(minGran,capD),diasMax:diasMax};
     });
@@ -3554,12 +3555,16 @@ function genHorario(){
   // Elige la mejor materia para el grupo en (d,ti). nivel controla cuanto se relajan las reglas:
   //  0 = estricto (todas las reglas)   1 = medio (relaja dias/tope, MANTIENE anti-troceo)
   //  2 = laxo (solo evita huecos; mantiene "no dos 30' de la misma materia").
-  function _elige(gid,d,ti,usados,nivel,capMax){
+  function _elige(gid,d,ti,usados,nivel,capMax,fase){
     var hor=getHorGrupo(gid), dur=_durT(ti), esPrimera=(ti===primeraHoraTi), prev=_prevSubj(hor,d,ti);
     var mejor=null, mejorS=-1e9;
     Object.keys(rem[gid]).forEach(function(mid){
       if(rem[gid][mid]<dur)return;                       // no le quedan minutos para llenar el tramo entero
       var nf=info[gid][mid], pid=nf.pId;
+      // Fases: 1o Lengua/Mates a 1a hora, 2o especialistas, 3o resto del tutor.
+      if(fase==='primeraTron'&&(!nf.troncal||!esPrimera))return;
+      if(fase==='esp'&&!nf.esEsp)return;
+      if(fase==='tut'&&nf.esEsp)return;
       if(usados[pid])return;                             // el maestro ya da clase a esa hora (otro grupo/celda)
       if(maestroOcupado(pid,d,ti,gid))return;
       var minHoy=_minDiaMat(hor,mid,d);
@@ -3618,22 +3623,27 @@ function genHorario(){
     var off=(DIAS2.indexOf(d)*idxT.length+idxT.indexOf(ti)+seed*3)%(arr.length||1);
     return arr.slice(off).concat(arr.slice(0,off));
   }
-  // Una pasada de relleno en 3 niveles: estricto -> medio (relaja dias, mantiene anti-troceo)
-  // -> laxo (solo evita huecos). Asi se llena sin trocear salvo cuando es imposible.
-  function _rellenar(seed,capMax){
-    [0,1,2,3].forEach(function(nivel){
-      slots.forEach(function(sl){
-        var d=sl.d, ti=sl.ti, usados=_usadosEn(d,ti);
-        _gruposOrden(d,ti,seed).forEach(function(g){
-          var hor=getHorGrupo(g.id);
-          if(!_libre(hor,d,ti))return;
-          var mid=_elige(g.id,d,ti,usados,nivel,capMax);
-          if(mid==null)return;
-          _ocupa(g.id,mid,d,ti);
-          usados[info[g.id][mid].pId]=true;
-        });
+  // Relleno como la jefa de estudios: por FASES y en niveles crecientes.
+  //  fase 1: Lengua/Mates a primera hora (reserva las 1as horas al tutor).
+  //  fase 2: ESPECIALISTAS (para que les quepan TODAS sus horas antes que nada).
+  //  fase 3: resto de materias del tutor, que rellenan lo que queda.
+  function _sweep(nivel,capMax,seed,fase){
+    slots.forEach(function(sl){
+      var d=sl.d, ti=sl.ti, usados=_usadosEn(d,ti);
+      _gruposOrden(d,ti,seed).forEach(function(g){
+        var hor=getHorGrupo(g.id);
+        if(!_libre(hor,d,ti))return;
+        var mid=_elige(g.id,d,ti,usados,nivel,capMax,fase);
+        if(mid==null)return;
+        _ocupa(g.id,mid,d,ti);
+        usados[info[g.id][mid].pId]=true;
       });
     });
+  }
+  function _rellenar(seed,capMax){
+    _sweep(0,capMax,seed,'primeraTron');          // 1a hora Lengua/Mates
+    [0,1,2,3].forEach(function(nivel){ _sweep(nivel,capMax,seed,'esp'); }); // especialistas primero
+    [0,1,2,3].forEach(function(nivel){ _sweep(nivel,capMax,seed,'tut'); }); // resto del tutor
   }
 
   // ── MULTI-ARRANQUE: probamos varios ordenes y nos quedamos con el mejor ──
@@ -3664,7 +3674,7 @@ function genHorario(){
       });
       Object.keys(trozos).forEach(function(mid){
         if(!info[g.id][mid]||!info[g.id][mid].esEsp)return;   // solo penaliza trocear ESPECIALISTAS
-        var esperado=Math.max(1,Math.ceil(tot[mid]/90));      // trozos ideales (bloques de hasta 1h30')
+        var esperado=Math.max(1,Math.ceil(tot[mid]/60));      // hasta 1 bloque por hora (la media hora va pegada)
         if(trozos[mid]>esperado)frag+=(trozos[mid]-esperado);
       });
       // especialista en dos tramos de 30' seguidos (indeseable)
@@ -3682,9 +3692,9 @@ function genHorario(){
   function _restore(snap){ celdasVacias.forEach(function(c,i){ var s=DB.hHor[c.gid][c.d][c.ti]; var v=snap[i]; s.mId=v.mId;s.pId=v.pId;s.tipo=v.tipo||'clase';s.txt=v.txt||''; if(v.paralelo)s.paralelo=v.paralelo; if(v.pIdAten){s.pIdAten=v.pIdAten;s.mIdAten=v.mIdAten;} }); }
 
   var mejor=null;
-  for(var att=0; att<20; att++){
+  for(var att=0; att<40; att++){
     _reset();
-    _rellenar(att, att<16?90:9999);   // primeros intentos sin pasar de 1h30'; ultimos permiten mas para no dejar hueco
+    _rellenar(att, att<32?90:9999);   // primeros intentos sin pasar de 1h30'; ultimos permiten mas para no dejar hueco
     var ev=_evalua();
     if(!mejor||ev.score<mejor.score){ mejor={score:ev.score,huecos:ev.huecos,viol:ev.viol,snap:_snap()}; }
     if(ev.score===0)break;
@@ -3705,6 +3715,7 @@ function genHorario(){
       if(!relajarTope&&minHoy+dur>90)return;                     // respetar 1h30'/dia si se puede
       if(nf.esEsp&&dur<60&&_adyDur(hor,mid,d,ti,30))return;       // no crear especialista en dos 30'
       var s=0;
+      if(rem[gid][mid]>=dur)s+=3000;                             // preferir colocar horas que faltan de verdad (exacto)
       if(!nf.esEsp)s+=1000;
       if(_adyacenteHoy(hor,mid,d,ti))s+=500;                     // pegado a su bloque (contiguo)
       if(nf.troncal)s+=150;
