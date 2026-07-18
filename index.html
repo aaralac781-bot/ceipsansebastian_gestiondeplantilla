@@ -3441,6 +3441,11 @@ function genHorario(){
     });
     return c;
   }
+  function _fillDia(hor,d){   // modulos de clase ya ocupados ese dia (para equilibrar la carga diaria)
+    var c=0;
+    idxT.forEach(function(ti){ var sx=hor[d]&&hor[d][ti]; if(sx&&sx.mId)c++; });
+    return c;
+  }
   function _adyacenteMat(hor,mId,d){
     var i=DIAS2.indexOf(d);
     return (i>0&&_modsDia(hor,mId,DIAS2[i-1])>0)||(i<DIAS2.length-1&&_modsDia(hor,mId,DIAS2[i+1])>0);
@@ -3469,7 +3474,8 @@ function genHorario(){
     dias.sort(function(x,y){
       var sx=_modsDia(hor,b.mId,x), sy=_modsDia(hor,b.mId,y);
       if(respetar&&b.repartir){ if(_adyacenteMat(hor,b.mId,x))sx+=10; if(_adyacenteMat(hor,b.mId,y))sy+=10; }
-      return sx-sy;
+      if(sx!==sy)return sx-sy;                    // 1o: dias que aun no tienen esta materia (dias distintos)
+      return _fillDia(hor,x)-_fillDia(hor,y);     // 2o: el dia mas vacio (equilibra la carga diaria)
     });
     var maxDef=(!softMax&&b.maxD>0)?Math.max(b.maxD,b.n):0;
     for(var di=0;di<dias.length;di++){
@@ -3480,7 +3486,11 @@ function genHorario(){
       if(respetar&&b.franja==='ultima')starts.reverse();   // a ultima hora: probar desde el final
       for(var si=0;si<starts.length;si++){
         var kk=starts[si], vale=true;
-        for(var j=0;j<b.n;j++){ var ti=idxT[kk+j]; if(!_libre(hor,d,ti)||maestroOcupado(b.pId,d,ti,b.gid)){vale=false;break;} }
+        for(var j=0;j<b.n;j++){
+          var ti=idxT[kk+j];
+          if(j>0&&(idxT[kk+j]-idxT[kk+j-1])!==1){vale=false;break;} // no partir un bloque con el recreo en medio
+          if(!_libre(hor,d,ti)||maestroOcupado(b.pId,d,ti,b.gid)){vale=false;break;}
+        }
         if(!vale)continue;
         for(var j2=0;j2<b.n;j2++){
           var ti2=idxT[kk+j2];
@@ -3534,21 +3544,25 @@ function genHorario(){
     Object.keys(porMat).forEach(function(mid){
       var lista=porMat[mid];
       var mat=_matDe(mid);
-      var sesMin=parseInt(mat.sesionMin)|| ((parseInt(mat.blq)||1)*durMod);
+      // Sesion por defecto = 1h; si la materia define sesionMin (o BLOQUE), se respeta.
+      var sesMin=parseInt(mat.sesionMin)||(mat.blq?parseInt(mat.blq)*durMod:60);
       var S=Math.max(1,Math.round(sesMin/durMod));
       var T=lista.length;
+      // Reparto natural: sesiones de 1h en dias distintos; el resto (media hora)
+      // queda como sesion propia. Asi una materia de 3h sale como 1h+1h+1h en 3 dias,
+      // y una de 1,5h como 1h+0,5h; nunca varios trozos sueltos de 0,5h.
       var sizes=[];
       if(T>0){
         if(T<=S)sizes=[T];
         else{
-          var kk=Math.floor(T/S), rem=T%S;
-          for(var q=0;q<kk;q++)sizes.push(S);
-          if(rem>0)sizes[sizes.length-1]+=rem;
+          var full=Math.floor(T/S), rem=T%S;
+          for(var q=0;q<full;q++)sizes.push(S);
+          if(rem>0)sizes.push(rem);
         }
       }
       var pos=0;
-      sizes.forEach(function(sz){
-        allBloques.push({gid:g.id,gn:g.n,mId:lista[pos].mId,pId:lista[pos].pId,n:sz,maxD:parseInt(mat.maxD)||0,
+      sizes.forEach(function(sz,ronda){
+        allBloques.push({gid:g.id,gn:g.n,mId:lista[pos].mId,pId:lista[pos].pId,n:sz,ronda:ronda,maxD:parseInt(mat.maxD)||0,
           prio:!!mat.prio, franja:mat.franja||'', dias:(mat.dias&&mat.dias.length?mat.dias.slice():null), repartir:!!mat.repartir});
         pos+=sz;
       });
@@ -3556,9 +3570,11 @@ function genHorario(){
   });
 
   // ── FASE 2: ordenar globalmente y colocar ──────────────────────────────
-  // Los maestros que dan clase en MAS grupos (especialistas: Ingles, Musica, EF,
-  // Religion, maestras con reduccion...) son los mas dificiles de encajar: se colocan
-  // PRIMERO, con el horario aun vacio, para que puedan repartirse sin choques.
+  // Se coloca por RONDAS: primero la 1a sesion de cada materia de cada grupo,
+  // luego la 2a, etc. Asi cada materia toca dias distintos antes de repetir, y
+  // ningun dia se llena de especialistas dejando otro sin Lengua/Mates.
+  // Dentro de cada ronda van primero los maestros mas compartidos (Ingles,
+  // Musica, EF, Religion, reducciones): son los mas dificiles de encajar.
   var gruposPorMae={};
   allBloques.forEach(function(b){
     (gruposPorMae[b.pId]=gruposPorMae[b.pId]||{})[b.gid]=true;
@@ -3566,6 +3582,7 @@ function genHorario(){
   function _nGrupos(pId){return Object.keys(gruposPorMae[pId]||{}).length;}
   allBloques.sort(function(a,b){
     return (b.prio?1:0)-(a.prio?1:0)      // materias prioritarias primero
+        || a.ronda-b.ronda                 // por rondas: 1a sesion de todas, luego 2a...
         || _nGrupos(b.pId)-_nGrupos(a.pId) // maestros mas compartidos (especialistas) primero
         || b.n-a.n;                         // bloques mas grandes primero
   });
