@@ -3691,6 +3691,35 @@ function genHorario(){
   }
   _restore(mejor.snap);
 
+  // ── TAPAR HUECOS: ninguna celda debe quedar vacia. El tutor rellena con sus
+  // materias (Lengua/Mates/Cono/Libre) porque siempre esta disponible para su grupo;
+  // asi no queda ni un hueco aunque a algun especialista no le cupiera algo.
+  function _tapaCelda(gid,d,ti,permitirEsp,relajarTope){
+    var hor=getHorGrupo(gid), dur=_durT(ti);
+    var best=null,bestS=-1e9;
+    Object.keys(info[gid]).forEach(function(mid){
+      var nf=info[gid][mid];
+      if(!permitirEsp&&nf.esEsp)return;
+      if(maestroOcupado(nf.pId,d,ti,gid))return;                 // su maestro ocupado en otro grupo
+      var minHoy=_minDiaMat(hor,mid,d);
+      if(!relajarTope&&minHoy+dur>90)return;                     // respetar 1h30'/dia si se puede
+      if(nf.esEsp&&dur<60&&_adyDur(hor,mid,d,ti,30))return;       // no crear especialista en dos 30'
+      var s=0;
+      if(!nf.esEsp)s+=1000;
+      if(_adyacenteHoy(hor,mid,d,ti))s+=500;                     // pegado a su bloque (contiguo)
+      if(nf.troncal)s+=150;
+      s+=rem[gid][mid]/60;                                       // preferir a quien aun le falten horas
+      if(s>bestS){bestS=s;best=mid;}
+    });
+    if(best!=null){ _ocupa(gid,best,d,ti); return true; }
+    return false;
+  }
+  DB.hGrupos.forEach(function(g){ var h=getHorGrupo(g.id); DIAS2.forEach(function(d){ idxT.forEach(function(ti){
+    if(!_libre(h,d,ti))return;
+    _tapaCelda(g.id,d,ti,false,false) || _tapaCelda(g.id,d,ti,false,true) ||
+    _tapaCelda(g.id,d,ti,true,false)  || _tapaCelda(g.id,d,ti,true,true);
+  }); }); });
+
   var sinSitioG={};
   DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; DIAS2.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(_libre(h,d,ti))sinSitioG[g.n]=(sinSitioG[g.n]||0)+1; }); }); });
   Object.keys(sinSitioG).forEach(function(gn){GEN_AVISOS.push(gn+': '+sinSitioG[gn]+' hueco(s)');});
