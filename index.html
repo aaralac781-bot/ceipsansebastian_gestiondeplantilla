@@ -3452,6 +3452,11 @@ function genHorario(){
     idxT.forEach(function(ti){ var sx=hor[d]&&hor[d][ti]; if(sx&&sx.mId)c+=_durT(ti); });
     return c;
   }
+  function _minDiaMat(hor,mId,d){   // MINUTOS de una materia concreta ese dia (para el tope 1h/1h30')
+    var c=0;
+    idxT.forEach(function(ti){ var sx=hor[d]&&hor[d][ti]; if(sx&&String(sx.mId)===String(mId))c+=_durT(ti); });
+    return c;
+  }
   function _adyacenteMat(hor,mId,d){
     var i=DIAS2.indexOf(d);
     return (i>0&&_modsDia(hor,mId,DIAS2[i-1])>0)||(i<DIAS2.length-1&&_modsDia(hor,mId,DIAS2[i+1])>0);
@@ -3476,7 +3481,7 @@ function genHorario(){
   // franja/dias/repartir; softMax ignora MAX/DIA. Dos pasadas: primero un unico
   // tramo cuya duracion == targetMin (asi las sesiones de 1h usan los tramos de 1h),
   // luego tiras de varios tramos (p.ej. dos de 30' para hacer 1h).
-  function _colocaSesion(b,targetMin,respetar,softMax){
+  function _colocaSesion(b,targetMin,respetar,cap){
     var hor=getHorGrupo(b.gid);
     var dias=DIAS2.slice();
     if(respetar&&b.dias)dias=dias.filter(function(d){return b.dias.indexOf(d)>=0;});
@@ -3488,7 +3493,7 @@ function genHorario(){
     });
     for(var di=0;di<dias.length;di++){
       var d=dias[di];
-      if(!softMax&&b.maxD>0&&_modsDia(hor,b.mId,d)>=b.maxD)continue;
+      if(cap&&cap<9000&&_minDiaMat(hor,b.mId,d)+targetMin>cap)continue;  // tope de minutos/dia por materia (1h / 1h30')
       var pos=[]; for(var p=0;p<idxT.length;p++)pos.push(p);
       if(respetar&&b.franja==='ultima')pos.reverse();
       for(var pass=0;pass<2;pass++){
@@ -3515,23 +3520,6 @@ function genHorario(){
     }
     return false;
   }
-  // Coloca una materia SIN PERDIDAS: la sesion entera respetando prefs; si no cabe,
-  // en sesiones mas cortas (bajando de 30' en 30') hasta colocar todos los minutos.
-  function _colocaSinPerdida(b){
-    if(_colocaSesion(b,b.min,true,false))return b.min;
-    var restante=b.min, colocado=0;
-    while(restante>=minGran){
-      var sz=restante, ok=false;
-      while(sz>=minGran){
-        if(_colocaSesion(b,sz,false,true)){ok=true;break;}
-        sz-=minGran;
-      }
-      if(!ok)break;         // no queda ningun hueco libre en el grupo para este maestro
-      colocado+=sz; restante-=sz;
-    }
-    return colocado;
-  }
-
   // ── FASE 1: construir TODAS las sesiones de TODOS los grupos ────────────
   var allBloques=[];
   DB.hGrupos.forEach(function(g){
@@ -3580,11 +3568,36 @@ function genHorario(){
         || _nGrupos(b.pId)-_nGrupos(a.pId) // maestros mas compartidos (especialistas) primero
         || b.min-a.min;                     // sesiones mas largas primero
   });
+  // Colocacion en PASADAS con tope de minutos/dia por materia:
+  //  1) sesion entera, maximo 1h/dia  -> lo ideal: 1h de cada materia cada dia
+  //  2) sesion entera, maximo 1h30'/dia -> para las horas que no caben a 1h/dia
+  //  3) en trozos (30'), maximo 1h30'/dia -> rellena tramos sueltos sin pasar de 1h30'
+  //  4) ULTIMO RECURSO: en trozos sin tope -> solo para no dejar un hueco imposible
+  // 'b.min' es lo que le queda por colocar a cada sesion (se va descontando).
+  function _pasada(cap,trozos){
+    allBloques.forEach(function(b){
+      if(b.min<=0)return;
+      if(!trozos){
+        if(_colocaSesion(b,b.min,true,cap))b.min=0;
+        return;
+      }
+      var progreso=true;
+      while(b.min>=minGran&&progreso){
+        progreso=false;
+        var sz=Math.min(b.min,90);                 // no crear trozos mayores de 1h30'
+        while(sz>=minGran){
+          if(_colocaSesion(b,sz,false,cap)){b.min-=sz;progreso=true;break;}
+          sz-=minGran;
+        }
+      }
+    });
+  }
+  _pasada(60,false);    // 1h/dia, sesion entera
+  _pasada(90,false);    // 1h30'/dia, sesion entera
+  _pasada(90,true);     // 1h30'/dia, en trozos
+  _pasada(9999,true);   // sin tope (evitar hueco imposible)
   var sinSitioG={};
-  allBloques.forEach(function(b){
-    var puesto=_colocaSinPerdida(b);
-    if(puesto<b.min)sinSitioG[b.gn]=(sinSitioG[b.gn]||0)+(b.min-puesto);
-  });
+  allBloques.forEach(function(b){ if(b.min>0)sinSitioG[b.gn]=(sinSitioG[b.gn]||0)+b.min; });
   Object.keys(sinSitioG).forEach(function(gn){GEN_AVISOS.push(gn+': '+(Math.round(sinSitioG[gn]/60*10)/10)+'h sin hueco');});
 
   // Rellenar el horario PROPIO de cada maestro para que no quede ningun hueco:
