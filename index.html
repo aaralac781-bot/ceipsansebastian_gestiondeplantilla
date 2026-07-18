@@ -3994,13 +3994,26 @@ function exportarSheets(){
 }
 
 function limpiarHorario(){
-  if(!confirm('Limpiar celdas no fijadas de todos los grupos?'))return;
+  if(!confirm('Limpiar celdas no fijadas de todos los grupos?\n(Tambien se borran las horas de Coordinacion, RH y Luciernaga que puso el generador.)'))return;
+  var DD=['Lunes','Martes','Miercoles','Jueves','Viernes'];
   DB.hGrupos.forEach(function(g){
     var hor=DB.hHor&&DB.hHor[g.id];
     if(!hor)return;
-    ['Lunes','Martes','Miercoles','Jueves','Viernes'].forEach(function(d){
+    DD.forEach(function(d){
       (hor[d]||[]).forEach(function(slot){
-        if(!slot.fij){slot.mId=null;slot.pId=null;slot.tipo='clase';slot.txt='';}
+        if(slot&&!slot.fij){slot.mId=null;slot.pId=null;slot.tipo='clase';slot.txt='';delete slot.paralelo;delete slot.pIdAten;delete slot.mIdAten;}
+      });
+    });
+  });
+  // Limpiar tambien el horario PROPIO de cada maestro: las horas de Coordinacion, RH,
+  // Luciernaga, Direccion... son restos que el generador cuadra al final; deben borrarse
+  // para poder generar de nuevo desde cero.
+  (DB.maestros||[]).forEach(function(m){
+    var hp=DB.hHor&&DB.hHor['mae_'+m.id];
+    if(!hp)return;
+    DD.forEach(function(d){
+      (hp[d]||[]).forEach(function(slot){
+        if(slot&&!slot.fij&&['coord','reduccion','luciernaga','direccion','jefatura','secretaria'].indexOf(slot.tipo)>=0){slot.tipo='libre';slot.txt='';slot.mId=null;slot.pId=null;}
       });
     });
   });
