@@ -2310,7 +2310,23 @@ function exportarHorariosSSNet(){
     });
   });
 
-  var totalFilas=gruposData.length+maestrosData.length;
+  // 3) REFUERZO / LUCIERNAGA por maestro: [Maestro_Apoyo, Dia, Tramo, Maestro_Apoyado, Etiqueta, Tipo]
+  //    SSNet lo muestra en la columna "Refuerzo" del horario diario de cada maestro.
+  (DB.maestros||[]).forEach(function(p){
+    if(!p.n) return;
+    var hp=(DB.hHor||{})['mae_'+p.id]; if(!hp) return;
+    DIAS2.forEach(function(d){
+      (hp[d]||[]).forEach(function(slot,ti){
+        var t=(DB.tramos||[])[ti]; if(!t||t.r) return;
+        if(!slot||slot.tipo!=='luciernaga') return;
+        var grp = (slot.txt && !/luciernaga|refuerzo/i.test(slot.txt)) ? slot.txt : '';
+        var etiqueta = grp ? ('Refuerzo '+grp) : 'Refuerzo/Luciernaga';
+        refuerzoData.push([p.n, d, tramoLabel(t), p.n, etiqueta, 'Ref/Luciernaga']);
+      });
+    });
+  });
+
+  var totalFilas=gruposData.length+maestrosData.length+refuerzoData.length;
   if(!totalFilas){
     if(res){res.style.background='#fee2e2';res.style.color='#b91c1c';res.textContent='No hay horarios construidos que exportar.';}
     return;
