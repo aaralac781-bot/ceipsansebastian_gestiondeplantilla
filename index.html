@@ -3513,6 +3513,20 @@ function genHorario(){
     var pti=idxT[p-1]; if(ti-pti!==1)return null;
     var s=hor[d]&&hor[d][pti]; return s&&s.mId?s.mId:null;
   }
+  // Prohibe la MISMA materia en los DOS tramos de 30' seguidos (p.ej. 10-10:30 y 10:30-11).
+  // Se permite: un tramo de 1h, o un tramo de 1h + un 30' pegado (1h30'), o un 30' suelto.
+  function _prohibeDosMedias(hor,mid,d,ti){
+    if(_durT(ti)>=60)return false;               // solo aplica a tramos de media hora
+    var p=idxT.indexOf(ti);
+    function vecino(q){
+      if(q<0||q>=idxT.length)return false;
+      var o=idxT[q];
+      if(Math.abs(o-idxT[p])!==1)return false;    // no contiguo (hay recreo/hueco en medio)
+      if(_durT(o)>=60)return false;               // el vecino es de 1h: permitido
+      var s=hor[d]&&hor[d][o]; return s&&String(s.mId)===String(mid);
+    }
+    return vecino(p-1)||vecino(p+1);
+  }
   function _ocupa(gid,mid,d,ti){               // asigna la materia a la celda y descuenta minutos
     var hor=getHorGrupo(gid), nf=info[gid][mid];
     if(!hor[d])hor[d]=[]; if(!hor[d][ti])hor[d][ti]={};
@@ -3535,8 +3549,9 @@ function genHorario(){
       var cap=strict?nf.capDia:(capMax||9999);
       if(minHoy+dur>cap)return;                           // pasaria del tope diario
       if(strict&&nf.dias&&nf.dias.indexOf(d)<0)return;    // materia restringida a ciertos dias
+      if(_prohibeDosMedias(hor,mid,d,ti))return;          // no trocear una materia en dos medias horas seguidas
       var s=0;
-      if(prev&&String(prev)===String(mid)&&minHoy>0&&minHoy<60)s+=2000; // continuidad: unir dos 30' en 1h (no pasar de 1h)
+      if(prev&&String(prev)===String(mid)&&minHoy+dur<=90)s+=300; // contiguo permitido (1h + 30' pegado = 1h30')
       if(esPrimera){
         if(nf.troncal)s+=1200-_primeraCount(gid,mid)*300; // 1a hora: Lengua/Mates, alternando la menos usada
         else s-=400;                                      // en 1a hora, evitar lo que no sea troncal
@@ -3545,6 +3560,7 @@ function genHorario(){
       if(nf.franja==='ultima'&&!esPrimera)s+=60;
       if(_nGrupos(pid)>1)s+=500;                          // especialista: cogerlo cuando el profe esta libre (escaso)
       if(minHoy>0)s-=250;                                 // ya tiene la materia hoy: preferimos repartir en dias
+      if(nf.troncal&&minHoy+dur>60)s-=500;                // Lengua/Mates: mejor 1h/dia repartida en mas dias que 1h30' juntas
       if(nf.prio)s+=120;
       s+=rem[gid][mid]/30;                                // colocar antes las materias con mas horas pendientes
       if(s>mejorS){mejorS=s;mejor=mid;}
