@@ -3479,6 +3479,14 @@ function genHorario(){
   // ── FASE 1: minutos que necesita cada materia en cada grupo ─────────────
   var rem={}, info={};
   function _troncal(n){return n==='Lengua'||n==='Matematicas';}
+  // Materias que suele dar el TUTOR (flexibles: rellenan huecos y pueden usar las dos
+  // medias horas como una hora seguida). El resto son ESPECIALISTAS (bloques limpios).
+  function _esTutorMat(n){return ['Lengua','Matematicas','Cono.Medio','Libre Disp.','Ed.Valores','Autonomia'].indexOf(n)>=0;}
+  var tutorDe={};
+  DB.hGrupos.forEach(function(g){
+    var tm=(DB.maestros||[]).find(function(m){return m.t&&String(m.g)===String(g.n);});
+    tutorDe[g.id]=tm?tm.id:null;
+  });
   DB.hGrupos.forEach(function(g){
     getHorGrupo(g.id); // asegura estructura
     rem[g.id]={}; info[g.id]={};
@@ -3492,10 +3500,20 @@ function genHorario(){
       var hBoja=getBojaH(g.id,mat.id);
       var horas=hBoja>0?hBoja:(cv&&cv.h?cv.h:0);
       if(horas<=0)return;
-      rem[g.id][mat.id]=Math.round(horas*60/minGran)*minGran;   // minutos, redondeados a 30'
+      var minTot=Math.round(horas*60/minGran)*minGran;
+      rem[g.id][mat.id]=minTot;   // minutos, redondeados a 30'
       var capD=parseInt(mat.maxD)>0?parseInt(mat.maxD)*durMod:90; // tope diario por materia (por defecto 1h30')
-      info[g.id][mat.id]={pId:parseInt(cv.m),nombre:mat.n,prio:!!mat.prio,franja:mat.franja||'',
-        dias:(mat.dias&&mat.dias.length?mat.dias.slice():null),troncal:_troncal(mat.n),capDia:Math.max(minGran,capD)};
+      var tron=_troncal(mat.n);
+      var pid=parseInt(cv.m);
+      // Especialista = NO lo da el tutor del grupo (o, si no hay tutor definido, no es materia tipica de tutor).
+      var esEsp=tutorDe[g.id]!=null ? (String(pid)!==String(tutorDe[g.id])) : !_esTutorMat(mat.n);
+      // Nº de dias en que puede aparecer la materia:
+      //  - Tutor (Lengua/Mates/Cono...): flexible, repartidas.
+      //  - Especialistas: concentradas en pocos dias (bloques de hasta 1h30'), asi una de
+      //    1h30' cabe en 1 dia y una de 2h30' en 2 dias (no se trocea en 3).
+      var diasMax=esEsp?Math.max(1,Math.ceil(minTot/90)):5;
+      info[g.id][mat.id]={pId:pid,nombre:mat.n,prio:!!mat.prio,franja:mat.franja||'',
+        dias:(mat.dias&&mat.dias.length?mat.dias.slice():null),troncal:tron,esEsp:esEsp,capDia:Math.max(minGran,capD),diasMax:diasMax};
     });
   });
   // Cuantos grupos comparte cada maestro (especialistas = mas dificiles de encajar)
@@ -3513,19 +3531,17 @@ function genHorario(){
     var pti=idxT[p-1]; if(ti-pti!==1)return null;
     var s=hor[d]&&hor[d][pti]; return s&&s.mId?s.mId:null;
   }
-  // Prohibe la MISMA materia en los DOS tramos de 30' seguidos (p.ej. 10-10:30 y 10:30-11).
-  // Se permite: un tramo de 1h, o un tramo de 1h + un 30' pegado (1h30'), o un 30' suelto.
-  function _prohibeDosMedias(hor,mid,d,ti){
-    if(_durT(ti)>=60)return false;               // solo aplica a tramos de media hora
+  // La materia ya esta en un tramo pegado (contiguo, sin recreo). soloDur (60/30) filtra por duracion del vecino.
+  function _adyDur(hor,mid,d,ti,soloDur){
     var p=idxT.indexOf(ti);
-    function vecino(q){
-      if(q<0||q>=idxT.length)return false;
-      var o=idxT[q];
-      if(Math.abs(o-idxT[p])!==1)return false;    // no contiguo (hay recreo/hueco en medio)
-      if(_durT(o)>=60)return false;               // el vecino es de 1h: permitido
-      var s=hor[d]&&hor[d][o]; return s&&String(s.mId)===String(mid);
-    }
-    return vecino(p-1)||vecino(p+1);
+    function chk(q){ if(q<0||q>=idxT.length)return false; var o=idxT[q]; if(Math.abs(o-idxT[p])!==1)return false; if(soloDur&&_durT(o)!==soloDur)return false; var s=hor[d]&&hor[d][o]; return s&&String(s.mId)===String(mid); }
+    return chk(p-1)||chk(p+1);
+  }
+  function _adyacenteHoy(hor,mid,d,ti){ return _adyDur(hor,mid,d,ti,0); }
+  function _diasUsados(gid,mid){               // en cuantos dias distintos aparece ya la materia
+    var hor=getHorGrupo(gid),n=0;
+    DIAS2.forEach(function(d){ if(_minDiaMat(hor,mid,d)>0)n++; });
+    return n;
   }
   function _ocupa(gid,mid,d,ti){               // asigna la materia a la celda y descuenta minutos
     var hor=getHorGrupo(gid), nf=info[gid][mid];
@@ -3535,9 +3551,10 @@ function genHorario(){
     rem[gid][mid]-=_durT(ti);
     if(ti===primeraHoraTi&&nf.troncal){ (primeraCount[gid]=primeraCount[gid]||{})[mid]=_primeraCount(gid,mid)+1; }
   }
-  // Elige la mejor materia para el grupo en (d,ti). strict=true respeta tope propio y dias;
-  // si no, usa capMax como tope diario (relleno de repaso) e ignora la restriccion de dias.
-  function _elige(gid,d,ti,usados,strict,capMax){
+  // Elige la mejor materia para el grupo en (d,ti). nivel controla cuanto se relajan las reglas:
+  //  0 = estricto (todas las reglas)   1 = medio (relaja dias/tope, MANTIENE anti-troceo)
+  //  2 = laxo (solo evita huecos; mantiene "no dos 30' de la misma materia").
+  function _elige(gid,d,ti,usados,nivel,capMax){
     var hor=getHorGrupo(gid), dur=_durT(ti), esPrimera=(ti===primeraHoraTi), prev=_prevSubj(hor,d,ti);
     var mejor=null, mejorS=-1e9;
     Object.keys(rem[gid]).forEach(function(mid){
@@ -3546,12 +3563,24 @@ function genHorario(){
       if(usados[pid])return;                             // el maestro ya da clase a esa hora (otro grupo/celda)
       if(maestroOcupado(pid,d,ti,gid))return;
       var minHoy=_minDiaMat(hor,mid,d);
-      var cap=strict?nf.capDia:(capMax||9999);
+      var cap=nivel>=2?(capMax||9999):nf.capDia;
       if(minHoy+dur>cap)return;                           // pasaria del tope diario
-      if(strict&&nf.dias&&nf.dias.indexOf(d)<0)return;    // materia restringida a ciertos dias
-      if(_prohibeDosMedias(hor,mid,d,ti))return;          // no trocear una materia en dos medias horas seguidas
+      if(nivel===0&&nf.dias&&nf.dias.indexOf(d)<0)return; // materia restringida a ciertos dias
+      var ady=_adyacenteHoy(hor,mid,d,ti);
+      // ANTI-TROCEO de los ESPECIALISTAS: bloques limpios, nunca troceados. Las materias
+      // del tutor (Lengua/Mates/Cono/Libre) son flexibles y absorben lo que quede (pueden
+      // usar las dos medias horas como una hora seguida). En el nivel 2 (ultimo recurso)
+      // se relaja para no dejar huecos, salvo la regla de "no dos 30' seguidos".
+      if(nf.esEsp){
+        if(nivel<3&&dur<60&&_adyDur(hor,mid,d,ti,30))return;     // no la misma materia en los dos 30' (salvo ultimo recurso)
+        if(nivel<=1){
+          if(minHoy===0&&_diasUsados(gid,mid)>=nf.diasMax)return;  // no empezar en un dia nuevo de mas
+          if(minHoy>0&&!ady)return;                                // solo sigue pegada a su bloque
+          if(dur<60&&!_adyDur(hor,mid,d,ti,60))return;             // en un 30' solo como media hora de su propia hora
+        }
+      }
       var s=0;
-      if(prev&&String(prev)===String(mid)&&minHoy+dur<=90)s+=300; // contiguo permitido (1h + 30' pegado = 1h30')
+      if(!nf.troncal&&ady)s+=1800;                        // pegar la media hora a su hora (bloque contiguo 1h30')
       if(esPrimera){
         if(nf.troncal)s+=1200-_primeraCount(gid,mid)*300; // 1a hora: Lengua/Mates, alternando la menos usada
         else s-=400;                                      // en 1a hora, evitar lo que no sea troncal
@@ -3559,8 +3588,10 @@ function genHorario(){
       if(nf.franja==='primera'&&esPrimera)s+=300;
       if(nf.franja==='ultima'&&!esPrimera)s+=60;
       if(_nGrupos(pid)>1)s+=500;                          // especialista: cogerlo cuando el profe esta libre (escaso)
-      if(minHoy>0)s-=250;                                 // ya tiene la materia hoy: preferimos repartir en dias
-      if(nf.troncal&&minHoy+dur>60)s-=500;                // Lengua/Mates: mejor 1h/dia repartida en mas dias que 1h30' juntas
+      if(nf.troncal&&minHoy>0)s-=250;                     // Lengua/Mates: repartir en mas dias (1h/dia)
+      if(nf.troncal&&dur>=60&&minHoy>0)s-=500;            // no dos horas sueltas de troncal el mismo dia
+      if(nf.troncal&&dur<60)s+=(ady?600:150);             // el medio modulo suelto (10-10:30) lo absorben Lengua/Mates
+      if(!nf.troncal&&minHoy>0&&!ady)s-=600;              // resto: no dispersar en trozos no contiguos
       if(nf.prio)s+=120;
       s+=rem[gid][mid]/30;                                // colocar antes las materias con mas horas pendientes
       if(s>mejorS){mejorS=s;mejor=mid;}
@@ -3587,15 +3618,16 @@ function genHorario(){
     var off=(DIAS2.indexOf(d)*idxT.length+idxT.indexOf(ti)+seed*3)%(arr.length||1);
     return arr.slice(off).concat(arr.slice(0,off));
   }
-  // Una pasada de relleno: principal (respeta topes propios) + repaso (tope capMax)
+  // Una pasada de relleno en 3 niveles: estricto -> medio (relaja dias, mantiene anti-troceo)
+  // -> laxo (solo evita huecos). Asi se llena sin trocear salvo cuando es imposible.
   function _rellenar(seed,capMax){
-    [true,false].forEach(function(strict){
+    [0,1,2,3].forEach(function(nivel){
       slots.forEach(function(sl){
         var d=sl.d, ti=sl.ti, usados=_usadosEn(d,ti);
         _gruposOrden(d,ti,seed).forEach(function(g){
           var hor=getHorGrupo(g.id);
           if(!_libre(hor,d,ti))return;
-          var mid=_elige(g.id,d,ti,usados,strict,capMax);
+          var mid=_elige(g.id,d,ti,usados,nivel,capMax);
           if(mid==null)return;
           _ocupa(g.id,mid,d,ti);
           usados[info[g.id][mid].pId]=true;
@@ -3615,21 +3647,44 @@ function genHorario(){
     rem=JSON.parse(JSON.stringify(remInit)); primeraCount={};
   }
   function _evalua(){
-    var huecos=0, viol=0;
+    var huecos=0, viol=0, frag=0;
     celdasVacias.forEach(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]; if(!s||!s.mId)huecos++; });
-    DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; DIAS2.forEach(function(d){
-      var mm={}; idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.mId)mm[s.mId]=(mm[s.mId]||0)+_durT(ti); });
-      Object.keys(mm).forEach(function(mid){ if(mm[mid]>90)viol+=mm[mid]-90; });
-    }); });
-    return {huecos:huecos, viol:viol, score:huecos*100000+viol};
+    DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id];
+      var trozos={}, tot={};
+      DIAS2.forEach(function(d){
+        var mm={};
+        idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.mId)mm[s.mId]=(mm[s.mId]||0)+_durT(ti); });
+        Object.keys(mm).forEach(function(mid){ if(mm[mid]>90)viol+=mm[mid]-90; });
+        // contar trozos (bloques contiguos) por materia
+        var pm=null,pt=null;
+        idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; var mid=s&&s.mId?String(s.mId):null;
+          if(mid){ tot[mid]=(tot[mid]||0)+_durT(ti); if(!(pm===mid&&pt!=null&&ti-pt===1))trozos[mid]=(trozos[mid]||0)+1; }
+          pm=mid; pt=ti;
+        });
+      });
+      Object.keys(trozos).forEach(function(mid){
+        if(!info[g.id][mid]||!info[g.id][mid].esEsp)return;   // solo penaliza trocear ESPECIALISTAS
+        var esperado=Math.max(1,Math.ceil(tot[mid]/90));      // trozos ideales (bloques de hasta 1h30')
+        if(trozos[mid]>esperado)frag+=(trozos[mid]-esperado);
+      });
+      // especialista en dos tramos de 30' seguidos (indeseable)
+      DIAS2.forEach(function(d){
+        for(var k=0;k<idxT.length-1;k++){ var a=idxT[k],b=idxT[k+1];
+          if(b-a!==1||_durT(a)>=60||_durT(b)>=60)continue;
+          var sa=h[d]&&h[d][a], sb=h[d]&&h[d][b];
+          if(sa&&sb&&sa.mId&&String(sa.mId)===String(sb.mId)&&info[g.id][sa.mId]&&info[g.id][sa.mId].esEsp)frag+=1;
+        }
+      });
+    });
+    return {huecos:huecos, viol:viol, frag:frag, score:huecos*100000+frag*1000+viol};
   }
   function _snap(){ return celdasVacias.map(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]||{}; return {mId:s.mId,pId:s.pId,tipo:s.tipo,txt:s.txt,paralelo:s.paralelo,pIdAten:s.pIdAten,mIdAten:s.mIdAten}; }); }
   function _restore(snap){ celdasVacias.forEach(function(c,i){ var s=DB.hHor[c.gid][c.d][c.ti]; var v=snap[i]; s.mId=v.mId;s.pId=v.pId;s.tipo=v.tipo||'clase';s.txt=v.txt||''; if(v.paralelo)s.paralelo=v.paralelo; if(v.pIdAten){s.pIdAten=v.pIdAten;s.mIdAten=v.mIdAten;} }); }
 
   var mejor=null;
-  for(var att=0; att<12; att++){
+  for(var att=0; att<20; att++){
     _reset();
-    _rellenar(att, att<9?90:9999);   // primeros intentos sin pasar de 1h30'; ultimos permiten mas para no dejar hueco
+    _rellenar(att, att<16?90:9999);   // primeros intentos sin pasar de 1h30'; ultimos permiten mas para no dejar hueco
     var ev=_evalua();
     if(!mejor||ev.score<mejor.score){ mejor={score:ev.score,huecos:ev.huecos,viol:ev.viol,snap:_snap()}; }
     if(ev.score===0)break;
