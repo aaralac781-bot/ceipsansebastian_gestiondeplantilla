@@ -3406,95 +3406,137 @@ function genHorario(){
   var DIAS2=['Lunes','Martes','Miercoles','Jueves','Viernes'];
   var GEN_AVISOS=[];
   var durMod=(DB.tramos.filter(function(t){return !t.r;})[0]||{dur:45}).dur;
+  var idxT=[];
+  (DB.tramos||[]).forEach(function(t,ti){if(!t.r)idxT.push(ti);});
+
+  // ── Helpers GLOBALES (independientes del grupo) ─────────────────────────
+  function _matDe(mid){for(var i=0;i<DB.hMat.length;i++)if(String(DB.hMat[i].id)===String(mid))return DB.hMat[i];return {};}
+  // Un maestro esta ocupado si da clase en OTRO grupo a esa hora (gid = grupo actual, se salta)
+  function maestroOcupado(pId,dia,ti,gid){
+    if(!pId)return false;
+    for(var gi=0;gi<DB.hGrupos.length;gi++){
+      var og=DB.hGrupos[gi];
+      if(String(og.id)===String(gid))continue;
+      var horO=DB.hHor&&DB.hHor[og.id];
+      if(!horO||!horO[dia]||!horO[dia][ti])continue;
+      var sO=horO[dia][ti];
+      if(sO&&String(sO.pId)===String(pId))return true;
+      if(sO&&sO.pIdAten&&String(sO.pIdAten)===String(pId))return true;
+    }
+    return false;
+  }
+  function _libre(hor,d,ti){
+    if(DB.tramos[ti]&&DB.tramos[ti].r)return false;
+    var sx=hor[d]&&hor[d][ti]?hor[d][ti]:null;
+    if(!sx)return true;
+    if(sx.fij||sx.mId)return false;
+    if(sx.tipo&&sx.tipo!=='clase')return false;
+    return true;
+  }
+  function _modsDia(hor,mId,d){
+    var c=0;
+    (DB.tramos||[]).forEach(function(t,ti){
+      var sx=hor[d]&&hor[d][ti];
+      if(sx&&String(sx.mId)===String(mId))c++;
+    });
+    return c;
+  }
+  function _adyacenteMat(hor,mId,d){
+    var i=DIAS2.indexOf(d);
+    return (i>0&&_modsDia(hor,mId,DIAS2[i-1])>0)||(i<DIAS2.length-1&&_modsDia(hor,mId,DIAS2[i+1])>0);
+  }
+  function _paralelo(hor,gid,d,ti,mId){
+    var matAsig=_matDe(mId);
+    if(matAsig&&matAsig.n==='Religion'){
+      hor[d][ti].paralelo=true;
+      var cargaG=DB.hCarga[gid]||{};
+      var atenMat=DB.hMat.find(function(m){return m.n==='Aten.Educativa';});
+      if(atenMat){
+        var cvAten=cargaG[atenMat.id];
+        if(cvAten&&cvAten.m){
+          hor[d][ti].pIdAten=cvAten.m;
+          hor[d][ti].mIdAten=atenMat.id;
+        }
+      }
+    }
+  }
+  // Intenta colocar un bloque contiguo de tamano b.n en su grupo.
+  // respetar=true aplica franja/dias/repartir; softMax=true ignora el MAX/DIA (relleno duro).
+  function _colocaBloque(b,respetar,softMax){
+    var hor=getHorGrupo(b.gid);
+    var dias=DIAS2.slice();
+    if(respetar&&b.dias)dias=dias.filter(function(d){return b.dias.indexOf(d)>=0;});
+    dias.sort(function(x,y){
+      var sx=_modsDia(hor,b.mId,x), sy=_modsDia(hor,b.mId,y);
+      if(respetar&&b.repartir){ if(_adyacenteMat(hor,b.mId,x))sx+=10; if(_adyacenteMat(hor,b.mId,y))sy+=10; }
+      return sx-sy;
+    });
+    var maxDef=(!softMax&&b.maxD>0)?Math.max(b.maxD,b.n):0;
+    for(var di=0;di<dias.length;di++){
+      var d=dias[di];
+      if(maxDef>0&&_modsDia(hor,b.mId,d)+b.n>maxDef)continue;
+      var starts=[];
+      for(var k2=0;k2+b.n<=idxT.length;k2++)starts.push(k2);
+      if(respetar&&b.franja==='ultima')starts.reverse();   // a ultima hora: probar desde el final
+      for(var si=0;si<starts.length;si++){
+        var kk=starts[si], vale=true;
+        for(var j=0;j<b.n;j++){ var ti=idxT[kk+j]; if(!_libre(hor,d,ti)||maestroOcupado(b.pId,d,ti,b.gid)){vale=false;break;} }
+        if(!vale)continue;
+        for(var j2=0;j2<b.n;j2++){
+          var ti2=idxT[kk+j2];
+          if(!hor[d])hor[d]=[];
+          if(!hor[d][ti2])hor[d][ti2]={};
+          hor[d][ti2].mId=b.mId;hor[d][ti2].pId=b.pId;hor[d][ti2].tipo='clase';hor[d][ti2].txt='';
+          _paralelo(hor,b.gid,d,ti2,b.mId);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+  // Coloca un bloque de forma SIN PERDIDAS: entero respetando prefs; si no cabe,
+  // en trozos cada vez mas pequenos (relajando MAX/DIA) hasta colocar todos los modulos.
+  function _colocaSinPerdida(b){
+    if(_colocaBloque(b,true,false))return b.n;   // ideal: bloque entero honrando preferencias
+    var restante=b.n, colocado=0;
+    while(restante>0){
+      var sz=restante, ok=false;
+      while(sz>=1){
+        var sub={gid:b.gid,mId:b.mId,pId:b.pId,n:sz,maxD:b.maxD,prio:b.prio,franja:b.franja,dias:b.dias,repartir:b.repartir};
+        if(_colocaBloque(sub,false,true)){ok=true;break;}
+        sz--;
+      }
+      if(!ok)break;         // no queda ningun hueco libre en el grupo para este maestro
+      colocado+=sz; restante-=sz;
+    }
+    return colocado;
+  }
+
+  // ── FASE 1: construir TODOS los bloques de TODOS los grupos ─────────────
+  var allBloques=[];
   DB.hGrupos.forEach(function(g){
-    var hor=getHorGrupo(g.id);
+    getHorGrupo(g.id); // asegura estructura
     var carga=DB.hCarga[g.id]||{};
-    // Lista de tareas (modulos a asignar)
     var tareas=[];
     DB.hMat.forEach(function(mat){
       var cv=carga[mat.id];
       if(!cv||!cv.m)return;
-      var activas=DB.hCarga[g.id]&&DB.hCarga[g.id]._activas;
+      var activas=carga._activas;
       if(activas&&activas[mat.id]===false)return;
-      // Aten.Educativa NO genera modulos propios: va SIEMPRE en paralelo con Religion
-      // (el alumnado se reparte en la misma hora segun lo que haya elegido)
-      if(mat.n==='Aten.Educativa')return;
+      if(mat.n==='Aten.Educativa')return; // va en paralelo con Religion
       var hBoja=getBojaH(g.id,mat.id);
       var horas=hBoja>0?hBoja:(cv&&cv.h?cv.h:0);
       var mods=Math.round(horas*60/durMod);
       for(var i=0;i<mods;i++)tareas.push({mId:mat.id,pId:parseInt(cv.m)});
     });
-    // Huecos disponibles (no fijados, no recreo, no otro tipo)
-    var huecos=[];
-    DIAS2.forEach(function(d){
-      DB.tramos.forEach(function(t,ti){
-        if(t.r)return;
-        var slot=hor[d]&&hor[d][ti]?hor[d][ti]:{};
-        if(!slot.fij&&!slot.mId&&!(slot.tipo&&slot.tipo!=='clase')){
-          huecos.push({d:d,ti:ti});
-        }
-      });
-    });
-    // Funcion para comprobar si un maestro ya esta ocupado en otro grupo
-    function maestroOcupado(pId,dia,ti){
-      if(!pId)return false;
-      for(var gi=0;gi<DB.hGrupos.length;gi++){
-        var og=DB.hGrupos[gi];
-        if(og.id===g.id)continue; // no contar el mismo grupo
-        var horO=DB.hHor&&DB.hHor[og.id];
-        if(!horO||!horO[dia]||!horO[dia][ti])continue;
-        var sO=horO[dia][ti];
-        if(sO&&String(sO.pId)===String(pId))return true;
-        if(sO&&sO.pIdAten&&String(sO.pIdAten)===String(pId))return true;
-      }
-      return false;
-    }
-    // ── Colocacion por BLOQUES segun los parametros de cada materia ──
-    function _matDe(mid){for(var i=0;i<DB.hMat.length;i++)if(String(DB.hMat[i].id)===String(mid))return DB.hMat[i];return {};}
-    function _libre(d,ti){
-      if(DB.tramos[ti]&&DB.tramos[ti].r)return false;
-      var sx=hor[d]&&hor[d][ti]?hor[d][ti]:null;
-      if(!sx)return true;
-      if(sx.fij||sx.mId)return false;
-      if(sx.tipo&&sx.tipo!=='clase')return false;
-      return true;
-    }
-    function _modsDia(mId,d){
-      var c=0;
-      (DB.tramos||[]).forEach(function(t,ti){
-        var sx=hor[d]&&hor[d][ti];
-        if(sx&&String(sx.mId)===String(mId))c++;
-      });
-      return c;
-    }
-    function _paralelo(d,ti,mId){
-      var matAsig=_matDe(mId);
-      if(matAsig&&matAsig.n==='Religion'){
-        hor[d][ti].paralelo=true;
-        var cargaG=DB.hCarga[g.id]||{};
-        var atenMat=DB.hMat.find(function(m){return m.n==='Aten.Educativa';});
-        if(atenMat){
-            var cvAten=cargaG[atenMat.id];
-          if(cvAten&&cvAten.m){
-            hor[d][ti].pIdAten=cvAten.m;
-            hor[d][ti].mIdAten=atenMat.id;
-          }
-        }
-      }
-    }
-    // Agrupar los modulos de cada materia en bloques (con sus parametros)
     var porMat={};
     tareas.forEach(function(t){(porMat[t.mId]=porMat[t.mId]||[]).push(t);});
-    var bloques=[];
     Object.keys(porMat).forEach(function(mid){
       var lista=porMat[mid];
       var mat=_matDe(mid);
-      // Duracion de sesion preferida (en modulos): mat.sesionMin (minutos) o, si no, el antiguo BLOQUE
       var sesMin=parseInt(mat.sesionMin)|| ((parseInt(mat.blq)||1)*durMod);
       var S=Math.max(1,Math.round(sesMin/durMod));
       var T=lista.length;
-      // Reparto natural: sesiones enteras de tamano S; el resto se une a la ultima sesion
-      // (asi una materia de 1,5h sale como 1,5h o 1h+0,5h, nunca 0,5h x3).
       var sizes=[];
       if(T>0){
         if(T<=S)sizes=[T];
@@ -3506,62 +3548,33 @@ function genHorario(){
       }
       var pos=0;
       sizes.forEach(function(sz){
-        bloques.push({mId:lista[pos].mId,pId:lista[pos].pId,n:sz,maxD:parseInt(mat.maxD)||0,
+        allBloques.push({gid:g.id,gn:g.n,mId:lista[pos].mId,pId:lista[pos].pId,n:sz,maxD:parseInt(mat.maxD)||0,
           prio:!!mat.prio, franja:mat.franja||'', dias:(mat.dias&&mat.dias.length?mat.dias.slice():null), repartir:!!mat.repartir});
         pos+=sz;
       });
     });
-    // Materias prioritarias primero; luego los bloques mas grandes
-    bloques.sort(function(a,b){return (b.prio?1:0)-(a.prio?1:0) || b.n-a.n;});
-    var idxT=[];
-    (DB.tramos||[]).forEach(function(t,ti){if(!t.r)idxT.push(ti);});
-    var sinSitio=0;
-
-    // Un dia es "adyacente" para una materia si el dia anterior o siguiente ya la tiene (para repartir)
-    function _adyacenteMat(mId,d){
-      var i=DIAS2.indexOf(d);
-      return (i>0&&_modsDia(mId,DIAS2[i-1])>0)||(i<DIAS2.length-1&&_modsDia(mId,DIAS2[i+1])>0);
-    }
-    // Intenta colocar un bloque. respetar=true aplica franja/dias/repartir; false = coloca donde sea.
-    function _colocaBloque(b,respetar){
-      var dias=DIAS2.slice();
-      if(respetar&&b.dias)dias=dias.filter(function(d){return b.dias.indexOf(d)>=0;});
-      dias.sort(function(x,y){
-        var sx=_modsDia(b.mId,x), sy=_modsDia(b.mId,y);
-        if(respetar&&b.repartir){ if(_adyacenteMat(b.mId,x))sx+=10; if(_adyacenteMat(b.mId,y))sy+=10; }
-        return sx-sy;
-      });
-      var maxDef=b.maxD>0?Math.max(b.maxD,b.n):0;
-      for(var di=0;di<dias.length;di++){
-        var d=dias[di];
-        if(maxDef>0&&_modsDia(b.mId,d)+b.n>maxDef)continue;
-        var starts=[];
-        for(var k2=0;k2+b.n<=idxT.length;k2++)starts.push(k2);
-        if(respetar&&b.franja==='ultima')starts.reverse();   // a ultima hora: probar desde el final
-        for(var si=0;si<starts.length;si++){
-          var kk=starts[si], vale=true;
-          for(var j=0;j<b.n;j++){ var ti=idxT[kk+j]; if(!_libre(d,ti)||maestroOcupado(b.pId,d,ti)){vale=false;break;} }
-          if(!vale)continue;
-          for(var j2=0;j2<b.n;j2++){
-            var ti2=idxT[kk+j2];
-            if(!hor[d])hor[d]=[];
-            if(!hor[d][ti2])hor[d][ti2]={};
-            hor[d][ti2].mId=b.mId;hor[d][ti2].pId=b.pId;hor[d][ti2].tipo='clase';hor[d][ti2].txt='';
-            _paralelo(d,ti2,b.mId);
-          }
-          return true;
-        }
-      }
-      return false;
-    }
-    bloques.forEach(function(b){
-      // Primero respetando las preferencias; si no cabe, se coloca igualmente (blando: sin huecos)
-      var puesto=_colocaBloque(b,true)||_colocaBloque(b,false);
-      if(!puesto)sinSitio+=b.n;
-    });
-    if(sinSitio)GEN_AVISOS.push(g.n+': '+sinSitio+' modulos sin hueco');
-
   });
+
+  // ── FASE 2: ordenar globalmente y colocar ──────────────────────────────
+  // Los maestros que dan clase en MAS grupos (especialistas: Ingles, Musica, EF,
+  // Religion, maestras con reduccion...) son los mas dificiles de encajar: se colocan
+  // PRIMERO, con el horario aun vacio, para que puedan repartirse sin choques.
+  var gruposPorMae={};
+  allBloques.forEach(function(b){
+    (gruposPorMae[b.pId]=gruposPorMae[b.pId]||{})[b.gid]=true;
+  });
+  function _nGrupos(pId){return Object.keys(gruposPorMae[pId]||{}).length;}
+  allBloques.sort(function(a,b){
+    return (b.prio?1:0)-(a.prio?1:0)      // materias prioritarias primero
+        || _nGrupos(b.pId)-_nGrupos(a.pId) // maestros mas compartidos (especialistas) primero
+        || b.n-a.n;                         // bloques mas grandes primero
+  });
+  var sinSitioG={};
+  allBloques.forEach(function(b){
+    var puesto=_colocaSinPerdida(b);
+    if(puesto<b.n)sinSitioG[b.gn]=(sinSitioG[b.gn]||0)+(b.n-puesto);
+  });
+  Object.keys(sinSitioG).forEach(function(gn){GEN_AVISOS.push(gn+': '+sinSitioG[gn]+' modulos sin hueco');});
 
   // Rellenar el horario PROPIO de cada maestro para que no quede ningun hueco:
   // primero Coordinacion, luego Reduccion horaria (RH) y el resto Ref/Luciernaga
