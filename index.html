@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v19 · 19-jul (horas exactas + sin dobles)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v20 · 19-jul (especialidades en bloques)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3519,8 +3519,11 @@ function genHorario(){
       var tron=_troncal(mat.n);
       var fill=_filler(mat.n);
       var pid=parseInt(cv.m);
-      // Especialista = NO lo da el tutor del grupo (maestro externo que entra a la clase).
-      var esEsp=tutorDe[g.id]!=null ? (String(pid)!==String(tutorDe[g.id])) : !_esTutorMat(mat.n);
+      // Especialidades que SIEMPRE se cuadran primero y en bloques limpios, aunque las de el
+      // tutor (necesitan aula/pista propia: EF, Musica, Ingles, Religion, Frances, Plastica).
+      var esMatEsp=['E.F.','Musica','Ingles','Religion','Frances','Plastica','Artistica'].indexOf(mat.n)>=0;
+      // Especialista = una de esas materias, o NO la da el tutor del grupo (maestro externo).
+      var esEsp=esMatEsp||(tutorDe[g.id]!=null ? (String(pid)!==String(tutorDe[g.id])) : !_esTutorMat(mat.n));
       // antifrag = se consolida en bloques contiguos y pocos dias (todo menos Lengua/Mates
       // y el comodin). Nº de dias:
       //  - Especialista externo compartido: hasta 1 dia por hora (EF 3h -> 3 dias de 1h),
