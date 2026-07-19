@@ -3115,7 +3115,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v22 · 19-jul (modelo jefa: tutor cuadra su clase)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v23 · 19-jul (1a hora: 3 dias libres tutor)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3637,11 +3637,10 @@ function genHorario(){
       if(nf.antifrag&&ady)s+=1800;                        // premiar seguir el bloque (contiguo)
       // materia de >=1h que aun no esta hoy: preferir un tramo de 1h entero (bloque limpio)
       if(nf.antifrag&&minHoy===0&&dur>=60&&rem[gid][mid]>=60)s+=1000;
-      if(esPrimera){
-        if(nf.troncal)s+=1200-_primeraCount(gid,mid)*300; // 1a hora: Lengua/Mates, alternando la menos usada
-        else s-=1500;                                     // 1a hora RESERVADA al tutor (Lengua/Mates): los
-                                                          // especialistas la evitan salvo que no quede sitio
-      }
+      // 1a hora: se reservan >=3 dias al tutor (Lengua/Mates). Como mucho 2 especialistas por
+      // grupo en la 1a hora; el resto de dias queda libre. En ultimo recurso (nivel>=2) se relaja.
+      if(esPrimera&&nivel<=1&&_primeraOcupadas(gid)>=2)return;
+      if(esPrimera)s-=250;                                // preferencia suave por horas posteriores
       if(nf.franja==='primera'&&esPrimera)s+=300;
       if(nf.franja==='ultima'&&!esPrimera)s+=60;
       if(_nGrupos(pid)>1)s+=500;                          // especialista: cogerlo cuando el profe esta libre (escaso)
@@ -3669,13 +3668,14 @@ function genHorario(){
   // entre tramos de igual duracion, los mas tempranos primero (para la 1a hora).
   var slots=[];
   DIAS2.forEach(function(d){ idxT.forEach(function(ti){ slots.push({d:d,ti:ti,dur:_durT(ti),ini:(DB.tramos[ti]||{}).ini||0}); }); });
-  // La PRIMERA HORA (09h) se rellena la ULTIMA: asi los especialistas ocupan antes el resto
-  // de tramos y la 1a hora queda libre para el tutor (Lengua/Mates tienen protagonismo por la mñn).
-  slots.sort(function(a,b){
-    var pa=(a.ti===primeraHoraTi)?1:0, pb=(b.ti===primeraHoraTi)?1:0;
-    if(pa!==pb)return pa-pb;
-    return b.dur-a.dur || a.ini-b.ini || DIAS2.indexOf(a.d)-DIAS2.indexOf(b.d);
-  });
+  slots.sort(function(a,b){ return b.dur-a.dur || a.ini-b.ini || DIAS2.indexOf(a.d)-DIAS2.indexOf(b.d); });
+  // Cuantas PRIMERAS HORAS de un grupo estan ya ocupadas por un especialista (para dejar
+  // al menos 3 dias libres al tutor -> como mucho 2 especialistas en la 1a hora por grupo).
+  function _primeraOcupadas(gid){
+    var hor=getHorGrupo(gid), n=0;
+    DIAS2.forEach(function(d){ var s=hor[d]&&hor[d][primeraHoraTi]; if(s&&s.mId)n++; });
+    return n;
+  }
   function _usadosEn(d,ti){
     var u={};
     DB.hGrupos.forEach(function(g){
@@ -3766,10 +3766,17 @@ function genHorario(){
     // como los huecos para que cada maestro de EXACTAMENTE sus horas asignadas (carga BOJA).
     var desaj=0;
     DB.hGrupos.forEach(function(g){ Object.keys(rem[g.id]||{}).forEach(function(mid){ if(rem[g.id][mid]>0)desaj+=rem[g.id][mid]; }); });
+    // 1a HORA: cada grupo deberia tener AL MENOS 3 dias con la primera hora libre (para que el
+    // tutor ponga ahi Lengua/Mates). Se penaliza cada dia que falte para llegar a 3.
+    var primFalta=0;
+    DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id], libres1a=0;
+      DIAS2.forEach(function(d){ var s=h[d]&&h[d][primeraHoraTi]; if(!s||!s.mId)libres1a++; });
+      if(libres1a<3)primFalta+=(3-libres1a);
+    });
     // Las celdas vacias YA NO son huecos: seran horas de tutoria (el tutor las cuadra). Lo
     // prioritario es que TODAS las horas de especialistas/visitantes se coloquen (desaj=0),
-    // en bloques limpios (frag) y sin pasar de 1h30' (viol).
-    return {huecos:huecos, viol:viol, frag:frag, desaj:desaj, score:desaj*100000+frag*1000+viol};
+    // luego >=3 primeras horas libres, luego bloques limpios (frag) y sin pasar de 1h30' (viol).
+    return {huecos:huecos, viol:viol, frag:frag, desaj:desaj, primFalta:primFalta, score:desaj*100000+primFalta*5000+frag*1000+viol};
   }
   function _snap(){ return celdasVacias.map(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]||{}; return {mId:s.mId,pId:s.pId,tipo:s.tipo,txt:s.txt,paralelo:s.paralelo,pIdAten:s.pIdAten,mIdAten:s.mIdAten}; }); }
   function _restore(snap){ celdasVacias.forEach(function(c,i){ var s=DB.hHor[c.gid][c.d][c.ti]; var v=snap[i]; s.mId=v.mId;s.pId=v.pId;s.tipo=v.tipo||'clase';s.txt=v.txt||''; if(v.paralelo)s.paralelo=v.paralelo; if(v.pIdAten){s.pIdAten=v.pIdAten;s.mIdAten=v.mIdAten;} }); }
