@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v16 · 19-jul (sin sobre-asignar)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v17 · 19-jul (menos medias sueltas)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3558,6 +3558,13 @@ function genHorario(){
     return chk(p-1)||chk(p+1);
   }
   function _adyacenteHoy(hor,mid,d,ti){ return _adyDur(hor,mid,d,ti,0); }
+  // ¿este tramo de 30' tiene AL LADO otro tramo de 30'? (p.ej. 10-10:30 y 10:30-11).
+  // Si lo tiene, pegar la media hora a un bloque de 1h dejaria HUERFANO ese otro 30'.
+  function _tiene30Vecino(d,ti){
+    var p=idxT.indexOf(ti);
+    function es30(q){ if(q<0||q>=idxT.length)return false; var o=idxT[q]; if(Math.abs(o-idxT[p])!==1)return false; return _durT(o)===30; }
+    return es30(p-1)||es30(p+1);
+  }
   function _diasUsados(gid,mid){               // en cuantos dias distintos aparece ya la materia
     var hor=getHorGrupo(gid),n=0;
     DIAS2.forEach(function(d){ if(_minDiaMat(hor,mid,d)>0)n++; });
@@ -3614,7 +3621,15 @@ function genHorario(){
       if(_nGrupos(pid)>1)s+=500;                          // especialista: cogerlo cuando el profe esta libre (escaso)
       if(nf.troncal&&minHoy>0)s-=250;                     // Lengua/Mates: repartir en mas dias (1h/dia)
       if(nf.troncal&&dur>=60&&minHoy>0)s-=500;            // no dos horas sueltas de troncal el mismo dia
-      if(nf.troncal&&dur<60)s+=(ady?600:150);             // el medio modulo suelto (10-10:30) lo absorben Lengua/Mates
+      if(nf.troncal&&dur<60){
+        // Las medias horas de Lengua/Mates deben EMPAREJARSE (dos 30' seguidos = 1h limpia),
+        // NO pegarse a un bloque de 1h formando 1h30' que deje huerfano el otro 30'.
+        if(_adyDur(hor,mid,d,ti,30))s+=1200;               // ya hay una media hora de la misma al lado -> forma 1h
+        else if(_adyDur(hor,mid,d,ti,60)&&_tiene30Vecino(d,ti))s-=400; // no absorber en 1h30' y dejar suelto el 30' vecino
+        else if(_adyDur(hor,mid,d,ti,60))s+=500;           // 30' pegado a un 1h SIN 30' vecino (t5+t6) -> 1h30' correcta
+        else if(_tiene30Vecino(d,ti))s+=150;               // media hora inicial: podra emparejar con la de al lado
+        else s-=200;                                       // media SUELTA (12:30, sin pareja posible): mejor que la coja el comodin
+      }
       if(!nf.troncal&&minHoy>0&&!ady)s-=600;              // resto: no dispersar en trozos no contiguos
       if(nf.prio)s+=120;
       s+=rem[gid][mid]/30;                                // colocar antes las materias con mas horas pendientes
@@ -3697,6 +3712,21 @@ function genHorario(){
         var esperado=Math.max(1,Math.ceil(tot[mid]/90));         // bloques ideales (hasta 1h30' cada uno)
         if(trozos[mid]>esperado)frag+=(trozos[mid]-esperado)*2;
       });
+      // Lengua/Mates: se reparten 1h/dia, pero las medias horas SUELTAS (un bloque de solo
+      // 30' aislado) deben ser pocas. Se tolera 1 a la semana por materia; a partir de ahi
+      // penaliza para que el multi-arranque prefiera consolidar (t1+t2 = 1h, o t5+t6 = 1h30').
+      var loose30={};
+      DIAS2.forEach(function(d){
+        var runMid=null, runMin=0, prevTi=null;
+        function _cierra(){ if(runMid!=null&&runMin===30){var nf=info[g.id]&&info[g.id][runMid]; if(nf&&nf.troncal)loose30[runMid]=(loose30[runMid]||0)+1;} }
+        idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; var mid=s&&s.mId?String(s.mId):null;
+          if(mid!=null&&mid===runMid&&prevTi!=null&&ti-prevTi===1){ runMin+=_durT(ti); }
+          else { _cierra(); runMid=mid; runMin=(mid!=null?_durT(ti):0); }
+          prevTi=ti;
+        });
+        _cierra();
+      });
+      Object.keys(loose30).forEach(function(mid){ if(loose30[mid]>1)frag+=(loose30[mid]-1)*3; });
     });
     return {huecos:huecos, viol:viol, frag:frag, score:huecos*100000+frag*1000+viol};
   }
