@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v15 · 19-jul (RH 1h sin trocear)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v16 · 19-jul (sin sobre-asignar)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3723,6 +3723,11 @@ function genHorario(){
       var nf=info[gid][mid];
       if(!permitirEsp&&nf.esEsp)return;
       if(maestroOcupado(nf.pId,d,ti,gid))return;                 // su maestro ocupado en otro grupo
+      // NO sobre-asignar una materia cuyas horas ya estan completas, salvo las FLEXIBLES
+      // del tutor (Lengua/Mates y el comodin Libre Disp.), que si pueden absorber el sobrante.
+      // Asi una especialidad como Plastica (1h) nunca se repite para tapar huecos.
+      var flexible=nf.troncal||_filler(nf.nombre);
+      if(rem[gid][mid]<dur&&!flexible)return;
       var minHoy=_minDiaMat(hor,mid,d);
       if(!relajarTope&&minHoy+dur>90)return;                     // respetar 1h30'/dia si se puede
       if(nf.esEsp&&dur<60&&_adyDur(hor,mid,d,ti,30))return;       // no crear especialista en dos 30'
@@ -3743,10 +3748,13 @@ function genHorario(){
   function _tapaForzado(gid,d,ti){
     var mids=Object.keys(info[gid]);
     if(!mids.length)return false;
+    function _flex(mid){var nf=info[gid][mid];return (nf.troncal||_filler(nf.nombre))?1:0;}
     mids.sort(function(a,b){
+      var fa=_flex(a), fb=_flex(b);
+      if(fa!==fb)return fb-fa;                      // 1o materias flexibles (Lengua/Mates/comodin) que absorben el sobrante
       var ea=info[gid][a].esEsp?1:0, eb=info[gid][b].esEsp?1:0;
-      if(ea!==eb)return ea-eb;                     // preferir materias del tutor
-      return (rem[gid][b]||0)-(rem[gid][a]||0);    // y a quien mas horas le falten
+      if(ea!==eb)return ea-eb;                      // luego materias del tutor antes que especialistas
+      return (rem[gid][b]||0)-(rem[gid][a]||0);     // y a quien mas horas le falten
     });
     _ocupa(gid,mids[0],d,ti); return true;
   }
