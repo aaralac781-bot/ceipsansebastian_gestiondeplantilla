@@ -3127,6 +3127,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v9 · 19-jul (sin huecos)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3753,10 +3754,24 @@ function genHorario(){
     if(best!=null){ _ocupa(gid,best,d,ti); return true; }
     return false;
   }
+  // Absoluto: si NADA cupo (ningun maestro libre), se rellena con una materia del grupo
+  // igualmente (prioridad a las del tutor, que es el maestro natural del grupo). Asi
+  // NUNCA queda una celda vacia.
+  function _tapaForzado(gid,d,ti){
+    var mids=Object.keys(info[gid]);
+    if(!mids.length)return false;
+    mids.sort(function(a,b){
+      var ea=info[gid][a].esEsp?1:0, eb=info[gid][b].esEsp?1:0;
+      if(ea!==eb)return ea-eb;                     // preferir materias del tutor
+      return (rem[gid][b]||0)-(rem[gid][a]||0);    // y a quien mas horas le falten
+    });
+    _ocupa(gid,mids[0],d,ti); return true;
+  }
   DB.hGrupos.forEach(function(g){ var h=getHorGrupo(g.id); DIAS2.forEach(function(d){ idxT.forEach(function(ti){
     if(!_libre(h,d,ti))return;
     _tapaCelda(g.id,d,ti,false,false) || _tapaCelda(g.id,d,ti,false,true) ||
-    _tapaCelda(g.id,d,ti,true,false)  || _tapaCelda(g.id,d,ti,true,true);
+    _tapaCelda(g.id,d,ti,true,false)  || _tapaCelda(g.id,d,ti,true,true) ||
+    _tapaForzado(g.id,d,ti);
   }); }); });
 
   var sinSitioG={};
