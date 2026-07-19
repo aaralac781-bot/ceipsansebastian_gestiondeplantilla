@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v13 · 19-jul (sin huecos)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v14 · 19-jul (RH dias distintos)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3799,17 +3799,27 @@ function genHorario(){
         var s=hp[d][ti];
         if(s.fij)return;                            // celda fijada a mano: no se toca
         if(s.tipo&&s.tipo!=='libre'&&s.tipo!=='clase')return; // ya tiene algo puesto a mano
-        libres.push({d:d,ti:ti,dur:parseInt(t.dur)||durMod3});
+        // postRec: primer tramo justo despues del recreo (12:30-13:00). Un trozo de 30'
+        // colocado aqui "pega" con el recreo libre y crea un hueco continuo mayor, mas
+        // practico para maestros con reduccion horaria.
+        var prev=(DB.tramos||[])[ti-1];
+        libres.push({d:d,ti:ti,dur:parseInt(t.dur)||durMod3,postRec:!!(prev&&prev.r)});
       });
     });
     function _txtTipo(tipo){return tipo==='reduccion'?'RH':(tipo==='coord'?'Coordinacion':(SLOT_TIPOS[tipo]?SLOT_TIPOS[tipo].label:''));}
     // Reparte 'min' minutos en DIAS DIFERENTES, prefiriendo tramos de 1h. Ej.: una RH de
-    // 2h -> 1h en dos dias distintos; si no cabe, 1h un dia + 30'+30' en otros dias.
+    // 2h -> 1h en dos dias distintos; si no cabe, 1h un dia + 30'+30' en otros dias
+    // (nunca dos medias horas el mismo dia si hay otro dia libre). Entre tramos de la
+    // misma duracion se prefiere el de despues del recreo, para que un trozo de 30' una
+    // con el recreo libre.
     function _asigna(min,tipo){
       if(min<=0)return 0;
       var porDia={};
       libres.forEach(function(c){ if(!c.usado)(porDia[c.d]=porDia[c.d]||[]).push(c); });
-      Object.keys(porDia).forEach(function(d){ porDia[d].sort(function(a,b){return b.dur-a.dur;}); }); // 1h antes que 30'
+      Object.keys(porDia).forEach(function(d){ porDia[d].sort(function(a,b){
+        if(b.dur!==a.dur)return b.dur-a.dur;        // 1h antes que 30'
+        return (b.postRec?1:0)-(a.postRec?1:0);     // a igual duracion, el de despues del recreo primero
+      }); });
       var dias=DIAS3.filter(function(d){return porDia[d];});
       var seguir=true;
       while(min>0&&seguir){
