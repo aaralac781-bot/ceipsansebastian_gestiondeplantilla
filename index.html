@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v12 · 19-jul (sin huecos)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v13 · 19-jul (sin huecos)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3802,14 +3802,32 @@ function genHorario(){
         libres.push({d:d,ti:ti,dur:parseInt(t.dur)||durMod3});
       });
     });
-    libres.sort(function(a,b){return b.dur-a.dur;});   // tramos grandes primero
     function _txtTipo(tipo){return tipo==='reduccion'?'RH':(tipo==='coord'?'Coordinacion':(SLOT_TIPOS[tipo]?SLOT_TIPOS[tipo].label:''));}
+    // Reparte 'min' minutos en DIAS DIFERENTES, prefiriendo tramos de 1h. Ej.: una RH de
+    // 2h -> 1h en dos dias distintos; si no cabe, 1h un dia + 30'+30' en otros dias.
     function _asigna(min,tipo){
-      libres.forEach(function(c){
-        if(min<=0||c.usado||c.dur>min)return;        // solo si el tramo entero cabe en lo que queda
-        var s=hp[c.d][c.ti]; s.tipo=tipo; s.mId=null; s.pId=null; s.txt=_txtTipo(tipo);
-        c.usado=true; min-=c.dur;
-      });
+      if(min<=0)return 0;
+      var porDia={};
+      libres.forEach(function(c){ if(!c.usado)(porDia[c.d]=porDia[c.d]||[]).push(c); });
+      Object.keys(porDia).forEach(function(d){ porDia[d].sort(function(a,b){return b.dur-a.dur;}); }); // 1h antes que 30'
+      var dias=DIAS3.filter(function(d){return porDia[d];});
+      var seguir=true;
+      while(min>0&&seguir){
+        seguir=false;
+        // en cada vuelta, un tramo por dia distinto (asi se reparte); dias con MENOS de esta categoria primero
+        dias.sort(function(a,b){
+          function n(d){var c=0;(porDia[d]||[]).forEach(function(x){if(x.usadoTipo===tipo)c++;});return c;}
+          return n(a)-n(b);
+        });
+        for(var di=0;di<dias.length&&min>0;di++){
+          var lst=porDia[dias[di]];
+          for(var i=0;i<lst.length;i++){ var c=lst[i];
+            if(c.usado||c.dur>min)continue;            // el tramo entero debe caber en lo que queda
+            var s=hp[c.d][c.ti]; s.tipo=tipo; s.mId=null; s.pId=null; s.txt=_txtTipo(tipo);
+            c.usado=true; c.usadoTipo=tipo; min-=c.dur; seguir=true; break;
+          }
+        }
+      }
       return min;
     }
     _asigna(coordMin,'coord');
