@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v14 · 19-jul (RH dias distintos)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v15 · 19-jul (RH 1h sin trocear)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3528,7 +3528,10 @@ function genHorario(){
       //  - Materia del tutor (Cono...): concentrada, 1 dia por cada 1h30' (2,5h -> 2 dias:
       //    1h + 1h30'; 3h -> 2 dias de 1h30').
       var antifrag=!tron&&!fill;
-      var diasMax = (tron||fill) ? 5 : (esEsp ? Math.max(1,Math.ceil(minTot/60)) : Math.max(1,Math.ceil(minTot/90)));
+      // Religion "arrastra" al tutor o a un maestro de Aten.Educativa que se desplaza a la
+      // clase, asi que se consolida al maximo (1 dia por cada 1h30': 1,5h -> 1 dia; 3h -> 2 dias).
+      var esRelig=(mat.n==='Religion');
+      var diasMax = (tron||fill) ? 5 : (esRelig ? Math.max(1,Math.ceil(minTot/90)) : (esEsp ? Math.max(1,Math.ceil(minTot/60)) : Math.max(1,Math.ceil(minTot/90))));
       info[g.id][mat.id]={pId:pid,nombre:mat.n,prio:!!mat.prio,franja:mat.franja||'',
         dias:(mat.dias&&mat.dias.length?mat.dias.slice():null),troncal:tron,esEsp:esEsp,antifrag:antifrag,capDia:Math.max(minGran,capD),diasMax:diasMax};
     });
@@ -3807,37 +3810,40 @@ function genHorario(){
       });
     });
     function _txtTipo(tipo){return tipo==='reduccion'?'RH':(tipo==='coord'?'Coordinacion':(SLOT_TIPOS[tipo]?SLOT_TIPOS[tipo].label:''));}
-    // Reparte 'min' minutos en DIAS DIFERENTES, prefiriendo tramos de 1h. Ej.: una RH de
-    // 2h -> 1h en dos dias distintos; si no cabe, 1h un dia + 30'+30' en otros dias
-    // (nunca dos medias horas el mismo dia si hay otro dia libre). Entre tramos de la
-    // misma duracion se prefiere el de despues del recreo, para que un trozo de 30' una
-    // con el recreo libre.
+    // Reparte 'min' minutos en DIAS DIFERENTES sin trocear:
+    //  1) primero se satisface con tramos de 1h (bloques limpios) buscando en TODA la
+    //     semana, un tramo por dia distinto. Asi una RH de 1h coge un tramo de 1h libre
+    //     aunque este el viernes, en vez de partirse en 30'+30' el mismo dia.
+    //  2) lo que quede (media hora) se pone en tramos de 30', tambien en dias distintos y
+    //     preferentemente en el tramo despues del recreo (une con el recreo libre).
+    // Nunca dos medias horas el mismo dia si hay otro dia con hueco.
     function _asigna(min,tipo){
       if(min<=0)return 0;
-      var porDia={};
-      libres.forEach(function(c){ if(!c.usado)(porDia[c.d]=porDia[c.d]||[]).push(c); });
-      Object.keys(porDia).forEach(function(d){ porDia[d].sort(function(a,b){
-        if(b.dur!==a.dur)return b.dur-a.dur;        // 1h antes que 30'
-        return (b.postRec?1:0)-(a.postRec?1:0);     // a igual duracion, el de despues del recreo primero
-      }); });
-      var dias=DIAS3.filter(function(d){return porDia[d];});
-      var seguir=true;
-      while(min>0&&seguir){
-        seguir=false;
-        // en cada vuelta, un tramo por dia distinto (asi se reparte); dias con MENOS de esta categoria primero
-        dias.sort(function(a,b){
-          function n(d){var c=0;(porDia[d]||[]).forEach(function(x){if(x.usadoTipo===tipo)c++;});return c;}
-          return n(a)-n(b);
-        });
-        for(var di=0;di<dias.length&&min>0;di++){
-          var lst=porDia[dias[di]];
-          for(var i=0;i<lst.length;i++){ var c=lst[i];
-            if(c.usado||c.dur>min)continue;            // el tramo entero debe caber en lo que queda
+      function _cntDia(d,t){var c=0;libres.forEach(function(x){if(x.d===d&&x.usadoTipo===t)c++;});return c;}
+      function _cntRed(d){var c=0;libres.forEach(function(x){if(x.d===d&&x.usadoTipo)c++;});return c;} // reduccion de cualquier tipo
+      function _pasada(minDur){
+        var seguir=true;
+        while(min>0&&seguir){
+          seguir=false;
+          var porDia={};
+          libres.forEach(function(c){ if(!c.usado&&c.dur<=min&&(minDur?c.dur>=minDur:true))(porDia[c.d]=porDia[c.d]||[]).push(c); });
+          Object.keys(porDia).forEach(function(d){ porDia[d].sort(function(a,b){
+            if(b.dur!==a.dur)return b.dur-a.dur;        // el tramo mas grande del dia primero
+            return (b.postRec?1:0)-(a.postRec?1:0);     // a igual duracion, el de despues del recreo
+          }); });
+          var dias=DIAS3.filter(function(d){return porDia[d];});
+          // dias con MENOS de esta categoria primero; a empate, los que tengan menos reduccion en total
+          dias.sort(function(a,b){ return (_cntDia(a,tipo)-_cntDia(b,tipo)) || (_cntRed(a)-_cntRed(b)); });
+          for(var di=0;di<dias.length&&min>0;di++){
+            var c=porDia[dias[di]][0];                  // el mejor tramo de ese dia
+            if(c.dur>min)continue;                       // ya no cabe (min bajo al asignar dias anteriores)
             var s=hp[c.d][c.ti]; s.tipo=tipo; s.mId=null; s.pId=null; s.txt=_txtTipo(tipo);
-            c.usado=true; c.usadoTipo=tipo; min-=c.dur; seguir=true; break;
+            c.usado=true; c.usadoTipo=tipo; min-=c.dur; seguir=true;
           }
         }
       }
+      _pasada(60);   // 1o bloques de 1h (o mayores) en dias distintos
+      _pasada(0);    // 2o el resto con tramos de 30', dias distintos, post-recreo preferente
       return min;
     }
     _asigna(coordMin,'coord');
