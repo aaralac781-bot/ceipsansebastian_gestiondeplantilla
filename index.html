@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v20 · 19-jul (especialidades en bloques)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v21 · 19-jul (completa horas asignadas)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3828,7 +3828,7 @@ function genHorario(){
     Object.keys(inf).forEach(function(mid){
       var nf=inf[mid], tgt=(remInit[gid]&&remInit[gid][mid])||0, got=_placedMin(h,mid);
       if(got<tgt&&nf.esEsp)bajo.push({mid:mid,falta:tgt-got});
-      if(got>tgt&&(nf.troncal||_filler(nf.nombre)))sobre[mid]=got-tgt;
+      if(got>tgt&&!nf.esEsp)sobre[mid]=got-tgt;   // cualquier materia del tutor de mas (Lengua/Mates/Cono/comodin) puede ceder el tramo
     });
     if(!bajo.length)return false;
     bajo.sort(function(a,b){return b.falta-a.falta;});
