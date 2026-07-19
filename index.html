@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v11 · 19-jul (sin huecos)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v12 · 19-jul (sin huecos)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3600,6 +3600,8 @@ function genHorario(){
       }
       var s=0;
       if(nf.antifrag&&ady)s+=1800;                        // premiar seguir el bloque (contiguo)
+      // materia de >=1h que aun no esta hoy: preferir un tramo de 1h entero (bloque limpio)
+      if(nf.antifrag&&minHoy===0&&dur>=60&&rem[gid][mid]>=60)s+=1000;
       if(esPrimera){
         if(nf.troncal)s+=1200-_primeraCount(gid,mid)*300; // 1a hora: Lengua/Mates, alternando la menos usada
         else s-=400;                                      // en 1a hora, evitar lo que no sea troncal
@@ -3785,6 +3787,10 @@ function genHorario(){
     var cargoMin=Math.round((m.rC||0)*60);                          // horas de cargo (direccion/jefatura/secretaria)
     var rhMin=Math.round(((m.rE||0)+(m.rJ||0))*60);                 // reduccion horaria (edad + jornada)
     var cargoTipo=m.cargo==='Director'?'direccion':m.cargo==='Jefe de Estudios'?'jefatura':m.cargo==='Secretario'?'secretaria':'reduccion';
+    // Recoger los tramos LIBRES del maestro y repartir por MEJOR AJUSTE: primero los
+    // tramos mas grandes, asi una RH de 2h se completa con dos horas exactas (y no se
+    // queda a medias porque el ultimo trozo de 30' no encajara en un tramo de 1h).
+    var libres=[];
     DIAS3.forEach(function(d){
       (DB.tramos||[]).forEach(function(t,ti){
         if(t.r)return;
@@ -3793,16 +3799,23 @@ function genHorario(){
         var s=hp[d][ti];
         if(s.fij)return;                            // celda fijada a mano: no se toca
         if(s.tipo&&s.tipo!=='libre'&&s.tipo!=='clase')return; // ya tiene algo puesto a mano
-        var durT=parseInt(t.dur)||durMod3;
-        var tipo;
-        if(coordMin>=durT){tipo='coord';coordMin-=durT;}
-        else if(cargoMin>=durT){tipo=cargoTipo;cargoMin-=durT;}
-        else if(rhMin>=durT){tipo='reduccion';rhMin-=durT;}
-        else tipo='luciernaga';
-        s.tipo=tipo; s.mId=null; s.pId=null;
-        s.txt = tipo==='reduccion'?'RH':(tipo==='coord'?'Coordinacion':(SLOT_TIPOS[tipo]?SLOT_TIPOS[tipo].label:''));
+        libres.push({d:d,ti:ti,dur:parseInt(t.dur)||durMod3});
       });
     });
+    libres.sort(function(a,b){return b.dur-a.dur;});   // tramos grandes primero
+    function _txtTipo(tipo){return tipo==='reduccion'?'RH':(tipo==='coord'?'Coordinacion':(SLOT_TIPOS[tipo]?SLOT_TIPOS[tipo].label:''));}
+    function _asigna(min,tipo){
+      libres.forEach(function(c){
+        if(min<=0||c.usado||c.dur>min)return;        // solo si el tramo entero cabe en lo que queda
+        var s=hp[c.d][c.ti]; s.tipo=tipo; s.mId=null; s.pId=null; s.txt=_txtTipo(tipo);
+        c.usado=true; min-=c.dur;
+      });
+      return min;
+    }
+    _asigna(coordMin,'coord');
+    _asigna(cargoMin,cargoTipo);
+    _asigna(rhMin,'reduccion');
+    libres.forEach(function(c){ if(c.usado)return; var s=hp[c.d][c.ti]; s.tipo='luciernaga'; s.mId=null; s.pId=null; s.txt=_txtTipo('luciernaga'); }); // el resto: Luciernaga
   });
 
   save();rHHorario();
