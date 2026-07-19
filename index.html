@@ -3109,7 +3109,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v18 · 19-jul (horas exactas por materia)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v19 · 19-jul (horas exactas + sin dobles)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3790,13 +3790,21 @@ function genHorario(){
     var mids=Object.keys(info[gid]);
     if(!mids.length)return false;
     function _flex(mid){var nf=info[gid][mid];return (nf.troncal||_filler(nf.nombre))?1:0;}
+    function _busy(mid){return maestroOcupado(info[gid][mid].pId,d,ti,gid)?1:0;}
     mids.sort(function(a,b){
+      var ba=_busy(a), bb=_busy(b);
+      if(ba!==bb)return ba-bb;                      // 1o los que tienen su maestro LIBRE (para NO crear doble reserva)
       var fa=_flex(a), fb=_flex(b);
-      if(fa!==fb)return fb-fa;                      // 1o materias flexibles (Lengua/Mates/comodin) que absorben el sobrante
+      if(fa!==fb)return fb-fa;                      // luego materias flexibles (Lengua/Mates/comodin) que absorben el sobrante
       var ea=info[gid][a].esEsp?1:0, eb=info[gid][b].esEsp?1:0;
       if(ea!==eb)return ea-eb;                      // luego materias del tutor antes que especialistas
       return (rem[gid][b]||0)-(rem[gid][a]||0);     // y a quien mas horas le falten
     });
+    // Si el mejor candidato tiene su maestro ocupado en otro grupo, seria doble reserva: se avisa.
+    if(_busy(mids[0])){
+      var gn=(DB.hGrupos.find(function(x){return x.id===gid;})||{}).n||gid;
+      GEN_AVISOS.push(gn+' '+d+': conflicto (un maestro tendria que estar en dos grupos a la vez, revisa asignacion)');
+    }
     _ocupa(gid,mids[0],d,ti); return true;
   }
   DB.hGrupos.forEach(function(g){ var h=getHorGrupo(g.id); DIAS2.forEach(function(d){ idxT.forEach(function(ti){
@@ -3805,6 +3813,43 @@ function genHorario(){
     _tapaCelda(g.id,d,ti,true,false)  || _tapaCelda(g.id,d,ti,true,true) ||
     _tapaForzado(g.id,d,ti);
   }); }); });
+
+  // ── REPARAR DESAJUSTE: si a un ESPECIALISTA le faltan horas (y su maestro se quedaria con
+  // Luciernaga espuria) mientras una materia FLEXIBLE del tutor (Lengua/Mates/comodin) esta de
+  // mas, se INTERCAMBIAN: en un tramo con la materia sobrante, si el especialista esta libre,
+  // pasa a darlo el. Asi cada maestro imparte EXACTAMENTE sus horas asignadas.
+  function _placedMin(h,mid){ var c=0; DIAS2.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&String(s.mId)===String(mid))c+=_durT(ti); }); }); return c; }
+  function _unSwap(gid){
+    var h=getHorGrupo(gid), inf=info[gid];
+    var bajo=[], sobre={};
+    Object.keys(inf).forEach(function(mid){
+      var nf=inf[mid], tgt=(remInit[gid]&&remInit[gid][mid])||0, got=_placedMin(h,mid);
+      if(got<tgt&&nf.esEsp)bajo.push({mid:mid,falta:tgt-got});
+      if(got>tgt&&(nf.troncal||_filler(nf.nombre)))sobre[mid]=got-tgt;
+    });
+    if(!bajo.length)return false;
+    bajo.sort(function(a,b){return b.falta-a.falta;});
+    for(var bi=0;bi<bajo.length;bi++){
+      var spm=bajo[bi].mid, nfsp=inf[spm], falta=bajo[bi].falta;
+      for(var di=0;di<DIAS2.length;di++){ var d=DIAS2[di];
+        for(var k=0;k<idxT.length;k++){ var ti=idxT[k];
+          var s=h[d]&&h[d][ti]; if(!s||!s.mId||s.fij)continue;
+          if(_durT(ti)>falta)continue;                             // no pasarse: el tramo no puede exceder lo que falta
+          if(!sobre[s.mId]||sobre[s.mId]<_durT(ti))continue;       // el tramo debe tener una materia SOBRANTE que ceda ese trozo entero
+          if(maestroOcupado(nfsp.pId,d,ti,gid))continue;            // el especialista debe estar libre a esa hora
+          if(_minDiaMat(h,spm,d)+_durT(ti)>Math.max(60,nfsp.capDia))continue; // respeta su tope diario
+          // intercambio: la materia sobrante suelta 1 tramo, lo coge el especialista
+          var mSob=s.mId;
+          s.mId=spm; s.pId=nfsp.pId; s.tipo='clase'; s.txt=''; delete s.paralelo; delete s.pIdAten; delete s.mIdAten;
+          _paralelo(h,gid,d,ti,spm);
+          sobre[mSob]-=_durT(ti);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  DB.hGrupos.forEach(function(g){ var n=0; while(_unSwap(g.id)&&n++<30){} });
 
   var sinSitioG={};
   DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; DIAS2.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(_libre(h,d,ti))sinSitioG[g.n]=(sinSitioG[g.n]||0)+1; }); }); });
