@@ -3115,7 +3115,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v24 · 19-jul (tutoria sin doble reserva)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v25 · 19-jul (cobertura del tutor)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3512,10 +3512,11 @@ function genHorario(){
   // bloques contiguos y pocos dias (no se trocea).
   function _filler(n){return ['Libre Disp.','Autonomia'].indexOf(n)>=0;}
   function _esTutorMat(n){return ['Lengua','Matematicas','Cono.Medio','Libre Disp.','Ed.Valores','Autonomia'].indexOf(n)>=0;}
-  var tutorDe={};
+  var tutorDe={}, esTutor={};
   DB.hGrupos.forEach(function(g){
     var tm=(DB.maestros||[]).find(function(m){return m.t&&String(m.g)===String(g.n);});
     tutorDe[g.id]=tm?tm.id:null;
+    if(tm)esTutor[String(tm.id)]=true;   // maestros que son tutores de algun grupo
   });
   DB.hGrupos.forEach(function(g){
     getHorGrupo(g.id); // asegura estructura
@@ -3644,7 +3645,8 @@ function genHorario(){
       // Religion...) se consolidan: pocos dias y bloques CONTIGUOS. Pueden juntar dos
       // medias horas como 1h, pero nunca dispersarse en trozos sueltos por muchos dias.
       // En niveles 2-3 (ultimo recurso) se relaja para no dejar huecos.
-      if(nf.antifrag&&nivel<=1){
+      var antifragNiv=(nf.nombre==='Religion')?2:1;               // Religion se consolida mas (arrastra al tutor)
+      if(nf.antifrag&&nivel<=antifragNiv){
         if(minHoy===0&&_diasUsados(gid,mid)>=nf.diasMax)return;   // no empezar un dia nuevo de mas
         if(minHoy>0&&!ady)return;                                 // el mismo dia, solo pegado a su bloque
       }
@@ -3656,10 +3658,22 @@ function genHorario(){
       // en la 1a hora (asi >=3 dias quedan para el tutor); en ultimo recurso (nivel>=2) se relaja.
       if(esPrimera){
         if(nf.esTutoria)s+=900;                           // el tutor coge la 1a hora con gusto
-        else { if(nivel<=1&&_primeraOcupadas(gid)>=2)return; s-=250; }
+        else {
+          // un especialista que ES TUTOR de otro grupo evita la 1a hora (debe quedar libre para
+          // estar con SU clase). En intentos estrictos se prohibe; luego solo se penaliza, y el
+          // multi-arranque elige la version que menos desajuste deja.
+          if(nivel<=1&&esTutor[String(pid)])return;
+          if(nivel<=1&&_primeraOcupadas(gid)>=2)return;
+          s-=250;
+          if(esTutor[String(pid)])s-=1300;
+        }
       }
       if(nf.franja==='primera'&&esPrimera)s+=300;
       if(nf.franja==='ultima'&&!esPrimera)s+=60;
+      // CUBRIR AL TUTOR: si el tutor de este grupo esta dando clase en OTRO grupo a esta hora,
+      // conviene poner aqui un especialista, porque el tutor no puede cubrir su clase entonces.
+      // Asi el tutor podra dar su tutoria el resto de horas (no se le va a Luciernaga).
+      if(nf.esEsp&&tutorDe[gid]!=null&&maestroOcupado(tutorDe[gid],d,ti,gid))s+=2200;
       if(_nGrupos(pid)>1)s+=500;                          // especialista: cogerlo cuando el profe esta libre (escaso)
       if(nf.troncal&&minHoy>0)s-=250;                     // Lengua/Mates: repartir en mas dias (1h/dia)
       if(nf.troncal&&dur>=60&&minHoy>0)s-=500;            // no dos horas sueltas de troncal el mismo dia
@@ -3811,6 +3825,67 @@ function genHorario(){
   // para que el tapado de huecos y el recuento de horas usen el estado correcto, no el del ultimo intento.
   rem=JSON.parse(JSON.stringify(remInit));
   celdasVacias.forEach(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]; if(s&&s.mId&&rem[c.gid]&&rem[c.gid][s.mId]!=null)rem[c.gid][s.mId]-=_durT(c.ti); });
+
+  // ── CUBRIR AUSENCIAS DEL TUTOR: si un grupo tiene una celda libre a una hora en la que su
+  // tutor da clase en OTRO grupo (no puede cubrirla), se MUEVE un especialista que este dando
+  // clase a ese grupo en otra hora (en la que el tutor SI esta libre) hacia el hueco. Asi el
+  // hueco lo cubre el especialista y el tutor recupera esa hora de tutoria (no va a Luciernaga).
+  DB.hGrupos.forEach(function(g){
+    var h=getHorGrupo(g.id), tut=tutorDe[g.id];
+    if(tut==null)return;
+    var vueltas=0, seguir=true;
+    while(seguir&&vueltas++<40){
+      seguir=false;
+      for(var di=0;di<DIAS2.length&&!seguir;di++){ var d=DIAS2[di];
+        for(var ki=0;ki<idxT.length&&!seguir;ki++){ var ti=idxT[ki];
+          if(!_libre(h,d,ti))continue;                         // celda libre (posible hueco de cobertura)
+          if(!maestroOcupado(tut,d,ti,g.id))continue;          // el tutor esta libre aqui -> lo cubrira con tutoria, no es gap
+          // ESTRATEGIA 1: mover un especialista del grupo (de una hora en la que el tutor SI
+          // esta libre) hacia el hueco. Asi el especialista cubre y el tutor recupera esa hora.
+          for(var dj=0;dj<DIAS2.length&&!seguir;dj++){ var d2=DIAS2[dj];
+            for(var kj=0;kj<idxT.length&&!seguir;kj++){ var ti2=idxT[kj];
+              if(d2===d&&ti2===ti)continue;
+              var s2=h[d2]&&h[d2][ti2];
+              if(!s2||!s2.mId||s2.fij)continue;                 // debe ser una clase de especialista/visitante
+              if(_durT(ti2)!==_durT(ti))continue;                // mismo tamaño de tramo
+              if(maestroOcupado(tut,d2,ti2,g.id))continue;       // el tutor debe estar LIBRE alli (para dar tutoria luego)
+              if(maestroOcupado(s2.pId,d,ti,g.id))continue;      // el especialista debe estar libre en el destino
+              var s1=h[d][ti];
+              s1.mId=s2.mId; s1.pId=s2.pId; s1.tipo='clase'; s1.txt=''; _paralelo(h,g.id,d,ti,s2.mId);
+              s2.mId=null; s2.pId=null; s2.tipo='clase'; s2.txt=''; delete s2.paralelo; delete s2.pIdAten; delete s2.mIdAten;
+              seguir=true;
+            }
+          }
+          if(seguir)continue;
+          // ESTRATEGIA 2: recolocar la clase que el TUTOR da en otro grupo (por la que esta
+          // ocupado ahora) a otra hora en la que el tutor este libre y ese grupo tenga hueco.
+          // Asi el tutor queda libre en (d,ti) y puede dar su tutoria aqui.
+          var gx=null,sx=null;
+          for(var gi=0;gi<DB.hGrupos.length&&!gx;gi++){ if(String(DB.hGrupos[gi].id)===String(g.id))continue;
+            var hx0=DB.hHor[DB.hGrupos[gi].id]; var sc=hx0&&hx0[d]&&hx0[d][ti];
+            if(sc&&sc.mId&&!sc.fij&&String(sc.pId)===String(tut)){gx=DB.hGrupos[gi];sx=sc;}
+          }
+          if(gx){
+            var hx=getHorGrupo(gx.id), tutX=tutorDe[gx.id];
+            for(var dm=0;dm<DIAS2.length&&!seguir;dm++){ var d3=DIAS2[dm];
+              for(var km=0;km<idxT.length&&!seguir;km++){ var ti3=idxT[km];
+                if(d3===d&&ti3===ti)continue;
+                if(!_libre(hx,d3,ti3))continue;                    // hueco libre en el grupo X (destino)
+                if(_durT(ti3)!==_durT(ti))continue;                 // mismo tamaño
+                if(maestroOcupado(tut,d3,ti3,gx.id))continue;       // el tutor libre en el destino
+                if(tutX!=null&&maestroOcupado(tutX,d,ti,gx.id))continue; // el tutor de X libre en (d,ti) para cubrir lo que deja el tutor
+                // mover la clase del tutor en X de (d,ti) a (d3,ti3)
+                var sDest=hx[d3][ti3];
+                sDest.mId=sx.mId; sDest.pId=sx.pId; sDest.tipo='clase'; sDest.txt=''; _paralelo(hx,gx.id,d3,ti3,sx.mId);
+                sx.mId=null; sx.pId=null; sx.tipo='clase'; sx.txt=''; delete sx.paralelo; delete sx.pIdAten; delete sx.mIdAten;
+                seguir=true;
+              }
+            }
+          }
+        }
+      }
+    }
+  });
 
   // ── RESTO DE CELDAS: la pseudo-materia "Tutoria" ya coloco las horas del tutor donde estaba
   // libre. Si queda alguna celda suelta (rara: el tutor estaba ocupado en otro grupo y ningun
