@@ -3059,6 +3059,9 @@ function renderCelda(slot,t,eid,dia,ti,esGrupo){
       // grupo a esa hora y ningun especialista pudo cubrir -> se marca en rojo para ajustar.
       if(esGrupo&&!slot.pId){ bg='#fee2e2';tc='#b91c1c';txt='Cubrir';sub='a mano'; }
       else { bg=SLOT_TIPOS.tutoria.bg;tc=SLOT_TIPOS.tutoria.c; if(slot.grupo){txt='Tutoria';sub=slot.grupo;} else {txt='';sub='';} }
+    } else if(tipo==='libre'){
+      // Hora libre: se muestra EN BLANCO (con el "+"), sin la palabra "Libre", para no dar
+      // lugar a dudas. Aqui se pondra a mano la Luciernaga/tutoria o quedara para sustituciones.
     } else if(tipo!=='clase'&&SLOT_TIPOS[tipo]){
       bg=SLOT_TIPOS[tipo].bg;tc=SLOT_TIPOS[tipo].c;
       txt=slot.txt||SLOT_TIPOS[tipo].label;
@@ -3117,7 +3120,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v28 · 19-jul (huecos sincronizados con tutor)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v29 · 19-jul (huecos en blanco)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
