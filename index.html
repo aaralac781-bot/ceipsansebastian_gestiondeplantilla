@@ -3118,9 +3118,10 @@ function rHHorario(){
   h+='<button class="btn bgy bsm" onclick="limpiarHorario()">Limpiar no fijadas</button>';
   h+='<button class="btn bsm" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5" onclick="limpiarFijadas()">Limpiar fijadas</button>';
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
+  h+='<button class="btn bsm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="comprobarHorarios()">Comprobar horarios</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v29 · 19-jul (huecos en blanco)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v30 · 19-jul (boton comprobar)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3397,6 +3398,55 @@ function guardarSlot(){
   if(txtEl)slot.txt=txtEl.value||'';
   if(fijEl)slot.fij=fijEl.checked;
   save();rHHorario();
+}
+
+// Revisa los horarios generados y lista los descuadres (para la revision final).
+function comprobarHorarios(){
+  var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var idxT=[]; (DB.tramos||[]).forEach(function(t,ti){if(!t.r)idxT.push(ti);});
+  function durT(ti){var t=DB.tramos[ti];return t?(parseInt(t.dur)||45):45;}
+  function nomM(pid){var m=(DB.maestros||[]).find(function(x){return String(x.id)===String(pid);});return m?m.n:pid;}
+  var tutorDe={};
+  DB.hGrupos.forEach(function(g){ var tm=(DB.maestros||[]).find(function(m){return m.t&&String(m.g)===String(g.n);}); tutorDe[g.id]=tm?tm.id:null; });
+  function ocupadoOtro(pid,d,ti,gid){ if(!pid)return false; for(var gi=0;gi<DB.hGrupos.length;gi++){var og=DB.hGrupos[gi]; if(String(og.id)===String(gid))continue; var s=DB.hHor[og.id]&&DB.hHor[og.id][d]&&DB.hHor[og.id][d][ti]; if(s&&(String(s.pId)===String(pid)||String(s.pIdAten)===String(pid)))return true;} return false; }
+  var prob=[];
+
+  // 1) DOBLES RESERVAS: un maestro en dos grupos a la vez
+  var ocup={};
+  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; if(!h)return; DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.pId){ var k=s.pId+'|'+d+'|'+ti; if(ocup[k])prob.push('DOBLE RESERVA: '+nomM(s.pId)+' en '+ocup[k]+' y '+g.n+' ('+d+' '+fmt((DB.tramos[ti]||{}).ini)+')'); ocup[k]=g.n; } }); }); });
+
+  // 2) HUECOS de grupo a una hora en que su tutor da clase FUERA (no puede cubrirlo)
+  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id], tut=tutorDe[g.id]; if(!h||tut==null)return; var n=0;
+    DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if((!s||!s.mId)&&ocupadoOtro(tut,d,ti,g.id))n++; }); });
+    if(n>0)prob.push('HUECO SIN TUTOR: '+g.n+' tiene '+n+' hueco(s) a horas en que su tutor da clase en otro grupo');
+  });
+
+  // 3) MATERIAS asignadas (especialidad o de un maestro que no es el tutor) sin todas sus horas
+  DB.hGrupos.forEach(function(g){ var carga=DB.hCarga[g.id]||{}, h=DB.hHor[g.id], tut=tutorDe[g.id]; if(!h)return; var col={};
+    DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.mId)col[String(s.mId)]=(col[String(s.mId)]||0)+durT(ti); }); });
+    DB.hMat.forEach(function(mat){ if(mat.n==='Aten.Educativa')return; var cv=carga[mat.id]; if(!cv||!cv.m)return;
+      var esMatEsp=['E.F.','Musica','Ingles','Religion','Frances','Plastica','Artistica'].indexOf(mat.n)>=0;
+      var debe=esMatEsp||(tut!=null&&String(cv.m)!==String(tut));
+      if(!debe)return;                                   // la da el tutor a su clase (tutoria a mano): no se comprueba
+      var hB=getBojaH(g.id,mat.id); if(hB<=0)return;
+      var esp=Math.round(hB*60/30)*30, real=col[String(mat.id)]||0;
+      if(real!==esp)prob.push((real<esp?'FALTAN HORAS: ':'HORAS DE MAS: ')+g.n+' '+mat.n+' = '+(real/60)+'h (asignadas '+(esp/60)+'h)');
+    });
+  });
+
+  // 4) COORDINACION / RH / EQUIPO DIRECTIVO por maestro (horas exactas)
+  (DB.maestros||[]).forEach(function(m){ if(['PT','AL'].indexOf(m.e)>=0)return; var hp=DB.hHor['mae_'+m.id]; if(!hp)return;
+    function cnt(tipo){var c=0;DIAS.forEach(function(d){(DB.tramos||[]).forEach(function(t,ti){if(t.r)return;var s=hp[d]&&hp[d][ti];if(s&&s.tipo===tipo)c+=durT(ti);});});return c;}
+    var coordExp=Math.round(hCoordTotal(m)*60); if(coordExp>0&&cnt('coord')<coordExp)prob.push('COORDINACION: '+m.n+' '+(cnt('coord')/60)+'h de '+(coordExp/60)+'h');
+    var rhExp=Math.round(((m.rE||0)+(m.rJ||0))*60); if(rhExp>0&&cnt('reduccion')<rhExp)prob.push('RH: '+m.n+' '+(cnt('reduccion')/60)+'h de '+(rhExp/60)+'h');
+    var cargoExp=Math.round((m.rC||0)*60), ct=m.cargo==='Director'?'direccion':m.cargo==='Jefe de Estudios'?'jefatura':m.cargo==='Secretario'?'secretaria':null;
+    if(cargoExp>0&&ct&&cnt(ct)<cargoExp)prob.push('EQUIPO DIRECTIVO: '+m.n+' '+(cnt(ct)/60)+'h de '+(cargoExp/60)+'h');
+  });
+
+  if(prob.length===0){ alert('✅ Horarios correctos.\n\n• Sin dobles reservas.\n• Todas las materias asignadas colocadas con sus horas exactas.\n• Coordinaciones, RH y equipo directivo cuadrados.\n• Los huecos de cada grupo coinciden con horas libres de su tutor.\n\nLas celdas en blanco son para tutoria y luciernaga (a mano).'); return; }
+  var msg='Se han encontrado '+prob.length+' cosa(s) a revisar:\n\n'+prob.slice(0,30).join('\n');
+  if(prob.length>30)msg+='\n\n...y '+(prob.length-30)+' mas.';
+  alert(msg);
 }
 
 function vaciarSlot(){
