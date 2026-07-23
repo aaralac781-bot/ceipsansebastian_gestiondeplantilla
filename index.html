@@ -3117,7 +3117,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v27 · 19-jul (solo cuadra lo asignado)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v28 · 19-jul (huecos sincronizados con tutor)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3781,10 +3781,16 @@ function genHorario(){
       DIAS2.forEach(function(d){ var s=h[d]&&h[d][primeraHoraTi]; if(!s||!s.mId)libres1a++; });
       if(libres1a<3)primFalta+=(3-libres1a);
     });
-    // Las celdas vacias YA NO son huecos: seran horas de tutoria (el tutor las cuadra). Lo
-    // prioritario es que TODAS las horas de especialistas/visitantes se coloquen (desaj=0),
-    // luego >=3 primeras horas libres, luego bloques limpios (frag) y sin pasar de 1h30' (viol).
-    return {huecos:huecos, viol:viol, frag:frag, desaj:desaj, primFalta:primFalta, score:desaj*100000+primFalta*5000+frag*1000+viol};
+    // DESINCRONIZACION: huecos de un grupo a una hora en que su TUTOR da clase (o ATEDU) en otro
+    // grupo. Esos huecos no los puede cubrir el tutor -> el grupo se queda descubierto. Se
+    // prioriza casi como el desajuste para que los especialistas cubran al grupo cuando el tutor sale.
+    var desync=0;
+    DB.hGrupos.forEach(function(g){ var tut=tutorDe[g.id]; if(tut==null)return; var h=DB.hHor[g.id];
+      DIAS2.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if((!s||!s.mId)&&maestroOcupado(tut,d,ti,g.id))desync+=_durT(ti); }); });
+    });
+    // Prioridad: 1o colocar todo lo asignado (desaj), 2o que los huecos del grupo coincidan con
+    // horas libres del tutor (desync), 3o >=3 primeras horas libres, 4o bloques limpios, 5o tope.
+    return {huecos:huecos, viol:viol, frag:frag, desaj:desaj, desync:desync, primFalta:primFalta, score:desaj*100000+desync*20000+primFalta*5000+frag*1000+viol};
   }
   function _snap(){ return celdasVacias.map(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]||{}; return {mId:s.mId,pId:s.pId,tipo:s.tipo,txt:s.txt,paralelo:s.paralelo,pIdAten:s.pIdAten,mIdAten:s.mIdAten}; }); }
   function _restore(snap){ celdasVacias.forEach(function(c,i){ var s=DB.hHor[c.gid][c.d][c.ti]; var v=snap[i]; s.mId=v.mId;s.pId=v.pId;s.tipo=v.tipo||'clase';s.txt=v.txt||''; if(v.paralelo)s.paralelo=v.paralelo; if(v.pIdAten){s.pIdAten=v.pIdAten;s.mIdAten=v.mIdAten;} }); }
@@ -3803,9 +3809,75 @@ function genHorario(){
   rem=JSON.parse(JSON.stringify(remInit));
   celdasVacias.forEach(function(c){ var s=DB.hHor[c.gid][c.d][c.ti]; if(s&&s.mId&&rem[c.gid]&&rem[c.gid][s.mId]!=null)rem[c.gid][s.mId]-=_durT(c.ti); });
 
-  // Las celdas que quedan LIBRES son las horas del tutor con su clase (Lengua/Mates/Cono/Libre):
-  // se dejan EN BLANCO a proposito, para que la jefatura las cuadre a mano (igual que la
-  // Luciernaga). El generador no las toca.
+  // ── SINCRONIZAR HUECOS CON EL TUTOR: los huecos que queden en un grupo deben ser horas en
+  // las que su TUTOR este libre (para que pueda darles su clase a mano). Si un grupo queda en
+  // blanco a una hora en la que su tutor da clase (o ATEDU) en OTRO grupo, hay que CUBRIRLO con
+  // un especialista: se mueve uno de otra hora (en la que el tutor SI esta libre) hacia el hueco.
+  var gCambio=true, gPasada=0;
+  while(gCambio&&gPasada++<12){
+  gCambio=false;
+  DB.hGrupos.forEach(function(g){
+    var h=getHorGrupo(g.id), tut=tutorDe[g.id];
+    if(tut==null)return;
+    var vueltas=0, seguir=true;
+    while(seguir&&vueltas++<40){
+      seguir=false;
+      for(var di=0;di<DIAS2.length&&!seguir;di++){ var d=DIAS2[di];
+        for(var ki=0;ki<idxT.length&&!seguir;ki++){ var ti=idxT[ki];
+          if(!_libre(h,d,ti))continue;                         // hueco en el grupo
+          if(!maestroOcupado(tut,d,ti,g.id))continue;          // el tutor esta libre aqui -> hueco valido (lo cubre el a mano)
+          // ESTRATEGIA 1: traer un especialista del grupo (de una hora en la que el tutor SI esta libre).
+          for(var dj=0;dj<DIAS2.length&&!seguir;dj++){ var d2=DIAS2[dj];
+            for(var kj=0;kj<idxT.length&&!seguir;kj++){ var ti2=idxT[kj];
+              if(d2===d&&ti2===ti)continue;
+              var s2=h[d2]&&h[d2][ti2];
+              if(!s2||!s2.mId||s2.fij)continue;
+              if(_durT(ti2)!==_durT(ti))continue;
+              if(maestroOcupado(tut,d2,ti2,g.id))continue;       // el tutor debe estar LIBRE alli (para su clase)
+              if(maestroOcupado(s2.pId,d,ti,g.id))continue;      // el especialista libre en el destino
+              var s1=h[d][ti];
+              s1.mId=s2.mId; s1.pId=s2.pId; s1.tipo='clase'; s1.txt=''; _paralelo(h,g.id,d,ti,s2.mId);
+              s2.mId=null; s2.pId=null; s2.tipo='clase'; s2.txt=''; delete s2.paralelo; delete s2.pIdAten; delete s2.mIdAten;
+              seguir=true; gCambio=true;
+            }
+          }
+          if(seguir)continue;
+          // ESTRATEGIA 2: recolocar la clase que el tutor da en OTRO grupo (por la que esta ocupado)
+          // a otra hora en la que el tutor este libre y ese grupo tenga hueco.
+          var gx=null,sx=null;
+          for(var gi=0;gi<DB.hGrupos.length&&!gx;gi++){ if(String(DB.hGrupos[gi].id)===String(g.id))continue;
+            var hx0=DB.hHor[DB.hGrupos[gi].id]; var sc=hx0&&hx0[d]&&hx0[d][ti];
+            if(sc&&sc.mId&&!sc.fij&&String(sc.pId)===String(tut)){gx=DB.hGrupos[gi];sx=sc;}
+          }
+          if(gx){
+            var hx=getHorGrupo(gx.id), tutX=tutorDe[gx.id];
+            for(var dm=0;dm<DIAS2.length&&!seguir;dm++){ var d3=DIAS2[dm];
+              for(var km=0;km<idxT.length&&!seguir;km++){ var ti3=idxT[km];
+                if(d3===d&&ti3===ti)continue;
+                if(!_libre(hx,d3,ti3))continue;
+                if(_durT(ti3)!==_durT(ti))continue;
+                if(maestroOcupado(tut,d3,ti3,gx.id))continue;
+                if(tutX!=null&&maestroOcupado(tutX,d,ti,gx.id))continue;
+                var sDest=hx[d3][ti3];
+                sDest.mId=sx.mId; sDest.pId=sx.pId; sDest.tipo='clase'; sDest.txt=''; _paralelo(hx,gx.id,d3,ti3,sx.mId);
+                sx.mId=null; sx.pId=null; sx.tipo='clase'; sx.txt=''; delete sx.paralelo; delete sx.pIdAten; delete sx.mIdAten;
+                seguir=true; gCambio=true;
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+  }
+
+  // Aviso: huecos de grupo que NO coinciden con hora libre del tutor (el tutor da clase en otro
+  // grupo a esa hora y no se pudo cubrir): hay que ajustarlos a mano.
+  var desincron=0;
+  DB.hGrupos.forEach(function(g){ var h=getHorGrupo(g.id), tut=tutorDe[g.id]; if(tut==null)return;
+    DIAS2.forEach(function(d){ idxT.forEach(function(ti){ if(_libre(h,d,ti)&&maestroOcupado(tut,d,ti,g.id))desincron++; }); });
+  });
+  if(desincron>0)GEN_AVISOS.push(desincron+' hueco(s) de grupo caen a una hora en que su tutor da clase en otro grupo (revisa a mano; suele arreglarse cambiando alguna especialidad de hora).');
 
   if(mejor&&mejor.desaj>0)GEN_AVISOS.push('A alguna especialidad le faltan '+(Math.round(mejor.desaj/60*10)/10)+'h por colocar (un maestro muy repartido no cabe en todos los grupos: revisa su asignacion).');
   if(mejor&&mejor.viol>0)GEN_AVISOS.push('Alguna especialidad pasa de 1h30\' en algun dia ('+(Math.round(mejor.viol/60*10)/10)+'h de mas).');
