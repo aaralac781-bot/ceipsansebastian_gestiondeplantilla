@@ -3055,8 +3055,10 @@ function renderCelda(slot,t,eid,dia,ti,esGrupo){
     if(tipo==='tutoria'){
       // Hora del tutor con su grupo. En el horario del GRUPO va en blanco y editable (el
       // tutor cuadra Lengua/Mates/...); en el horario del MAESTRO se ve "Tutoria (grupo)".
-      bg=SLOT_TIPOS.tutoria.bg;tc=SLOT_TIPOS.tutoria.c;
-      if(slot.grupo){txt='Tutoria';sub=slot.grupo;} else {txt='';sub='';}
+      // Si NO tiene tutor (pId nulo) es una celda SIN CUBRIR: el tutor daba clase en otro
+      // grupo a esa hora y ningun especialista pudo cubrir -> se marca en rojo para ajustar.
+      if(esGrupo&&!slot.pId){ bg='#fee2e2';tc='#b91c1c';txt='Cubrir';sub='a mano'; }
+      else { bg=SLOT_TIPOS.tutoria.bg;tc=SLOT_TIPOS.tutoria.c; if(slot.grupo){txt='Tutoria';sub=slot.grupo;} else {txt='';sub='';} }
     } else if(tipo!=='clase'&&SLOT_TIPOS[tipo]){
       bg=SLOT_TIPOS[tipo].bg;tc=SLOT_TIPOS[tipo].c;
       txt=slot.txt||SLOT_TIPOS[tipo].label;
@@ -3115,7 +3117,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v25 · 19-jul (cobertura del tutor)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v26 · 19-jul (marca celdas sin cubrir)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3830,6 +3832,9 @@ function genHorario(){
   // tutor da clase en OTRO grupo (no puede cubrirla), se MUEVE un especialista que este dando
   // clase a ese grupo en otra hora (en la que el tutor SI esta libre) hacia el hueco. Asi el
   // hueco lo cubre el especialista y el tutor recupera esa hora de tutoria (no va a Luciernaga).
+  var gCambio=true, gPasada=0;
+  while(gCambio&&gPasada++<10){          // repetir hasta que ningun grupo cambie (cascada de coberturas)
+  gCambio=false;
   DB.hGrupos.forEach(function(g){
     var h=getHorGrupo(g.id), tut=tutorDe[g.id];
     if(tut==null)return;
@@ -3853,7 +3858,7 @@ function genHorario(){
               var s1=h[d][ti];
               s1.mId=s2.mId; s1.pId=s2.pId; s1.tipo='clase'; s1.txt=''; _paralelo(h,g.id,d,ti,s2.mId);
               s2.mId=null; s2.pId=null; s2.tipo='clase'; s2.txt=''; delete s2.paralelo; delete s2.pIdAten; delete s2.mIdAten;
-              seguir=true;
+              seguir=true; gCambio=true;
             }
           }
           if(seguir)continue;
@@ -3878,7 +3883,7 @@ function genHorario(){
                 var sDest=hx[d3][ti3];
                 sDest.mId=sx.mId; sDest.pId=sx.pId; sDest.tipo='clase'; sDest.txt=''; _paralelo(hx,gx.id,d3,ti3,sx.mId);
                 sx.mId=null; sx.pId=null; sx.tipo='clase'; sx.txt=''; delete sx.paralelo; delete sx.pIdAten; delete sx.mIdAten;
-                seguir=true;
+                seguir=true; gCambio=true;
               }
             }
           }
@@ -3886,6 +3891,7 @@ function genHorario(){
       }
     }
   });
+  }
 
   // ── RESTO DE CELDAS: la pseudo-materia "Tutoria" ya coloco las horas del tutor donde estaba
   // libre. Si queda alguna celda suelta (rara: el tutor estaba ocupado en otro grupo y ningun
