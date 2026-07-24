@@ -3121,7 +3121,7 @@ function rHHorario(){
   h+='<button class="btn bsm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="comprobarHorarios()">Comprobar horarios</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v31 · 19-jul (recreo: rotacion equitativa)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v32 · 19-jul (comprobador detallado)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3415,10 +3415,13 @@ function comprobarHorarios(){
   var ocup={};
   DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; if(!h)return; DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.pId){ var k=s.pId+'|'+d+'|'+ti; if(ocup[k])prob.push('DOBLE RESERVA: '+nomM(s.pId)+' en '+ocup[k]+' y '+g.n+' ('+d+' '+fmt((DB.tramos[ti]||{}).ini)+')'); ocup[k]=g.n; } }); }); });
 
-  // 2) HUECOS de grupo a una hora en que su tutor da clase FUERA (no puede cubrirlo)
-  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id], tut=tutorDe[g.id]; if(!h||tut==null)return; var n=0;
-    DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if((!s||!s.mId)&&ocupadoOtro(tut,d,ti,g.id))n++; }); });
-    if(n>0)prob.push('HUECO SIN TUTOR: '+g.n+' tiene '+n+' hueco(s) a horas en que su tutor da clase en otro grupo');
+  // 2) HUECOS de grupo a una hora en que su tutor da clase FUERA (no puede cubrirlo). Se indica
+  // la celda exacta y donde esta el tutor, para poder ajustarlo a mano (o mover esa clase de hora).
+  function dondeEsta(pid,d,ti,gid){ for(var gi=0;gi<DB.hGrupos.length;gi++){ var og=DB.hGrupos[gi]; if(String(og.id)===String(gid))continue; var so=DB.hHor[og.id]&&DB.hHor[og.id][d]&&DB.hHor[og.id][d][ti]; if(so&&(String(so.pId)===String(pid)||String(so.pIdAten)===String(pid))){ var mt=so.mId?((DB.hMat.find(function(m){return String(m.id)===String(so.mId);})||{}).n):'ATEDU'; return og.n+(mt?' ('+mt+')':''); } } return 'otro grupo'; }
+  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id], tut=tutorDe[g.id]; if(!h||tut==null)return;
+    DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if((!s||!s.mId)&&ocupadoOtro(tut,d,ti,g.id)){
+      prob.push('HUECO SIN TUTOR: '+g.n+' '+d.substr(0,3)+' '+fmt((DB.tramos[ti]||{}).ini)+' (su tutor esta en '+dondeEsta(tut,d,ti,g.id)+')');
+    } }); });
   });
 
   // 3) MATERIAS asignadas (especialidad o de un maestro que no es el tutor) sin todas sus horas
