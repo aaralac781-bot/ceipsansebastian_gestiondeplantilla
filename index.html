@@ -3121,7 +3121,7 @@ function rHHorario(){
   h+='<button class="btn bsm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="comprobarHorarios()">Comprobar horarios</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v33 · 19-jul (cubre 1a hora sin tutor)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v34 · comprobador separa errores/refuerzo</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3409,22 +3409,16 @@ function comprobarHorarios(){
   var tutorDe={};
   DB.hGrupos.forEach(function(g){ var tm=(DB.maestros||[]).find(function(m){return m.t&&String(m.g)===String(g.n);}); tutorDe[g.id]=tm?tm.id:null; });
   function ocupadoOtro(pid,d,ti,gid){ if(!pid)return false; for(var gi=0;gi<DB.hGrupos.length;gi++){var og=DB.hGrupos[gi]; if(String(og.id)===String(gid))continue; var s=DB.hHor[og.id]&&DB.hHor[og.id][d]&&DB.hHor[og.id][d][ti]; if(s&&(String(s.pId)===String(pid)||String(s.pIdAten)===String(pid)))return true;} return false; }
-  var prob=[];
+  // Dos listas separadas: errores (que el generador NO debe cometer, deben ser 0) y
+  // refuerzos (celdas que el tutor no puede cubrir porque da clase fuera: es donde van
+  // luciernaga/refuerzo, se cuadran a mano; NO son fallos del generador).
+  var errores=[], refuerzos=[];
 
-  // 1) DOBLES RESERVAS: un maestro en dos grupos a la vez
+  // A) ERRORES · DOBLES RESERVAS: un maestro en dos grupos a la vez
   var ocup={};
-  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; if(!h)return; DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.pId){ var k=s.pId+'|'+d+'|'+ti; if(ocup[k])prob.push('DOBLE RESERVA: '+nomM(s.pId)+' en '+ocup[k]+' y '+g.n+' ('+d+' '+fmt((DB.tramos[ti]||{}).ini)+')'); ocup[k]=g.n; } }); }); });
+  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id]; if(!h)return; DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.pId){ var k=s.pId+'|'+d+'|'+ti; if(ocup[k])errores.push('DOBLE RESERVA: '+nomM(s.pId)+' en '+ocup[k]+' y '+g.n+' ('+d+' '+fmt((DB.tramos[ti]||{}).ini)+')'); ocup[k]=g.n; } }); }); });
 
-  // 2) HUECOS de grupo a una hora en que su tutor da clase FUERA (no puede cubrirlo). Se indica
-  // la celda exacta y donde esta el tutor, para poder ajustarlo a mano (o mover esa clase de hora).
-  function dondeEsta(pid,d,ti,gid){ for(var gi=0;gi<DB.hGrupos.length;gi++){ var og=DB.hGrupos[gi]; if(String(og.id)===String(gid))continue; var so=DB.hHor[og.id]&&DB.hHor[og.id][d]&&DB.hHor[og.id][d][ti]; if(so&&(String(so.pId)===String(pid)||String(so.pIdAten)===String(pid))){ var mt=so.mId?((DB.hMat.find(function(m){return String(m.id)===String(so.mId);})||{}).n):'ATEDU'; return og.n+(mt?' ('+mt+')':''); } } return 'otro grupo'; }
-  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id], tut=tutorDe[g.id]; if(!h||tut==null)return;
-    DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if((!s||!s.mId)&&ocupadoOtro(tut,d,ti,g.id)){
-      prob.push('HUECO SIN TUTOR: '+g.n+' '+d.substr(0,3)+' '+fmt((DB.tramos[ti]||{}).ini)+' (su tutor esta en '+dondeEsta(tut,d,ti,g.id)+')');
-    } }); });
-  });
-
-  // 3) MATERIAS asignadas (especialidad o de un maestro que no es el tutor) sin todas sus horas
+  // B) ERRORES · MATERIAS asignadas (especialidad o de un maestro que no es el tutor) sin todas sus horas
   DB.hGrupos.forEach(function(g){ var carga=DB.hCarga[g.id]||{}, h=DB.hHor[g.id], tut=tutorDe[g.id]; if(!h)return; var col={};
     DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if(s&&s.mId)col[String(s.mId)]=(col[String(s.mId)]||0)+durT(ti); }); });
     DB.hMat.forEach(function(mat){ if(mat.n==='Aten.Educativa')return; var cv=carga[mat.id]; if(!cv||!cv.m)return;
@@ -3433,22 +3427,45 @@ function comprobarHorarios(){
       if(!debe)return;                                   // la da el tutor a su clase (tutoria a mano): no se comprueba
       var hB=getBojaH(g.id,mat.id); if(hB<=0)return;
       var esp=Math.round(hB*60/30)*30, real=col[String(mat.id)]||0;
-      if(real!==esp)prob.push((real<esp?'FALTAN HORAS: ':'HORAS DE MAS: ')+g.n+' '+mat.n+' = '+(real/60)+'h (asignadas '+(esp/60)+'h)');
+      if(real!==esp)errores.push((real<esp?'FALTAN HORAS: ':'HORAS DE MAS: ')+g.n+' '+mat.n+' = '+(real/60)+'h (asignadas '+(esp/60)+'h)');
     });
   });
 
-  // 4) COORDINACION / RH / EQUIPO DIRECTIVO por maestro (horas exactas)
+  // C) ERRORES · COORDINACION / RH / EQUIPO DIRECTIVO por maestro (horas exactas)
   (DB.maestros||[]).forEach(function(m){ if(['PT','AL'].indexOf(m.e)>=0)return; var hp=DB.hHor['mae_'+m.id]; if(!hp)return;
     function cnt(tipo){var c=0;DIAS.forEach(function(d){(DB.tramos||[]).forEach(function(t,ti){if(t.r)return;var s=hp[d]&&hp[d][ti];if(s&&s.tipo===tipo)c+=durT(ti);});});return c;}
-    var coordExp=Math.round(hCoordTotal(m)*60); if(coordExp>0&&cnt('coord')<coordExp)prob.push('COORDINACION: '+m.n+' '+(cnt('coord')/60)+'h de '+(coordExp/60)+'h');
-    var rhExp=Math.round(((m.rE||0)+(m.rJ||0))*60); if(rhExp>0&&cnt('reduccion')<rhExp)prob.push('RH: '+m.n+' '+(cnt('reduccion')/60)+'h de '+(rhExp/60)+'h');
+    var coordExp=Math.round(hCoordTotal(m)*60); if(coordExp>0&&cnt('coord')<coordExp)errores.push('COORDINACION: '+m.n+' '+(cnt('coord')/60)+'h de '+(coordExp/60)+'h');
+    var rhExp=Math.round(((m.rE||0)+(m.rJ||0))*60); if(rhExp>0&&cnt('reduccion')<rhExp)errores.push('RH: '+m.n+' '+(cnt('reduccion')/60)+'h de '+(rhExp/60)+'h');
     var cargoExp=Math.round((m.rC||0)*60), ct=m.cargo==='Director'?'direccion':m.cargo==='Jefe de Estudios'?'jefatura':m.cargo==='Secretario'?'secretaria':null;
-    if(cargoExp>0&&ct&&cnt(ct)<cargoExp)prob.push('EQUIPO DIRECTIVO: '+m.n+' '+(cnt(ct)/60)+'h de '+(cargoExp/60)+'h');
+    if(cargoExp>0&&ct&&cnt(ct)<cargoExp)errores.push('EQUIPO DIRECTIVO: '+m.n+' '+(cnt(ct)/60)+'h de '+(cargoExp/60)+'h');
   });
 
-  if(prob.length===0){ alert('✅ Horarios correctos.\n\n• Sin dobles reservas.\n• Todas las materias asignadas colocadas con sus horas exactas.\n• Coordinaciones, RH y equipo directivo cuadrados.\n• Los huecos de cada grupo coinciden con horas libres de su tutor.\n\nLas celdas en blanco son para tutoria y luciernaga (a mano).'); return; }
-  var msg='Se han encontrado '+prob.length+' cosa(s) a revisar:\n\n'+prob.slice(0,30).join('\n');
-  if(prob.length>30)msg+='\n\n...y '+(prob.length-30)+' mas.';
+  // D) REFUERZOS · huecos de grupo a una hora en que su tutor da clase FUERA (no puede cubrirlo
+  // ni el tutor ni una especialidad): es donde se pone refuerzo/luciernaga a mano.
+  function dondeEsta(pid,d,ti,gid){ for(var gi=0;gi<DB.hGrupos.length;gi++){ var og=DB.hGrupos[gi]; if(String(og.id)===String(gid))continue; var so=DB.hHor[og.id]&&DB.hHor[og.id][d]&&DB.hHor[og.id][d][ti]; if(so&&(String(so.pId)===String(pid)||String(so.pIdAten)===String(pid))){ var mt=so.mId?((DB.hMat.find(function(m){return String(m.id)===String(so.mId);})||{}).n):'ATEDU'; return og.n+(mt?' ('+mt+')':''); } } return 'otro grupo'; }
+  DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id], tut=tutorDe[g.id]; if(!h||tut==null)return;
+    DIAS.forEach(function(d){ idxT.forEach(function(ti){ var s=h[d]&&h[d][ti]; if((!s||!s.mId)&&ocupadoOtro(tut,d,ti,g.id)){
+      refuerzos.push(g.n+' '+d.substr(0,3)+' '+fmt((DB.tramos[ti]||{}).ini)+' (tutor en '+dondeEsta(tut,d,ti,g.id)+')');
+    } }); });
+  });
+
+  // Presentacion: primero los ERRORES (deben ser 0), luego las celdas que NECESITAN REFUERZO.
+  if(errores.length===0 && refuerzos.length===0){
+    alert('✅ Horarios correctos.\n\n• Sin dobles reservas.\n• Todas las materias asignadas colocadas con sus horas exactas.\n• Coordinaciones, RH y equipo directivo cuadrados.\n• Los huecos de cada grupo coinciden con horas libres de su tutor.\n\nLas celdas en blanco son para tutoria y luciernaga (a mano).');
+    return;
+  }
+  var msg='';
+  if(errores.length===0){
+    msg+='✅ SIN ERRORES del generador.\n(sin dobles reservas · materias asignadas completas · coordinacion/RH/equipo directivo cuadrados)\n';
+  } else {
+    msg+='❌ ERRORES a corregir ('+errores.length+') — esto NO deberia pasar:\n\n'+errores.slice(0,20).join('\n');
+    if(errores.length>20)msg+='\n...y '+(errores.length-20)+' mas.';
+    msg+='\n';
+  }
+  if(refuerzos.length>0){
+    msg+='\n———————————————\n🟡 CELDAS QUE NECESITAN REFUERZO ('+refuerzos.length+')\nEl tutor da clase en otro grupo, asi que su grupo no lo cubre ni el tutor ni una especialidad. Aqui va el refuerzo/luciernaga (a mano). NO es un fallo del generador:\n\n'+refuerzos.slice(0,20).join('\n');
+    if(refuerzos.length>20)msg+='\n...y '+(refuerzos.length-20)+' mas.';
+  }
   alert(msg);
 }
 
