@@ -3121,7 +3121,7 @@ function rHHorario(){
   h+='<button class="btn bsm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="comprobarHorarios()">Comprobar horarios</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
-  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v32 · 19-jul (comprobador detallado)</span>';
+  h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v33 · 19-jul (cubre 1a hora sin tutor)</span>';
   h+='</div>';
   h+='<div id="export-horario-res" style="display:none;margin-bottom:8px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600"></div>';
   if(SEL_MODO)h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Modo seleccion: pulsa las celdas que quieras (se marcan en naranja) y luego asignales materia/maestro de una vez en el panel de la derecha.</span></div>';
@@ -3700,7 +3700,13 @@ function genHorario(){
       // en la 1a hora (asi >=3 dias quedan para el tutor); en ultimo recurso (nivel>=2) se relaja.
       // 1a hora: se reservan >=3 dias LIBRES por grupo (para que el tutor ponga ahi Lengua/Mates
       // a mano). Como mucho 2 especialistas en la 1a hora por grupo; en ultimo recurso se relaja.
-      if(esPrimera){ if(nivel<=1&&_primeraOcupadas(gid)>=2)return; s-=250; }
+      // Si el TUTOR esta fuera (da clase/ATEDU en otro grupo) a esta hora, HAY que cubrir el
+      // grupo con un especialista aunque sea 1a hora (el tutor no puede estar). No aplica el tope.
+      var tutFueraAhora=tutorDe[gid]!=null&&maestroOcupado(tutorDe[gid],d,ti,gid);
+      if(esPrimera){
+        if(tutFueraAhora)s+=2600;                         // cubrir la 1a hora cuando el tutor esta fuera
+        else { if(nivel<=1&&_primeraOcupadas(gid)>=2)return; s-=250; }
+      }
       if(nf.franja==='primera'&&esPrimera)s+=300;
       if(nf.franja==='ultima'&&!esPrimera)s+=60;
       // CUBRIR AL TUTOR: si el tutor de este grupo esta dando clase en OTRO grupo a esta hora,
@@ -3833,8 +3839,11 @@ function genHorario(){
     // 1a HORA: cada grupo deberia tener AL MENOS 3 dias con la primera hora libre (para que el
     // tutor ponga ahi Lengua/Mates). Se penaliza cada dia que falte para llegar a 3.
     var primFalta=0;
-    DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id], libres1a=0;
-      DIAS2.forEach(function(d){ var s=h[d]&&h[d][primeraHoraTi]; if(!s||!s.mId)libres1a++; });
+    DB.hGrupos.forEach(function(g){ var h=DB.hHor[g.id], tut=tutorDe[g.id], libres1a=0;
+      DIAS2.forEach(function(d){ var s=h[d]&&h[d][primeraHoraTi];
+        // 1a hora LIBRE y con el tutor DISPONIBLE (si el tutor esta fuera, esa 1a hora no le sirve)
+        if((!s||!s.mId)&&(tut==null||!maestroOcupado(tut,d,primeraHoraTi,g.id)))libres1a++;
+      });
       if(libres1a<3)primFalta+=(3-libres1a);
     });
     // DESINCRONIZACION: huecos de un grupo a una hora en que su TUTOR da clase (o ATEDU) en otro
