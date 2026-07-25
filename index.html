@@ -2370,7 +2370,7 @@ function exportarHorariosSSNet(){
         j++;
       }
       if(chunk.length===0){ chunk.push(filas[j]); j++; }   // una fila sola ya excede: mandarla igual
-      pending.push({parte:parte, filas:chunk});
+      pending.push({parte:parte, filas:chunk, reset:(i===0)});   // reset en el 1er lote de CADA parte
       i=j;
     }
   }
@@ -2378,7 +2378,7 @@ function exportarHorariosSSNet(){
   pushLotes('maestros', maestrosData);
   pushLotes('refuerzo', refuerzoData);
 
-  var total=pending.length, idx=0, primero=true;
+  var total=pending.length, idx=0;
   function enviarSiguiente(){
     if(idx>=pending.length){
       if(res){res.style.background='#d1fae5';res.style.color='#065f46';
@@ -2393,7 +2393,7 @@ function exportarHorariosSSNet(){
       else { if(res){res.style.background='#fee2e2';res.style.color='#b91c1c';
         res.textContent='SSNet rechazo el envio (lote '+(idx+1)+'/'+total+'): '+((r&&r.error)||'sin respuesta. Puede que el script de SSNet aun no tenga el modulo "publicarHorarios".');} }
     };
-    var reset = primero?'1':'0'; primero=false;
+    var reset = lote.reset?'1':'0';
     var s=document.createElement('script');
     s.src=SSNET_URL+'?accion=publicarHorarios&callback='+cb+'&parte='+lote.parte+'&reset='+reset+'&datos='+encodeURIComponent(JSON.stringify(lote.filas));
     s.onerror=function(){ delete window[cb]; if(res){res.style.background='#fee2e2';res.style.color='#b91c1c';res.textContent='Error de conexion con SSNet en el lote '+(idx+1)+'/'+total+'.';} };
