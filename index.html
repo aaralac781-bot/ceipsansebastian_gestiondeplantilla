@@ -258,6 +258,7 @@ input[type=number].fi{max-width:80px}
         <div id="s-hhorario" class="sec"></div>
         <div id="s-hresumen" class="sec"></div>
         <div id="s-hluciernaga" class="sec"></div>
+        <div id="s-reservas" class="sec"></div>
       </div>
     </div>
   </div>
@@ -661,6 +662,7 @@ function _doEnviar(url){
     bojaHoras:DB.bojaHoras||{},
     recreo:DB.recreo||{},
     luciernaga:DB.luciernaga||{},
+    reservasEspacios:DB.reservasEspacios||[],
     sust:sust,
     _sync:firma
   };
@@ -737,6 +739,7 @@ function _aplicarDatos(data){
   if(data.coordinaciones&&data.coordinaciones.length>0)DB.coordinaciones=data.coordinaciones;
   if(data.recreo&&Object.keys(data.recreo).length>0)DB.recreo=data.recreo;
   if(data.luciernaga&&Object.keys(data.luciernaga).length>0)DB.luciernaga=data.luciernaga;
+  if(data.reservasEspacios)DB.reservasEspacios=data.reservasEspacios;
   // Procesar hCarga (formato antiguo tabla)
   if(data.carga&&data.carga.length>1){
     DB.hCarga={};
@@ -909,7 +912,7 @@ function renderActiveSec(){
 }
 
 function renderSec(id){
-  var fn={'balance':rBalance,'claustro':rClaustro,'docencia':rDocencia,'tutorias':rTutorias,'hgrupos':rHGrupos,'hmaterias':rHMaterias,'hcoords':rHCoords,'hboja':rHBoja,'hcarga':rHCarga,'htramos':rHTramos,'hhorario':rHHorario,'hresumen':rHResumen,'hluciernaga':renderLuciernaga};
+  var fn={'balance':rBalance,'claustro':rClaustro,'docencia':rDocencia,'tutorias':rTutorias,'hgrupos':rHGrupos,'hmaterias':rHMaterias,'hcoords':rHCoords,'hboja':rHBoja,'hcarga':rHCarga,'htramos':rHTramos,'hhorario':rHHorario,'hresumen':rHResumen,'hluciernaga':renderLuciernaga,'reservas':renderReservasEspacios};
   if(fn[id])fn[id]();
 }
 
@@ -2150,6 +2153,7 @@ function renderHorariosHome(){
     ['hboja','Carga BOJA','Horas por area y curso','ic-az'],
     ['hcarga','Asignacion','Asignar maestros a materias','ic-vd'],
     ['hluciernaga','Luciernaga','Proyecto Luciernaga - Refuerzo','ic-am'],
+    ['reservas','Reservas de espacios','Espacios reservables + bloqueo Luciernaga','ic-vd'],
     ['recreo-card','Recreo','Turnos y zonas de recreo','ic-vd'],
   ];
   cards.forEach(function(x){
@@ -2161,6 +2165,60 @@ function renderHorariosHome(){
   h+='<div class="des">Grupos y maestros - editable - exportar a SSNet</div></div></button>';
   h+='</div>';
   document.getElementById('hh').innerHTML=h;
+}
+
+/* ═══ RESERVAS DE ESPACIOS ═══ */
+function renderReservasEspacios(){
+  if(!DB.reservasEspacios) DB.reservasEspacios=[];
+  var tramos=(DB.tramos||[]).filter(function(t){return !t.r;});
+  var cont=document.getElementById('s-reservas'); if(!cont) return;
+  var h='<div class="mhero" style="background:linear-gradient(135deg,#0d9488,#0f766e)"><h2>🔑 Reservas de espacios</h2><p>Define los espacios reservables. Marca en amarillo los tramos fijos de Luciernaga: quedaran bloqueados y nadie podra reservarlos.</p></div>';
+  h+='<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;align-items:center"><input class="fi" id="rn-nuevo" placeholder="Nombre del espacio (Aula STEAM, Biblioteca, SUM...)" style="flex:1"><button onclick="addEspacioReserva()" style="background:#0d9488;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-weight:800;cursor:pointer;white-space:nowrap">+ Anadir</button></div><div style="font-size:11px;color:#64748b;margin-top:6px">Pulsa una celda para marcarla/desmarcarla como <b>Luciernaga</b> (bloqueada).</div></div>';
+  if(!DB.reservasEspacios.length){
+    h+='<div class="card" style="text-align:center;color:#94a3b8;padding:20px">Aun no hay espacios. Anade el primero arriba.</div>';
+  }
+  DB.reservasEspacios.forEach(function(esp,ei){
+    if(!esp.luc) esp.luc={};
+    h+='<div class="card" style="margin-bottom:14px">';
+    h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><input class="fi" style="flex:1;font-weight:700" value="'+esc(esp.nombre||'')+'" onchange="renEspacioReserva('+ei+',this.value)"><button onclick="delEspacioReserva('+ei+')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer">Eliminar</button></div>';
+    if(!tramos.length){ h+='<div style="color:#94a3b8;font-size:12px">Configura primero los Tramos horarios.</div></div>'; return; }
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:340px"><tr style="background:#0B132B;color:#fff"><th style="padding:5px 6px;text-align:left">Hora</th>';
+    DIAS.forEach(function(d){ h+='<th style="padding:5px 4px">'+d.slice(0,3)+'</th>'; });
+    h+='</tr>';
+    tramos.forEach(function(t,ti){
+      h+='<tr><td style="padding:4px 6px;font-weight:700;color:#64748b;white-space:nowrap;border-top:1px solid #eef2f7">'+fmt(t.ini)+'</td>';
+      DIAS.forEach(function(d,di){
+        var key=di+'_'+ti, on=!!esp.luc[key];
+        h+='<td style="padding:2px;border-top:1px solid #eef2f7;border-left:1px solid #f1f5f9"><button onclick="toggleLucCell('+ei+','+di+','+ti+')" style="width:100%;min-height:28px;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:800;'+(on?'background:#fef9c3;color:#a16207':'background:#f8fafc;color:#cbd5e1')+'">'+(on?'Luz':'&middot;')+'</button></td>';
+      });
+      h+='</tr>';
+    });
+    h+='</table></div></div>';
+  });
+  if(DB.reservasEspacios.length){
+    h+='<button onclick="exportarReservasSSNet()" style="width:100%;background:#0d9488;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 14px rgba(13,148,136,.3)">📤 Exportar espacios a SSNet</button>';
+  }
+  cont.innerHTML=h;
+}
+function addEspacioReserva(){
+  var inp=document.getElementById('rn-nuevo'); var n=(inp&&inp.value||'').trim(); if(!n)return;
+  if(!DB.reservasEspacios)DB.reservasEspacios=[];
+  DB.reservasEspacios.push({id:'esp'+Date.now(),nombre:n,luc:{}});
+  save(); renderReservasEspacios();
+}
+function renEspacioReserva(ei,v){ if(DB.reservasEspacios&&DB.reservasEspacios[ei]){ DB.reservasEspacios[ei].nombre=(v||'').trim(); save(); } }
+function delEspacioReserva(ei){ if(confirm('Eliminar este espacio?')){ DB.reservasEspacios.splice(ei,1); save(); renderReservasEspacios(); } }
+function toggleLucCell(ei,di,ti){ var e=DB.reservasEspacios[ei]; if(!e)return; if(!e.luc)e.luc={}; var k=di+'_'+ti; if(e.luc[k])delete e.luc[k]; else e.luc[k]=1; save(); renderReservasEspacios(); }
+function exportarReservasSSNet(){
+  var tramos=(DB.tramos||[]).filter(function(t){return !t.r;}).map(function(t){return fmt(t.ini);});
+  var datos={espacios:(DB.reservasEspacios||[]).map(function(e){return {id:e.id,nombre:e.nombre,luc:e.luc||{}};}),tramos:tramos,dias:DIAS};
+  var SSNET_URL=DB.scriptUrl||'';
+  if(!SSNET_URL){ alert('Configura la URL del Apps Script (Ajustes) antes de exportar.'); return; }
+  var payload=encodeURIComponent(JSON.stringify(datos));
+  var body='accion=guardarReservasConfig&datos='+payload;
+  fetch(SSNET_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
+    .then(function(){ alert('✅ Espacios enviados a SSNet.'); })
+    .catch(function(){ alert('Enviado (sin confirmacion). Revisa en SSNet.'); });
 }
 
 // EXPORTAR HORARIOS A SSNET
