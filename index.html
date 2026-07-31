@@ -2356,13 +2356,20 @@ function exportarHorariosSSNet(){
       });
     });
   });
+  // RECREO como fila en el horario de cada grupo (para que aparezca el tramo de recreo)
+  (DB.hGrupos||[]).forEach(function(g){
+    (DB.tramos||[]).forEach(function(t){ if(!t.r) return;
+      DIAS2.forEach(function(d){ gruposData.push([g.n||'', d, tramoLabel(t), '', 'RECREO']); });
+    });
+  });
 
   // 2) HORARIOS POR MAESTRO: [Maestro, Tramo, L, M, X, J, V]
   (DB.maestros||[]).forEach(function(p){
     if(!p.n) return;
     (DB.tramos||[]).forEach(function(t,ti){
-      if(t.r) return;
-      var row=[p.n, tramoLabel(t)]; var tiene=false;
+      // El RECREO se envia como una fila propia para que aparezca en el horario
+      if(t.r){ maestrosData.push([p.n, tramoLabel(t), 'RECREO','RECREO','RECREO','RECREO','RECREO']); return; }
+      var row=[p.n, tramoLabel(t)];
       DIAS2.forEach(function(d){
         var celda='';
         (DB.hGrupos||[]).some(function(g){
@@ -2379,10 +2386,10 @@ function exportarHorariosSSNet(){
             celda = sp.tipo==='reduccion'?'RH':(typeof SLOT_TIPOS!=='undefined'&&SLOT_TIPOS[sp.tipo]?SLOT_TIPOS[sp.tipo].label:sp.tipo);
           }
         }
-        if(celda) tiene=true;
         row.push(celda);
       });
-      if(tiene) maestrosData.push(row);
+      // Enviar SIEMPRE el tramo (aunque este vacio) para que el horario salga completo
+      maestrosData.push(row);
     });
   });
 
