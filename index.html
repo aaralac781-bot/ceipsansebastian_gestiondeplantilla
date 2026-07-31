@@ -2210,29 +2210,12 @@ function renEspacioReserva(ei,v){ if(DB.reservasEspacios&&DB.reservasEspacios[ei
 function delEspacioReserva(ei){ if(confirm('Eliminar este espacio?')){ DB.reservasEspacios.splice(ei,1); save(); renderReservasEspacios(); } }
 function toggleLucCell(ei,di,ti){ var e=DB.reservasEspacios[ei]; if(!e)return; if(!e.luc)e.luc={}; var k=di+'_'+ti; if(e.luc[k])delete e.luc[k]; else e.luc[k]=1; save(); renderReservasEspacios(); }
 function exportarReservasSSNet(){
-  var tramos=(DB.tramos||[]).filter(function(t){return !t.r;}).map(function(t){return fmt(t.ini);});
-  var datos={espacios:(DB.reservasEspacios||[]).map(function(e){return {id:e.id,nombre:e.nombre,luc:e.luc||{}};}),tramos:tramos,dias:DIAS};
-  var SSNET_URL=DB.scriptUrl||'';
-  if(!SSNET_URL){ alert('Configura la URL del Apps Script (Ajustes) antes de exportar.'); return; }
-  var payload=encodeURIComponent(JSON.stringify(datos));
-  var getUrl=SSNET_URL+'?accion=guardarReservasConfig&callback=cbRC&datos='+payload;
-  if(getUrl.length<=7000){
-    var cb='_rc'+Date.now();
-    window[cb]=function(r){ delete window[cb];
-      if(r&&(r.success||r.ok)) alert('✅ Espacios guardados en SSNet. Abre SSNet › Reservas.');
-      else alert('SSNet devolvio un error: '+((r&&r.error)||'sin respuesta'));
-    };
-    var s=document.createElement('script');
-    s.src=SSNET_URL+'?accion=guardarReservasConfig&callback='+cb+'&datos='+payload;
-    s.onerror=function(){ delete window[cb]; alert('Error de conexion con SSNet.'); };
-    document.head.appendChild(s);
-    setTimeout(function(){ if(window[cb]){ delete window[cb]; alert('SSNet no respondio a tiempo. Reintenta en unos segundos.'); } },15000);
-  } else {
-    var body='accion=guardarReservasConfig&datos='+payload;
-    fetch(SSNET_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
-      .then(function(){ alert('Enviado (paquete grande, sin confirmacion). Revisa en SSNet.'); })
-      .catch(function(){ alert('Error de conexion.'); });
-  }
+  // Los espacios viajan dentro de la sincronizacion normal (accion=guardar),
+  // que SSNet lee con getReservasConfig -> _leerGestion. Funciona en todas las
+  // implementaciones sin export aparte.
+  if(!DB.scriptUrl){ alert('Configura la URL del Apps Script (Ajustes) antes de sincronizar.'); return; }
+  doSync();
+  alert('✅ Espacios guardados y sincronizando con SSNet.\n\nEn unos segundos ya estarán disponibles en SSNet › Reservas (recarga con ?v).');
 }
 
 // EXPORTAR HORARIOS A SSNET
