@@ -1,0 +1,25 @@
+{
+  "name": "San Sebastián Net",
+  "short_name": "SSNet",
+  "description": "Portal del profesorado · CEIP San Sebastián",
+  "display": "standalone",
+  "background_color": "#0B132B",
+  "theme_color": "#0B132B",
+  "start_url": "ssnet.html",
+  "scope": ".",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "ssnet_icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "ssnet_icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
