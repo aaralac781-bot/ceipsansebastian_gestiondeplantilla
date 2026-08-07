@@ -663,6 +663,7 @@ function _doEnviar(url){
     recreo:DB.recreo||{},
     luciernaga:DB.luciernaga||{},
     reservasEspacios:DB.reservasEspacios||[],
+    alumnos:DB.alumnos||[],
     sust:sust,
     _sync:firma
   };
@@ -740,6 +741,7 @@ function _aplicarDatos(data){
   if(data.recreo&&Object.keys(data.recreo).length>0)DB.recreo=data.recreo;
   if(data.luciernaga&&Object.keys(data.luciernaga).length>0)DB.luciernaga=data.luciernaga;
   if(data.reservasEspacios)DB.reservasEspacios=data.reservasEspacios;
+  if(data.alumnos&&data.alumnos.length>0)DB.alumnos=data.alumnos;
   // Procesar hCarga (formato antiguo tabla)
   if(data.carga&&data.carga.length>1){
     DB.hCarga={};
