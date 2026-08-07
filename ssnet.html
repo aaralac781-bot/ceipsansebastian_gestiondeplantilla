@@ -52,9 +52,10 @@
     }
 
     if(standalone && isAndroid){
-      // MODO APP EN ANDROID: el iframe daba error de Google Drive (no autentica
-      // la app de dominio dentro de un iframe). Abrimos el portal directamente.
-      window.location.replace(APP_DOM);
+      // MODO APP EN ANDROID: el iframe daba error de Google Drive. Además, con
+      // varias cuentas Google el móvil elegía la equivocada (sin acceso). Pasamos
+      // por el selector de cuentas filtrado al dominio del cole y luego al portal.
+      window.location.replace(CHOOSER);
     } else if(standalone){
       // MODO APP EN iOS: SSNet a pantalla completa, sin barra del navegador
       var fr = document.getElementById('appframe');
