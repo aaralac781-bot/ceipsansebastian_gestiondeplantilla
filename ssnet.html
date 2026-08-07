@@ -31,15 +31,19 @@
   <div class="dot" id="dot"></div>
   <iframe id="appframe" style="display:none;position:fixed;inset:0;width:100%;height:100%;border:0;background:#0B132B" allow="camera;microphone;fullscreen"></iframe>
   <script>
+    // URL pública (para el iframe de iOS, que ya funcionaba) y URL de dominio
+    // (autentica directamente a las cuentas de g.educaand.es, sin iframe).
     var APP = 'https://script.google.com/macros/s/AKfycbxp8mr3nb6xx6KVMn0i2aAQziFeyU7CF-MlWCB-Y4uwvwuY4nZEfO7EaaB5d9Rg01lv/exec';
-    var CHOOSER = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(APP) + '&hd=g.educaand.es';
+    var APP_DOM = 'https://script.google.com/a/macros/g.educaand.es/s/AKfycbxp8mr3nb6xx6KVMn0i2aAQziFeyU7CF-MlWCB-Y4uwvwuY4nZEfO7EaaB5d9Rg01lv/exec';
+    var CHOOSER = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(APP_DOM) + '&hd=g.educaand.es';
     var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    var isAndroid = /Android/i.test(navigator.userAgent);
 
     function addBtn(){
       if(document.getElementById('openbtn')) return;
       var btn = document.createElement('a');
       btn.id = 'openbtn';
-      btn.href = CHOOSER;
+      btn.href = APP_DOM;
       btn.className = 'btn';
       btn.textContent = 'Abrir SSNet';
       btn.style.marginTop = '12px';
@@ -47,8 +51,12 @@
       document.body.appendChild(btn);
     }
 
-    if(standalone){
-      // MODO APP: SSNet a pantalla completa, sin barra del navegador
+    if(standalone && isAndroid){
+      // MODO APP EN ANDROID: el iframe daba error de Google Drive (no autentica
+      // la app de dominio dentro de un iframe). Abrimos el portal directamente.
+      window.location.replace(APP_DOM);
+    } else if(standalone){
+      // MODO APP EN iOS: SSNet a pantalla completa, sin barra del navegador
       var fr = document.getElementById('appframe');
       var loaded = false;
       fr.onload = function(){ loaded = true; };
