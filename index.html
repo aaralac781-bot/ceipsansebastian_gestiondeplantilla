@@ -2800,7 +2800,7 @@ function rHCarga(){
       if(activa===undefined)activa=(hBoja>0)||(esInfantil&&(cv.m||cv.h>0));
       var hShow=hBoja>0?hBoja:(cv.h||0);
       var mOpts='<option value="">Sin asignar</option>';
-      DB.maestros.filter(function(m){return['PT','AL'].indexOf(m.e)<0;})
+      DB.maestros.filter(function(m){return (g.niv==='estrellas')||['PT','AL'].indexOf(m.e)<0;})
         .forEach(function(m){
           mOpts+='<option value="'+m.id+'"'+(String(cv.m)===String(m.id)?' selected':'')+'>'+m.n+'</option>';
         });
@@ -3318,7 +3318,7 @@ function rHHorario(){
       h+='</select></div>';
       h+='<div class="fr"><span class="fl">Maestro/a</span><select class="fi" id="slot-prof" style="font-size:13px;padding:6px">';
       h+='<option value="">Sin asignar</option>';
-      DB.maestros.filter(function(m){return['PT','AL'].indexOf(m.e)<0;}).forEach(function(m){
+      DB.maestros.filter(function(m){return (g2&&g2.niv==='estrellas')||['PT','AL'].indexOf(m.e)<0;}).forEach(function(m){
         h+='<option value="'+m.id+'"'+(String(slot2.pId)===String(m.id)?' selected':'')+'>'+m.n+'</option>';
       });
       h+='</select></div>';
