@@ -1122,6 +1122,8 @@ function rBalance(){
   document.getElementById('s-balance').innerHTML=h;
 }
 
+function _nomLimpio(n){return String(n||'').replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g,' ').replace(/\s+/g,' ').trim();}
+function _primerNom(n){var c=_nomLimpio(n);return c?c.split(' ')[0]:'';}
 function rClaustro(){
   // Grupos para tutoria: catalogo completo (infantil+primaria+estrellas) + los del horario, sin duplicar
   var grupos=todosG();
@@ -1150,7 +1152,7 @@ function rClaustro(){
   });
   h+='</div><div style="font-size:12px;color:#94a3b8;margin-top:6px">Total: <strong>'+tg()+'</strong> grupos</div></div>';
 
-  DB.maestros.filter(function(m){return String(m&&m.n||'').trim()!=='';}).forEach(function(m){
+  DB.maestros.filter(function(m){return _nomLimpio(m&&m.n)!=='';}).forEach(function(m){
     var dp=hd(m),isOpen=EXP===m.id;
     var espOpts='';
     Object.keys(EL).forEach(function(e){espOpts+='<option value="'+e+'"'+(e===m.e?' selected':'')+'>'+EL[e]+'</option>';});
@@ -1871,9 +1873,9 @@ function renderSust(){
   h+='<div style="padding:10px 14px">';
   h+='<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:6px">MAESTROS QUE FALTAN:</div>';
   h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
-  DB.maestros.filter(function(m){return String(m&&m.n||'').trim()!=='';}).forEach(function(m){
+  DB.maestros.filter(function(m){return _nomLimpio(m&&m.n)!=='';}).forEach(function(m){
     var falta=SUST_FALTAN.indexOf(m.id)>=0;
-    h+='<button style="padding:4px 10px;border-radius:20px;border:2px solid '+(falta?'#b91c1c':'#e2e8f0')+';background:'+(falta?'#fee2e2':'#fff')+';font-size:11px;font-weight:600;color:'+(falta?'#b91c1c':'#64748b')+';cursor:pointer" data-mid="'+m.id+'" onclick="togFalta(this)">'+m.n.split(' ')[0]+'</button>';
+    h+='<button style="padding:4px 10px;border-radius:20px;border:2px solid '+(falta?'#b91c1c':'#e2e8f0')+';background:'+(falta?'#fee2e2':'#fff')+';font-size:11px;font-weight:600;color:'+(falta?'#b91c1c':'#64748b')+';cursor:pointer" data-mid="'+m.id+'" onclick="togFalta(this)">'+_primerNom(m.n)+'</button>';
   });
   h+='</div>';
 
@@ -1899,7 +1901,7 @@ function renderSust(){
     SUST_FALTAN.forEach(function(mFId){
       var mF2=DB.maestros.find(function(m){return m.id===mFId;});
       if(!mF2)return;
-      h+='<th style="color:#fff;padding:4px 8px;min-width:90px">'+mF2.n.split(' ')[0]+'<br><span style="font-size:9px;font-weight:400;opacity:.8">ausente</span></th>';
+      h+='<th style="color:#fff;padding:4px 8px;min-width:90px">'+_primerNom(mF2.n)+'<br><span style="font-size:9px;font-weight:400;opacity:.8">ausente</span></th>';
     });
     h+='</tr>';
     tramos.forEach(function(t,ti){
