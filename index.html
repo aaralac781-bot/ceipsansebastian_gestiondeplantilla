@@ -2473,6 +2473,7 @@ function abrirDisponibles(){
   ov.innerHTML='<div style="position:sticky;top:0;z-index:3;background:#0B132B;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
     '<button onclick="document.getElementById(\'disp-ov\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px;cursor:pointer">&#8592; Volver</button>'+
     '<div style="font-size:1rem;font-weight:800;flex:1">&#129513; Disponibles para sustituir</div>'+
+    '<button onclick="dispImprimir()" style="background:#1e40af;border:none;color:#fff;font-weight:700;border-radius:8px;padding:7px 10px;cursor:pointer;font-size:12px">&#128424; Imprimir / PDF</button>'+
     '<button onclick="if(confirm(\'Recalcular borrara tus ajustes manuales y volvera a poner los libres automaticos. Continuar?\'))dispRecalcular()" style="background:#15803d;border:none;color:#fff;font-weight:700;border-radius:8px;padding:7px 10px;cursor:pointer;font-size:12px">&#8635; Recalcular</button>'+
     '</div><div id="disp-body" style="padding:12px"></div>';
   document.body.appendChild(ov);
@@ -2509,6 +2510,37 @@ function dispRender(){
   });
   h+='</table></div>';
   body.innerHTML=h;
+}
+function dispImprimir(){
+  var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var rows='';
+  (DB.tramos||[]).forEach(function(t,ti){
+    if(t.r){ rows+='<tr><td colspan="6" class="rec">RECREO</td></tr>'; return; }
+    rows+='<tr><td class="hora">'+_tramoLbl(t)+'</td>';
+    DIAS.forEach(function(d){
+      var ids=dispGet(d,ti);
+      var noms=ids.map(function(id){ var m=(DB.maestros||[]).find(function(x){return String(x.id)===String(id);}); return (m&&_nomLimpio(m.n))?_primerNom(m.n):''; }).filter(Boolean).join(', ');
+      rows+='<td>'+(noms||'&mdash;')+'</td>';
+    });
+    rows+='</tr>';
+  });
+  var titulo='Maestros disponibles para sustituciones';
+  var html='<!doctype html><html><head><meta charset="utf-8"><title>'+titulo+'</title><style>'+
+    'body{font-family:Arial,Helvetica,sans-serif;margin:16px;color:#0B132B}'+
+    'h1{font-size:16px;margin:0}h2{font-size:12px;color:#555;margin:2px 0 12px;font-weight:400}'+
+    'table{border-collapse:collapse;width:100%;font-size:11px}'+
+    'th,td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}'+
+    'th{background:#0B132B;color:#fff}.hora{font-weight:700;background:#f0f0f0;white-space:nowrap}'+
+    '.rec{background:#fef3c7;text-align:center;font-weight:700;color:#92400e}'+
+    '@media print{@page{size:landscape;margin:10mm}}'+
+    '</style></head><body>'+
+    '<h1>'+titulo+'</h1><h2>CEIP San Sebastian &middot; cuadrante supervisado</h2>'+
+    '<table><tr><th>Hora</th>'+DIAS.map(function(d){return '<th>'+d+'</th>';}).join('')+'</tr>'+rows+'</table>'+
+    '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},300);};</scr'+'ipt>'+
+    '</body></html>';
+  var w=window.open('','_blank');
+  if(!w){ alert('El navegador bloqueo la ventana de impresion. Permite ventanas emergentes e intentalo de nuevo.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 function exportarHorariosSSNet(){
   var res = document.getElementById('export-horario-res');
