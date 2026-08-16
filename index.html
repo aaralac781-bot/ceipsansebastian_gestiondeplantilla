@@ -2316,6 +2316,44 @@ function _doSyncMaestros(url, silencioso){
 // Sync automático al guardar cambios en maestros
 var _origSave = typeof saveDB === 'function' ? saveDB : null;
 
+function _tramoLbl(t){ try{ return fmt(t.ini)+(t.fin?'-'+fmt(t.fin):''); }catch(e){ return (t&&t.ini||'')+''; } }
+function descargarHorariosExcel(){
+  if(typeof XLSX==='undefined'){ if(typeof _cargarSheetJS==='function'){_cargarSheetJS(descargarHorariosExcel);return;} alert('Necesita conexion para preparar el Excel.'); return; }
+  var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var DIAS_H=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var grupos=(DB.hGrupos||[]);
+  if(!grupos.length){ alert('No hay grupos de infantil/primaria. Genera primero los horarios.'); return; }
+  var wb=XLSX.utils.book_new(), usados={};
+  grupos.forEach(function(g){
+    var hor=(DB.hHor||{})[g.id]||{};
+    var aoa=[];
+    aoa.push([g.n||'Grupo']);
+    aoa.push(['Hora'].concat(DIAS_H));
+    (DB.tramos||[]).forEach(function(t,ti){
+      if(t.r){ aoa.push([_tramoLbl(t),'RECREO','RECREO','RECREO','RECREO','RECREO']); return; }
+      var fila=[_tramoLbl(t)];
+      DIAS.forEach(function(d){
+        var slot=hor[d]&&hor[d][ti];
+        var txt='';
+        if(slot&&slot.mId){
+          var mat=(DB.hMat||[]).find(function(m){return m.id===slot.mId;});
+          txt=mat?mat.n:'';
+          var pr=slot.pId?(DB.maestros||[]).find(function(m){return String(m.id)===String(slot.pId);}):null;
+          if(pr&&pr.n) txt+=' ('+_primerNom(pr.n)+')';
+        }
+        fila.push(txt);
+      });
+      aoa.push(fila);
+    });
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:12},{wch:22},{wch:22},{wch:22},{wch:22},{wch:22}];
+    var nombre=String(g.n||'Grupo').replace(/[:\\\/?*\[\]]/g,' ').trim().substring(0,28)||'Grupo';
+    var base=nombre,k=1; while(usados[nombre]){ nombre=base+' '+(++k); } usados[nombre]=1;
+    XLSX.utils.book_append_sheet(wb, ws, nombre);
+  });
+  try{ XLSX.writeFile(wb, 'Horarios_grupos.xlsx'); }
+  catch(e){ alert('No se pudo generar el Excel: '+(e&&e.message?e.message:e)); }
+}
 function exportarHorariosSSNet(){
   var res = document.getElementById('export-horario-res');
   if(res){res.style.display='block';res.style.background='#dbeafe';res.style.color='#1e40af';res.textContent='Preparando datos de horarios...';}
@@ -3207,6 +3245,7 @@ function rHHorario(){
   h+='<button class="btn '+(SEL_MODO?'bvd':'bgy')+' bsm" onclick="toggleSelMulti()">'+(SEL_MODO?'Seleccion multiple: ON ('+SEL_MULTI.length+')':'Seleccionar varias celdas')+'</button>';
   h+='<button class="btn bsm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="comprobarHorarios()">Comprobar horarios</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
+  h+='<button class="btn bsm" style="background:#15803d;color:#fff" onclick="descargarHorariosExcel()">&#8681; Descargar Excel (grupos)</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
   h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v36 · export horarios formato portal SSNet</span>';
   h+='</div>';
