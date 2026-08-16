@@ -1124,6 +1124,7 @@ function rBalance(){
 
 function _nomLimpio(n){return String(n||'').replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g,' ').replace(/\s+/g,' ').trim();}
 function _primerNom(n){var c=_nomLimpio(n);return c?c.split(' ')[0]:'';}
+function _matNorm(n){return _nomLimpio(n).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');}
 function rClaustro(){
   // Grupos para tutoria: catalogo completo (infantil+primaria+estrellas) + los del horario, sin duplicar
   var grupos=todosG();
@@ -2324,6 +2325,10 @@ function descargarHorariosExcel(){
   var grupos=(DB.hGrupos||[]);
   if(!grupos.length){ alert('No hay grupos de infantil/primaria. Genera primero los horarios.'); return; }
   var wb=XLSX.utils.book_new(), usados={};
+  var matNames=(DB.hMat||[]).map(function(m){return m.n;}).filter(Boolean);
+  var wsM=XLSX.utils.aoa_to_sheet([['MATERIAS VALIDAS (escribelas o copialas igual)']].concat(matNames.map(function(n){return [n];})));
+  wsM['!cols']=[{wch:34}];
+  XLSX.utils.book_append_sheet(wb, wsM, 'Materias');
   grupos.forEach(function(g){
     var hor=(DB.hHor||{})[g.id]||{};
     var aoa=[];
@@ -2396,7 +2401,7 @@ function cargarHorariosExcel(input){
             var cur=DB.hHor[g.id][d][ti];
             if(cur && cur.pId) return;
             var nom=raw.replace(/\(.*?\)\s*$/,'').trim();
-            var mat=(DB.hMat||[]).find(function(m){ return _nomLimpio(m.n)===_nomLimpio(nom); });
+            var mat=(DB.hMat||[]).find(function(m){ return _matNorm(m.n)===_matNorm(nom); });
             if(!mat){ sinMateria.push(g.n+' · '+d+' '+lbl+': "'+nom+'"'); return; }
             DB.hHor[g.id][d][ti]={tipo:'clase', mId:mat.id, pId:tutorId, fij:true};
             rellenadas++; tocado=true;
