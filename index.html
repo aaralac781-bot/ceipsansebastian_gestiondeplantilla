@@ -2354,6 +2354,66 @@ function descargarHorariosExcel(){
   try{ XLSX.writeFile(wb, 'Horarios_grupos.xlsx'); }
   catch(e){ alert('No se pudo generar el Excel: '+(e&&e.message?e.message:e)); }
 }
+function _slugSheet(s){ return _nomLimpio(s).toLowerCase().replace(/\s+/g,''); }
+function _diaCanon(c){ var s=_nomLimpio(c).toLowerCase(); if(/^lun/.test(s))return'Lunes'; if(/^mar/.test(s))return'Martes'; if(/^mi/.test(s)||/^x$/.test(s))return'Miercoles'; if(/^jue/.test(s)||/^j$/.test(s))return'Jueves'; if(/^vie/.test(s)||/^v$/.test(s))return'Viernes'; return ''; }
+function cargarHorariosExcel(input){
+  var f=input.files&&input.files[0]; if(!f){ return; }
+  if(typeof XLSX==='undefined'){ if(typeof _cargarSheetJS==='function'){_cargarSheetJS(function(){cargarHorariosExcel(input);});return;} alert('Necesita conexion para leer el Excel.'); return; }
+  var rd=new FileReader();
+  rd.onload=function(){
+    try{
+      var wb=XLSX.read(new Uint8Array(rd.result),{type:'array'});
+      var tramoPorLbl={}; (DB.tramos||[]).forEach(function(t,ti){ if(!t.r) tramoPorLbl[_tramoLbl(t)]=ti; });
+      var rellenadas=0, gruposTocados=0, sinMateria=[];
+      if(!DB.hHor) DB.hHor={};
+      wb.SheetNames.forEach(function(sn){
+        var g=(DB.hGrupos||[]).find(function(x){ return _slugSheet(x.n)===_slugSheet(sn); });
+        if(!g) return;
+        var tutor=(DB.maestros||[]).find(function(m){ return m.g && _nomLimpio(m.g)===_nomLimpio(g.n); });
+        var tutorId=tutor?tutor.id:'';
+        var aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+        var hRow=-1, colDia={};
+        for(var i=0;i<aoa.length;i++){
+          if(String(aoa[i][0]||'').trim().toLowerCase()==='hora'){
+            hRow=i;
+            aoa[i].forEach(function(c,ci){ var d=_diaCanon(c); if(d) colDia[ci]=d; });
+            break;
+          }
+        }
+        if(hRow<0) return;
+        if(!DB.hHor[g.id]) DB.hHor[g.id]={};
+        var tocado=false;
+        for(var r=hRow+1;r<aoa.length;r++){
+          var fila=aoa[r]; if(!fila) continue;
+          var lbl=String(fila[0]||'').trim();
+          var ti=tramoPorLbl[lbl];
+          if(ti===undefined) continue;
+          Object.keys(colDia).forEach(function(ci){
+            var d=colDia[ci];
+            var raw=String(fila[ci]||'').trim();
+            if(!raw || /^recreo$/i.test(raw)) return;
+            if(!DB.hHor[g.id][d]) DB.hHor[g.id][d]=[];
+            var cur=DB.hHor[g.id][d][ti];
+            if(cur && cur.pId) return;
+            var nom=raw.replace(/\(.*?\)\s*$/,'').trim();
+            var mat=(DB.hMat||[]).find(function(m){ return _nomLimpio(m.n)===_nomLimpio(nom); });
+            if(!mat){ sinMateria.push(g.n+' · '+d+' '+lbl+': "'+nom+'"'); return; }
+            DB.hHor[g.id][d][ti]={tipo:'clase', mId:mat.id, pId:tutorId, fij:true};
+            rellenadas++; tocado=true;
+          });
+        }
+        if(tocado) gruposTocados++;
+      });
+      save();
+      if(typeof rHHorario==='function') rHHorario();
+      var msg='✅ Importado: '+rellenadas+' casilla(s) rellenada(s) en '+gruposTocados+' grupo(s).';
+      if(sinMateria.length){ msg+='\n\n⚠️ No reconoci estas materias (escribelas igual que en la lista de nombres):\n'+sinMateria.slice(0,15).join('\n'); if(sinMateria.length>15) msg+='\n...y '+(sinMateria.length-15)+' mas'; }
+      alert(msg);
+    }catch(e){ alert('No se pudo leer el Excel: '+(e&&e.message?e.message:e)); }
+    input.value='';
+  };
+  rd.readAsArrayBuffer(f);
+}
 function exportarHorariosSSNet(){
   var res = document.getElementById('export-horario-res');
   if(res){res.style.display='block';res.style.background='#dbeafe';res.style.color='#1e40af';res.textContent='Preparando datos de horarios...';}
@@ -3246,6 +3306,8 @@ function rHHorario(){
   h+='<button class="btn bsm" style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd" onclick="comprobarHorarios()">Comprobar horarios</button>';
   h+='<button class="btn bgy bsm" onclick="imprimirHorario()">Imprimir / PDF</button>';
   h+='<button class="btn bsm" style="background:#15803d;color:#fff" onclick="descargarHorariosExcel()">&#8681; Descargar Excel (grupos)</button>';
+  h+='<button class="btn bsm" style="background:#0e7490;color:#fff" onclick="document.getElementById(\'imp-horarios-xl\').click()">&#8679; Cargar Excel relleno</button>';
+  h+='<input type="file" id="imp-horarios-xl" accept=".xlsx,.xls" style="display:none" onchange="cargarHorariosExcel(this)">';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
   h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v36 · export horarios formato portal SSNet</span>';
   h+='</div>';
