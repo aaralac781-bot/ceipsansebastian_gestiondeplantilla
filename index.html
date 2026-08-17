@@ -7149,14 +7149,19 @@ function publicarTablonSSN(){
   var url=DB.scriptUrl; if(!url){ alert('Configura la URL del script en Config.'); return; }
   var items=DB.tablon||[];
   if(!items.length){ alert('No hay anuncios que publicar.'); return; }
-  if(!confirm('¿Publicar los '+items.length+' anuncio(s) en SSNet?\n(reemplaza el tablón actual)')) return;
+  // El último anuncio creado debe salir ARRIBA en SSNet -> se envía en orden inverso.
+  var envio=items.slice().reverse().map(function(a){
+    return {tipo:a.tipo||'', titulo:a.titulo||'', mensaje:a.mensaje||'', enlace:a.enlace||'', activo:(a.activo!==false)};
+  });
+  var nAct=envio.filter(function(a){return a.activo;}).length;
+  if(!confirm('¿Publicar el tablón en SSNet?\n'+nAct+' activo(s) visible(s), '+(envio.length-nAct)+' oculto(s).\n(reemplaza el tablón actual)')) return;
   var cb='_tab'+Date.now();
   window[cb]=function(r){
     try{delete window[cb];}catch(e){}
     if(r&&r.ok) alert('✅ Tablón publicado en SSNet.');
     else alert('Error: '+(r?r.error:'sin respuesta'));
   };
-  var datos=JSON.stringify({items:items});
+  var datos=JSON.stringify({items:envio});
   var s=document.createElement('script');
   s.src=url+'?accion=publicarTablon&callback='+cb+'&datos='+encodeURIComponent(datos);
   s.onerror=function(){ try{delete window[cb];}catch(e){} alert('Error de conexión.'); };
@@ -7189,17 +7194,24 @@ function _renderTablonBranch(h, cal){
     h+='<div class="al i" style="margin-top:8px"><span>i</span><span>No hay anuncios. Pulsa "+ Nuevo anuncio" para crear uno.</span></div>';
   } else {
     anuncios.forEach(function(a,i){
-      h+='<div onclick="showAnuncioPanel('+i+')" style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid '+cal.color+';border-radius:10px;padding:12px;margin:8px 0;cursor:pointer">';
-      if(a.tipo)h+='<div style="font-size:10px;font-weight:800;color:'+cal.color+';text-transform:uppercase;letter-spacing:.5px">'+a.tipo+'</div>';
+      var act=(a.activo!==false);
+      h+='<div style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid '+(act?cal.color:'#cbd5e1')+';border-radius:10px;padding:12px;margin:8px 0;'+(act?'':'opacity:.55')+'">';
+      h+='<div onclick="showAnuncioPanel('+i+')" style="cursor:pointer">';
+      if(a.tipo)h+='<div style="font-size:10px;font-weight:800;color:'+(act?cal.color:'#94a3b8')+';text-transform:uppercase;letter-spacing:.5px">'+a.tipo+'</div>';
       h+='<div style="font-size:13px;font-weight:700;color:#0B132B">'+(a.titulo||'(sin titulo)')+'</div>';
       if(a.mensaje)h+='<div style="font-size:11px;color:#64748b;margin-top:3px">'+a.mensaje.substring(0,80)+(a.mensaje.length>80?'…':'')+'</div>';
-      if(a.enlace)h+='<div style="font-size:11px;color:#2563eb;margin-top:2px">🔗 con enlace</div>';
+      if(a.enlace)h+='<div style="font-size:11px;color:#2563eb;margin-top:2px">&#128279; con enlace</div>';
+      h+='</div>';
+      h+='<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9">';
+      h+='<span style="font-size:11px;font-weight:700;color:'+(act?'#059669':'#94a3b8')+'">'+(act?'● Activo (visible en SSNet)':'○ Inactivo (oculto)')+'</span>';
+      h+='<button class="btn bsm" style="margin-left:auto;background:'+(act?'#f1f5f9':'#dcfce7')+';color:'+(act?'#475569':'#059669')+'" onclick="toggleAnuncioActivo('+i+')">'+(act?'Desactivar':'Activar')+'</button>';
+      h+='</div>';
       h+='</div>';
     });
   }
   h+='</div>';
   if(AGENDA_PANEL){
-    var an=ANUNCIO_EDIT_IDX>=0?(DB.tablon||[])[ANUNCIO_EDIT_IDX]:{tipo:'AVISO',titulo:'',mensaje:'',enlace:''};
+    var an=ANUNCIO_EDIT_IDX>=0?(DB.tablon||[])[ANUNCIO_EDIT_IDX]:{tipo:'AVISO',titulo:'',mensaje:'',enlace:'',activo:true};
     h+='<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:0 0 calc(86px + env(safe-area-inset-bottom, 0px))">';
     h+='<div style="background:#fff;border-radius:20px;padding:20px;width:100%;max-width:500px;max-height:76vh;overflow-y:auto;margin:0 8px">';
     h+='<div style="font-size:15px;font-weight:800;color:'+cal.color+';margin-bottom:14px">'+(ANUNCIO_EDIT_IDX>=0?'Editar anuncio':'Nuevo anuncio')+'</div>';
@@ -7208,6 +7220,7 @@ function _renderTablonBranch(h, cal){
     h+='<div class="fr"><span class="fl">Mensaje</span><textarea class="fi" id="an-mensaje" rows="4" style="resize:none" placeholder="Texto del anuncio...">'+(an.mensaje||'')+'</textarea></div>';
     h+='<div class="fr"><span class="fl">Enlace a PDF / foto (Drive) o web</span><input class="fi" type="url" id="an-enlace" value="'+(an.enlace||'')+'" placeholder="https://drive.google.com/..."></div>';
     h+='<div style="font-size:10px;color:#64748b;margin-top:4px;line-height:1.45">&#128206; Para compartir un <b>PDF o foto</b>: s&uacute;belo a tu Drive (o si ya est&aacute; ah&iacute;) y pega aqu&iacute; su <b>enlace</b>. La subida directa desde el m&oacute;vil (elegir archivo &rarr; se sube solo) llegar&aacute; al conectar el backend.</div>';
+    h+='<div class="fr" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between"><span class="fl" style="margin:0">Estado en SSNet</span><button class="btn bsm" style="background:'+(ANUNCIO_ACT?'#dcfce7':'#f1f5f9')+';color:'+(ANUNCIO_ACT?'#059669':'#475569')+'" onclick="ANUNCIO_ACT=!ANUNCIO_ACT;renderAgenda()">'+(ANUNCIO_ACT?'● Activo (visible)':'○ Inactivo (oculto)')+'</button></div>';
     h+='<div style="display:flex;gap:8px;margin-top:12px">';
     h+='<button class="btn bvd" style="flex:1" onclick="guardarAnuncio()">Guardar</button>';
     if(ANUNCIO_EDIT_IDX>=0)h+='<button class="btn brd" onclick="eliminarAnuncio('+ANUNCIO_EDIT_IDX+')">Eliminar</button>';
@@ -7216,13 +7229,24 @@ function _renderTablonBranch(h, cal){
   }
   return h;
 }
-function showAnuncioPanel(idx){ AGENDA_PANEL=true; ANUNCIO_EDIT_IDX=idx; renderAgenda(); }
+var ANUNCIO_ACT=true;
+function showAnuncioPanel(idx){
+  AGENDA_PANEL=true; ANUNCIO_EDIT_IDX=idx;
+  var a=idx>=0?(DB.tablon||[])[idx]:null;
+  ANUNCIO_ACT=a?(a.activo!==false):true;
+  renderAgenda();
+}
+function toggleAnuncioActivo(idx){
+  var a=(DB.tablon||[])[idx]; if(!a)return;
+  a.activo=(a.activo===false); save(); renderAgenda();
+}
 function guardarAnuncio(){
   var a={
     tipo:(document.getElementById('an-tipo')||{}).value||'',
     titulo:(document.getElementById('an-titulo')||{}).value||'',
     mensaje:(document.getElementById('an-mensaje')||{}).value||'',
-    enlace:(document.getElementById('an-enlace')||{}).value||''
+    enlace:(document.getElementById('an-enlace')||{}).value||'',
+    activo:ANUNCIO_ACT
   };
   if(!a.titulo && !a.mensaje){ alert('Escribe al menos un titulo o un mensaje.'); return; }
   if(!DB.tablon)DB.tablon=[];
@@ -7298,7 +7322,7 @@ function renderAgenda(){
 
   // Panel de edicion (overlay)
   if(AGENDA_PANEL){
-    var ev=AGENDA_EDIT_IDX>=0?(DB.agenda||[])[AGENDA_EDIT_IDX]:{fecha:hoy,horaIni:'09:00',horaFin:'10:00',titulo:'',calendario:AGENDA_CAL,proyecto:'',descripcion:''};
+    var ev=AGENDA_EDIT_IDX>=0?(DB.agenda||[])[AGENDA_EDIT_IDX]:{fecha:hoy,horaIni:'09:00',horaFin:'10:00',titulo:'',calendario:AGENDA_CAL,proyecto:'',descripcion:'',enlace:''};
     h+='<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:0 0 calc(86px + env(safe-area-inset-bottom, 0px))">';
     h+='<div style="background:#fff;border-radius:20px;padding:20px;width:100%;max-width:500px;max-height:76vh;overflow-y:auto;margin:0 8px">';
     h+='<div style="font-size:15px;font-weight:800;color:'+cal.color+';margin-bottom:14px">'+(AGENDA_EDIT_IDX>=0?'Editar evento':'Nuevo evento')+' - '+cal.label+'</div>';
@@ -7319,7 +7343,9 @@ function renderAgenda(){
       if(ev.proyecto && (PROYECTOS_SSN||[]).indexOf(ev.proyecto)<0) h+='<option value="'+ev.proyecto+'" selected>'+ev.proyecto+'</option>';
       h+='</select></div>';
     }
-    h+='<div class="fr"><span class="fl">Descripcion (opcional)</span><textarea class="fi" id="ev-desc" rows="3" style="resize:none" placeholder="Detalles, enlace, orden del dia...">'+(ev.descripcion||'')+'</textarea></div>';
+    h+='<div class="fr"><span class="fl">Descripcion (opcional)</span><textarea class="fi" id="ev-desc" rows="3" style="resize:none" placeholder="Detalles, orden del dia...">'+(ev.descripcion||'')+'</textarea></div>';
+    h+='<div class="fr"><span class="fl">Enlace a PDF / foto (Drive) o web</span><input class="fi" type="url" id="ev-enlace" value="'+(ev.enlace||'')+'" placeholder="https://drive.google.com/..."></div>';
+    h+='<div style="font-size:10px;color:#64748b;margin-top:4px;line-height:1.45">&#128206; Pega aqu&iacute; el <b>enlace</b> de un PDF o foto de tu Drive (o cualquier web). Aparecer&aacute; en el evento dentro de SSNet.</div>';
     h+='<div style="display:flex;gap:8px;margin-top:12px">';
     h+='<button class="btn bvd" style="flex:1" onclick="guardarEvento()">Guardar</button>';
     if(AGENDA_EDIT_IDX>=0)h+='<button class="btn brd" onclick="eliminarEvento('+AGENDA_EDIT_IDX+')">Eliminar</button>';
@@ -7338,6 +7364,7 @@ function renderEventoCard(e,idx,cal,pasado){
   h+='<div style="font-size:11px;color:#94a3b8;margin-top:2px">'+formatFecha(e.fecha)+(e.horaIni?' &bull; '+e.horaIni+'-'+e.horaFin:'')+'</div>';
   if(e.descripcion)h+='<div style="font-size:11px;color:#64748b;margin-top:3px">'+e.descripcion.substring(0,60)+(e.descripcion.length>60?'...':'')+'</div>';
   if(e.proyecto)h+='<div style="font-size:11px;color:#7c3aed;margin-top:2px;font-weight:600">Proyecto: '+e.proyecto+'</div>';
+  if(e.enlace)h+='<div style="font-size:11px;color:#2563eb;margin-top:2px">&#128279; con enlace</div>';
   h+='</div>';
   h+='<span style="font-size:18px;color:#94a3b8">&#8250;</span>';
   h+='</div></div>';
@@ -7360,7 +7387,8 @@ function guardarEvento(){
     horaFin:(document.getElementById('ev-fin')||{}).value||'',
     calendario:(document.getElementById('ev-cal')||{}).value||AGENDA_CAL,
     proyecto:(document.getElementById('ev-proyecto')||{}).value||'',
-    descripcion:(document.getElementById('ev-desc')||{}).value||''
+    descripcion:(document.getElementById('ev-desc')||{}).value||'',
+    enlace:(document.getElementById('ev-enlace')||{}).value||''
   };
   if(!DB.agenda)DB.agenda=[];
   if(AGENDA_EDIT_IDX>=0){
