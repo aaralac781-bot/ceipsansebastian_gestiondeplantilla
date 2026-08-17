@@ -7124,6 +7124,8 @@ var CALENDARIOS_SSN=[
   {id:'RECREO',label:'Recreo',color:'#14532d',bg:'#dcfce7',desc:'Turnos y guardias de recreo'},
   {id:'PROYECTOS',label:'Proyectos',color:'#4c1d95',bg:'#ede9fe',desc:'Actividades de proyectos'}
 ];
+// Proyectos del centro (provisional; cuando conectemos el Codigo.gs se leeran solos del Sheet)
+var PROYECTOS_SSN=['La Dehesa del San Sebastián','Bibliotecas Escolares','Para vivir en igualdad','Hábitos de Vida Saludables','STEAM 2.0','Escuela: Espacio de Paz','Transformación Digital. TDE.'];
 
 function formatFecha(f){
   if(!f)return '';
@@ -7214,7 +7216,10 @@ function renderAgenda(){
     h+='<div class="fr"><span class="fl">Hora fin</span><input class="fi" type="time" id="ev-fin" value="'+(ev.horaFin||'10:00')+'"></div>';
     h+='</div>';
     if(AGENDA_CAL==='PROYECTOS'){
-      h+='<div class="fr"><span class="fl">Proyecto</span><input class="fi" type="text" id="ev-proyecto" value="'+(ev.proyecto||'')+'" placeholder="Nombre del proyecto..."></div>';
+      h+='<div class="fr"><span class="fl">Proyecto</span><select class="fi" id="ev-proyecto"><option value="">— Elige proyecto —</option>';
+      (PROYECTOS_SSN||[]).forEach(function(p){ h+='<option value="'+p+'"'+(ev.proyecto===p?' selected':'')+'>'+p+'</option>'; });
+      if(ev.proyecto && (PROYECTOS_SSN||[]).indexOf(ev.proyecto)<0) h+='<option value="'+ev.proyecto+'" selected>'+ev.proyecto+'</option>';
+      h+='</select></div>';
     }
     h+='<div class="fr"><span class="fl">Descripcion (opcional)</span><textarea class="fi" id="ev-desc" rows="3" style="resize:none" placeholder="Detalles, enlace, orden del dia...">'+(ev.descripcion||'')+'</textarea></div>';
     h+='<div style="display:flex;gap:8px;margin-top:12px">';
