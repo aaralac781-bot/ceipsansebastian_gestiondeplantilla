@@ -466,6 +466,7 @@ function save(){
   try{
     localStorage.setItem(KDAT,JSON.stringify(DB));
     setSync('ok','Guardado '+hhmm());
+    if(typeof _programarAutoSync==='function') _programarAutoSync();
     return true;
   }catch(e){
     alert('Error al guardar: '+e.message);
@@ -604,6 +605,38 @@ function setSync(t,txt){
   l.textContent=txt||'Local';
 }
 
+/* ── AUTO-SINCRONIZACION SEGURA (sube a Sheets al dejar de editar, sin pisar a nadie) ── */
+var _autoSyncTimer=null, _autoSyncEnCurso=false;
+function _programarAutoSync(){
+  if(!window.DB || !DB.scriptUrl) return;
+  clearTimeout(_autoSyncTimer);
+  _autoSyncTimer=setTimeout(_autoSync, 25000);
+}
+function _autoSync(){
+  if(_autoSyncEnCurso) return;
+  var url=(window.DB&&DB.scriptUrl)||''; if(!url) return;
+  _autoSyncEnCurso=true;
+  var cb='_achk'+Date.now(), hecho=false;
+  function limpiar(){ try{delete window[cb];}catch(e){window[cb]=undefined;} var el=document.getElementById('jp_achk'); if(el&&el.parentNode)el.parentNode.removeChild(el); }
+  window[cb]=function(r){
+    if(hecho)return; hecho=true; limpiar();
+    var meta=(r&&r.ok&&r.data&&r.data._sync)?r.data._sync:null;
+    var ultimo=localStorage.getItem('sync_ultimo_recibido')||'';
+    if(meta&&meta.autor&&meta.autor!==_getAutor()&&meta.fecha&&meta.fecha>ultimo){
+      setSync('err','Pulsa Recibir primero');
+      _autoSyncEnCurso=false;
+      return;
+    }
+    _doEnviar(url);
+    _autoSyncEnCurso=false;
+  };
+  var s=document.createElement('script');
+  s.id='jp_achk';
+  s.src=url+'?accion=leer&callback='+cb+'&_='+Date.now();
+  s.onerror=function(){ if(!hecho){ hecho=true; limpiar(); _autoSyncEnCurso=false; } };
+  document.body.appendChild(s);
+  setTimeout(function(){ if(!hecho){ hecho=true; limpiar(); _autoSyncEnCurso=false; } }, 12000);
+}
 function doSync(){
   var ok=save();
   if(!ok)return;
