@@ -7166,14 +7166,14 @@ function _renderTablonBranch(h, cal){
   h+='</div>';
   if(AGENDA_PANEL){
     var an=ANUNCIO_EDIT_IDX>=0?(DB.tablon||[])[ANUNCIO_EDIT_IDX]:{tipo:'AVISO',titulo:'',mensaje:'',enlace:''};
-    h+='<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center">';
-    h+='<div style="background:#fff;border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto">';
+    h+='<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:0 0 calc(86px + env(safe-area-inset-bottom, 0px))">';
+    h+='<div style="background:#fff;border-radius:20px;padding:20px;width:100%;max-width:500px;max-height:76vh;overflow-y:auto;margin:0 8px">';
     h+='<div style="font-size:15px;font-weight:800;color:'+cal.color+';margin-bottom:14px">'+(ANUNCIO_EDIT_IDX>=0?'Editar anuncio':'Nuevo anuncio')+'</div>';
     h+='<div class="fr"><span class="fl">Tipo</span><input class="fi" type="text" id="an-tipo" value="'+(an.tipo||'')+'" placeholder="AVISO, NOTA INFORMATIVA, ETCP..."></div>';
     h+='<div class="fr"><span class="fl">Titulo</span><input class="fi" type="text" id="an-titulo" value="'+(an.titulo||'')+'" placeholder="Titulo del anuncio"></div>';
     h+='<div class="fr"><span class="fl">Mensaje</span><textarea class="fi" id="an-mensaje" rows="4" style="resize:none" placeholder="Texto del anuncio...">'+(an.mensaje||'')+'</textarea></div>';
-    h+='<div class="fr"><span class="fl">Enlace (Drive/web, opcional)</span><input class="fi" type="url" id="an-enlace" value="'+(an.enlace||'')+'" placeholder="https://..."></div>';
-    h+='<div style="font-size:10px;color:#94a3b8;margin-top:4px">Adjuntar imagen/PDF: pendiente (necesita backend).</div>';
+    h+='<div class="fr"><span class="fl">Enlace a PDF / foto (Drive) o web</span><input class="fi" type="url" id="an-enlace" value="'+(an.enlace||'')+'" placeholder="https://drive.google.com/..."></div>';
+    h+='<div style="font-size:10px;color:#64748b;margin-top:4px;line-height:1.45">&#128206; Para compartir un <b>PDF o foto</b>: s&uacute;belo a tu Drive (o si ya est&aacute; ah&iacute;) y pega aqu&iacute; su <b>enlace</b>. La subida directa desde el m&oacute;vil (elegir archivo &rarr; se sube solo) llegar&aacute; al conectar el backend.</div>';
     h+='<div style="display:flex;gap:8px;margin-top:12px">';
     h+='<button class="btn bvd" style="flex:1" onclick="guardarAnuncio()">Guardar</button>';
     if(ANUNCIO_EDIT_IDX>=0)h+='<button class="btn brd" onclick="eliminarAnuncio('+ANUNCIO_EDIT_IDX+')">Eliminar</button>';
@@ -7264,8 +7264,8 @@ function renderAgenda(){
   // Panel de edicion (overlay)
   if(AGENDA_PANEL){
     var ev=AGENDA_EDIT_IDX>=0?(DB.agenda||[])[AGENDA_EDIT_IDX]:{fecha:hoy,horaIni:'09:00',horaFin:'10:00',titulo:'',calendario:AGENDA_CAL,proyecto:'',descripcion:''};
-    h+='<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:0">';
-    h+='<div style="background:#fff;border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto">';
+    h+='<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:0 0 calc(86px + env(safe-area-inset-bottom, 0px))">';
+    h+='<div style="background:#fff;border-radius:20px;padding:20px;width:100%;max-width:500px;max-height:76vh;overflow-y:auto;margin:0 8px">';
     h+='<div style="font-size:15px;font-weight:800;color:'+cal.color+';margin-bottom:14px">'+(AGENDA_EDIT_IDX>=0?'Editar evento':'Nuevo evento')+' - '+cal.label+'</div>';
     h+='<div class="fr"><span class="fl">Titulo</span><input class="fi" type="text" id="ev-titulo" value="'+(ev.titulo||'')+'" placeholder="Nombre del evento..."></div>';
     h+='<div class="fg2">';
