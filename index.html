@@ -218,6 +218,9 @@ input[type=number].fi{max-width:80px}
     </div>
   </div>
   <div class="hdr-right">
+    <button class="sync-btn" onclick="recibirCambios()" title="Recibir de Sheets (traer los cambios de los demas)" style="background:#7c3aed;color:#fff">
+      <span>&#8681;</span><span>Recibir</span>
+    </button>
     <button class="sync-btn" onclick="doSync()">
       <div class="sdot" id="sdot"></div>
       <span id="stxt">Local</span>
@@ -658,6 +661,7 @@ function _doEnviar(url){
     hMat:DB.hMat||[],
     materias:DB.materias||[],
     hHor:DB.hHor||{},
+    dispSust:DB.dispSust||{},
     tramos:DB.tramos||[],
     bojaHoras:DB.bojaHoras||{},
     recreo:DB.recreo||{},
@@ -773,6 +777,7 @@ function _aplicarDatos(data){
   if(data.tramos&&data.tramos.length>=2)DB.tramos=data.tramos;
   if(data.bojaHoras&&Object.keys(data.bojaHoras).length>0)DB.bojaHoras=data.bojaHoras;
   if(data.hHor&&Object.keys(data.hHor).length>0)DB.hHor=data.hHor;
+  if(data.dispSust&&typeof data.dispSust==='object')DB.dispSust=data.dispSust;
   if(data.sust&&Object.keys(data.sust).length>0){
     Object.keys(data.sust).forEach(function(d){
       try{localStorage.setItem('sust_'+d,JSON.stringify(data.sust[d]));}catch(e){}
