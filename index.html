@@ -7129,6 +7129,40 @@ var CALENDARIOS_SSN=[
 ];
 // Proyectos del centro (provisional; cuando conectemos el Codigo.gs se leeran solos del Sheet)
 var PROYECTOS_SSN=['La Dehesa del San Sebastián','Bibliotecas Escolares','Para vivir en igualdad','Hábitos de Vida Saludables','STEAM 2.0','Escuela: Espacio de Paz','Transformación Digital. TDE.'];
+var _proyLoaded=false;
+function cargarProyectosSSN(){
+  var url=DB.scriptUrl; if(!url) return;
+  var cb='_pry'+Date.now();
+  window[cb]=function(r){
+    try{delete window[cb];}catch(e){}
+    if(r&&r.proyectos&&r.proyectos.length){
+      PROYECTOS_SSN=r.proyectos.map(function(p){return p.nombre;}).filter(Boolean);
+      if(MOD==='agenda') renderAgenda();
+    }
+  };
+  var s=document.createElement('script');
+  s.src=url+'?accion=getProyectos&callback='+cb+'&_='+Date.now();
+  s.onerror=function(){ try{delete window[cb];}catch(e){} };
+  document.head.appendChild(s);
+}
+function publicarTablonSSN(){
+  var url=DB.scriptUrl; if(!url){ alert('Configura la URL del script en Config.'); return; }
+  var items=DB.tablon||[];
+  if(!items.length){ alert('No hay anuncios que publicar.'); return; }
+  if(!confirm('¿Publicar los '+items.length+' anuncio(s) en SSNet?\n(reemplaza el tablón actual)')) return;
+  var cb='_tab'+Date.now();
+  window[cb]=function(r){
+    try{delete window[cb];}catch(e){}
+    if(r&&r.ok) alert('✅ Tablón publicado en SSNet.');
+    else alert('Error: '+(r?r.error:'sin respuesta'));
+  };
+  var datos=JSON.stringify({items:items});
+  var s=document.createElement('script');
+  s.src=url+'?accion=publicarTablon&callback='+cb+'&datos='+encodeURIComponent(datos);
+  s.onerror=function(){ try{delete window[cb];}catch(e){} alert('Error de conexión.'); };
+  document.head.appendChild(s);
+  setTimeout(function(){ if(window[cb]){ try{delete window[cb];}catch(e){} alert('Sin respuesta (timeout).'); } },12000);
+}
 
 function formatFecha(f){
   if(!f)return '';
@@ -7147,7 +7181,7 @@ var ANUNCIO_EDIT_IDX=-1;
 function _renderTablonBranch(h, cal){
   h+='<div style="padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
   h+='<button class="btn bvd bsm" onclick="showAnuncioPanel(-1)">+ Nuevo anuncio</button>';
-  h+='<span style="font-size:11px;color:#b45309;font-weight:700">Publicar a SSNet: pendiente (backend)</span>';
+  if((DB.tablon||[]).length) h+='<button class="btn bsm" style="background:#0369a1;color:#fff" onclick="publicarTablonSSN()">Publicar en SSN</button>';
   h+='</div>';
   var anuncios=DB.tablon||[];
   h+='<div style="padding:0 14px 80px">';
@@ -7202,6 +7236,7 @@ function eliminarAnuncio(idx){
 }
 function renderAgenda(){
   var cal=CALENDARIOS_SSN.find(function(c){return c.id===AGENDA_CAL;})||CALENDARIOS_SSN[0];
+  if(!_proyLoaded && DB.scriptUrl){ _proyLoaded=true; cargarProyectosSSN(); }
   var eventos=getEventosCal(AGENDA_CAL);
   var hoy=new Date().toISOString().split('T')[0];
 
