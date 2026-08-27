@@ -564,22 +564,37 @@ function hCoordTotal(m){
 function hd(m){
   return Math.max(0,J-(m.rC||0)-(m.rE||0)-(m.rJ||0)-hCoordTotal(m));
 }
-function hA(m){
+// ── Religion/ATEDU AGRUPADA por curso ─────────────────────────────────────
+// Cuando un curso esta "agrupado", todas sus clases juntan a los de Religion con
+// una maestra y a los de ATEDU con otro maestro, a la MISMA hora. Por eso las
+// horas de Religion (y de ATEDU) computan UNA sola vez por curso, no por clase.
+function _grupoRelAgrup(gid){ return !!(DB.hCarga&&DB.hCarga[gid]&&DB.hCarga[gid]._agrupRel); }
+function _cursoRelAgrup(niv){ return (DB.hGrupos||[]).some(function(g){ return g.niv===niv && _grupoRelAgrup(g.id); }); }
+function _esMatRelAten(mat){ return !!mat && (mat.n==='Religion'||mat.n==='Aten.Educativa'); }
+// Suma de horas de un maestro/a a partir de la carga (BOJA), contando la
+// Religion/ATEDU agrupada una sola vez por curso+materia+maestro.
+function _sumaCargaMaestro(mid){
   if(!DB||!DB.hCarga||!DB.hGrupos||!DB.hMat)return 0;
-  var total=0;
-  var mid=String(m.id); // comparar como string siempre
+  mid=String(mid); var total=0, yaAgrup={};
   DB.hGrupos.forEach(function(g){
     var carga=DB.hCarga[g.id]||{};
     DB.hMat.forEach(function(mat){
       var cv=carga[mat.id];
       if(cv&&String(cv.m)===mid){
         var hBoja=getBojaH(g.id,mat.id);
-        total+=hBoja>0?hBoja:(hBoja===-1?(cv.h||0):0);
+        var horas=hBoja>0?hBoja:(hBoja===-1?(cv.h||0):0);
+        if(_esMatRelAten(mat)&&_grupoRelAgrup(g.id)){
+          var k=g.niv+'|'+mat.id+'|'+mid;
+          if(yaAgrup[k])return;          // ya contado una vez para este curso
+          yaAgrup[k]=1;
+        }
+        total+=horas;
       }
     });
   });
   return total;
 }
+function hA(m){ return _sumaCargaMaestro(m.id); }
 function hL(m){return Math.max(0,hd(m)-hA(m));}
 function hdC(h){return h>=18?'#15803d':h>=12?'#92400e':'#b91c1c';}
 function tg(){var s=0;Object.keys(DB.grupos).forEach(function(k){s+=DB.grupos[k]||0;});return s;}
@@ -3006,19 +3021,8 @@ function getBojaH(gid,mid){
 }
 
 function getHorasAsignadas(mId){
-  var total=0;
-  DB.hGrupos.forEach(function(g){
-    var carga=DB.hCarga[g.id]||{};
-    DB.hMat.forEach(function(mat){
-      var cv=carga[mat.id];
-      if(cv&&cv.m===mId){
-        var hBoja=getBojaH(g.id,mat.id);
-        // Si BOJA tiene horas definidas, usar esas; si es editable usar las guardadas
-        total+=hBoja>0?hBoja:(hBoja===-1?(cv.h||0):0);
-      }
-    });
-  });
-  return total;
+  // Religion/ATEDU agrupada por curso cuenta una sola vez (ver _sumaCargaMaestro).
+  return _sumaCargaMaestro(mId);
 }
 
 function rHCarga(){
@@ -3093,6 +3097,13 @@ function rHCarga(){
         h+=' data-gid="'+g.id+'" data-mid="'+mat.id+'" onchange="setMaestroEl(this)">';
         h+=mOpts;
         h+='</select>';
+        // Interruptor "Agrupar Religion/ATEDU con el curso" (solo en la fila de Religion, Primaria)
+        if(mat.n==='Religion' && !esInfantil){
+          var _ag=_cursoRelAgrup(g.niv);
+          h+='<label title="Junta la Religion/ATEDU de todo el curso ('+g.niv.replace(/o$/,'º')+'): computa 1 vez por curso y ambas clases van a la misma hora." style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;color:'+(_ag?'#0d9488':'#94a3b8')+'">';
+          h+='<input type="checkbox"'+(_ag?' checked':'')+' style="accent-color:#0d9488;width:14px;height:14px;cursor:pointer" data-niv="'+g.niv+'" onchange="setRelAgrup(this)">';
+          h+='⇄ Agrupar '+g.niv.replace(/o$/,'º')+'</label>';
+        }
       }
       h+='</div>';
     });
@@ -3147,8 +3158,57 @@ function setMaestroEl(el){
       else m.asig.push({gid:gid,mid:mid,h:horas});
     }
   }
+  // Si es Religion/ATEDU de un curso AGRUPADO, poner el mismo maestro/a en todas
+  // las clases del curso (para que la agrupacion sea coherente).
+  var _g=DB.hGrupos.find(function(x){return String(x.id)===String(gid);});
+  var _mat=DB.hMat.find(function(x){return String(x.id)===String(mid);});
+  if(_g&&_esMatRelAten(_mat)&&_cursoRelAgrup(_g.niv)){
+    DB.hGrupos.forEach(function(og){
+      if(og.niv===_g.niv && String(og.id)!==String(gid)) _setMaestroCarga(og.id,mid,mId);
+    });
+  }
   save();
   rHCarga();
+}
+
+// Asigna un maestro/a a una materia de un grupo (carga + m.asig), sin re-render.
+function _setMaestroCarga(gid,mid,mId){
+  if(!DB.hCarga[gid])DB.hCarga[gid]={};
+  if(!DB.hCarga[gid][mid])DB.hCarga[gid][mid]={h:0,m:''};
+  DB.hCarga[gid][mid].m=mId;
+  if(!DB.hCarga[gid]._activas)DB.hCarga[gid]._activas={};
+  DB.hCarga[gid]._activas[mid]=true;
+  var hBoja=getBojaH(gid,mid);
+  var horas=hBoja>0?hBoja:(DB.hCarga[gid][mid].h||0);
+  DB.maestros.forEach(function(m){
+    if(String(m.id)!==String(mId)&&m.asig){ m.asig=m.asig.filter(function(a){return!(a.gid===gid&&a.mid===mid);}); }
+  });
+  if(mId){
+    var m=DB.maestros.find(function(x){return String(x.id)===String(mId);});
+    if(m){ if(!m.asig)m.asig=[]; var ex=m.asig.find(function(a){return a.gid===gid&&a.mid===mid;}); if(ex)ex.h=horas; else m.asig.push({gid:gid,mid:mid,h:horas}); }
+  }
+}
+
+// Interruptor "Agrupar Religion/ATEDU con el curso". Marca/desmarca TODO el curso
+// e iguala el maestro/a de Religion y de ATEDU en todas sus clases.
+function setRelAgrup(el){
+  var niv=el.getAttribute('data-niv');
+  var v=!!el.checked;
+  var clases=DB.hGrupos.filter(function(g){return g.niv===niv;});
+  if(clases.length<2 && v){ alert('Para agrupar hacen falta al menos dos clases del mismo curso.'); el.checked=false; return; }
+  var relMat=DB.hMat.find(function(m){return m.n==='Religion';});
+  var atenMat=DB.hMat.find(function(m){return m.n==='Aten.Educativa';});
+  clases.forEach(function(g){ if(!DB.hCarga[g.id])DB.hCarga[g.id]={}; DB.hCarga[g.id]._agrupRel=v; });
+  if(v){
+    var base=DB.hCarga[clases[0].id]||{};
+    [relMat,atenMat].forEach(function(mt){
+      if(!mt)return;
+      var m0=(base[mt.id]&&base[mt.id].m)?base[mt.id].m:'';
+      if(!m0)return;                                  // si la 1a clase aun no tiene maestro, no forzar
+      clases.forEach(function(g){ _setMaestroCarga(g.id,mt.id,m0); });
+    });
+  }
+  save(); rHCarga();
 }
 
 function setActivaEl(el){
@@ -3965,6 +4025,7 @@ function genHorario(){
       var activas=carga._activas;
       if(activas&&activas[mat.id]===false)return;
       if(mat.n==='Aten.Educativa')return; // va en paralelo con Religion
+      if(mat.n==='Religion'&&_grupoRelAgrup(g.id))return; // Religion agrupada: la coloca el pre-pass sincronizado
       var hBoja=getBojaH(g.id,mat.id);
       var horas=hBoja>0?hBoja:(cv&&cv.h?cv.h:0);
       if(horas<=0)return;
@@ -4161,6 +4222,70 @@ function genHorario(){
     [0,1,2,3].forEach(function(nivel){ _sweep(nivel,capMax,seed,'cons'); }); // materias del tutor consolidadas (Cono...)
     [0,1,2,3].forEach(function(nivel){ _sweep(nivel,capMax,seed,'tut'); });  // Lengua/Mates y comodin (flexibles)
   }
+
+  // ── PRE-PASS: Religion/ATEDU AGRUPADA por curso ─────────────────────────
+  // Coloca la Religion (con su ATEDU en paralelo) a la MISMA hora en TODAS las
+  // clases del curso agrupado ANTES del relleno normal, y deja esos huecos
+  // reservados. Asi ambas clases van sincronizadas y el maestro cuenta 1 vez.
+  (function _prepassRelAgrup(){
+    var relMat=DB.hMat.find(function(m){return m.n==='Religion';});
+    if(!relMat)return; var relId=relMat.id;
+    var atenMat=DB.hMat.find(function(m){return m.n==='Aten.Educativa';});
+    // 1) limpiar colocaciones agrupadas de una generacion anterior (idempotente)
+    DB.hGrupos.forEach(function(g){
+      var hor=DB.hHor[g.id]; if(!hor)return;
+      DIAS2.forEach(function(d){
+        (hor[d]||[]).forEach(function(s){
+          if(s&&s.agrup){
+            s.mId=null;s.pId=null;s.tipo='clase';s.txt='';s.fij=false;
+            delete s.paralelo;delete s.pIdAten;delete s.mIdAten;delete s.agrup;
+          }
+        });
+      });
+    });
+    // 2) colocar, curso a curso
+    var niveles={}; DB.hGrupos.forEach(function(g){ if(_grupoRelAgrup(g.id))niveles[g.niv]=true; });
+    Object.keys(niveles).forEach(function(niv){
+      var clases=DB.hGrupos.filter(function(g){return g.niv===niv && _grupoRelAgrup(g.id);});
+      if(clases.length<2)return;
+      var hB=getBojaH(clases[0].id,relId); if(hB<=0)return;
+      var minTot=Math.round(hB*60);
+      var carga0=DB.hCarga[clases[0].id]||{};
+      var pidRel=(carga0[relId]&&carga0[relId].m)?parseInt(carga0[relId].m):null;
+      var pidAten=(atenMat&&carga0[atenMat.id]&&carga0[atenMat.id].m)?parseInt(carga0[atenMat.id].m):null;
+      if(!pidRel)return;                       // sin maestra de Religion no se puede cuadrar
+      var colocado=false;
+      for(var dd=0; dd<DIAS2.length && !colocado; dd++){
+        var d=DIAS2[dd];
+        for(var pi=0; pi<idxT.length && !colocado; pi++){
+          var need=minTot, seq=[], q=pi, ok=true;
+          while(need>0){
+            if(q>=idxT.length){ok=false;break;}
+            if(q>pi && idxT[q]-idxT[q-1]!==1){ok=false;break;}   // tramos contiguos (sin recreo en medio)
+            seq.push(idxT[q]); need-=_durT(idxT[q]); q++;
+          }
+          if(!ok||need>0)continue;
+          var libre=true;
+          seq.forEach(function(ti){
+            clases.forEach(function(g){ if(!_libre(getHorGrupo(g.id),d,ti))libre=false; });
+            if(maestroOcupado(pidRel,d,ti,-1))libre=false;
+            if(pidAten&&maestroOcupado(pidAten,d,ti,-1))libre=false;
+          });
+          if(!libre)continue;
+          seq.forEach(function(ti){
+            clases.forEach(function(g){
+              var hor=getHorGrupo(g.id);
+              if(!hor[d])hor[d]=[]; if(!hor[d][ti])hor[d][ti]={};
+              hor[d][ti].mId=relId; hor[d][ti].pId=pidRel; hor[d][ti].tipo='clase';
+              hor[d][ti].txt=''; hor[d][ti].agrup=niv; hor[d][ti].fij=true;
+              _paralelo(hor,g.id,d,ti,relId);   // añade ATEDU en paralelo (pIdAten)
+            });
+          });
+          colocado=true;
+        }
+      }
+    });
+  })();
 
   // ── MULTI-ARRANQUE: probamos varios ordenes y nos quedamos con el mejor ──
   // (menos huecos y, luego, menos minutos por encima de 1h30'). Un solo intento
