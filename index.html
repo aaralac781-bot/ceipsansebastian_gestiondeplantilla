@@ -4600,7 +4600,8 @@ function imprimirHorario(){
         if(tr.r||slot.r){t+='<td style="background:#fef9c3;font-size:7pt;text-align:center;color:#92400e">R</td>';return;}
         var bg='#fff',txt='',sub='';
         var tipo=slot.tipo||'clase';
-        if(tipo!=='clase'&&SLOT_TIPOS[tipo]){bg=SLOT_TIPOS[tipo].bg;txt=(slot.txt||SLOT_TIPOS[tipo].label).substring(0,12);}
+        if(tipo==='libre'){bg='#fff';}
+        else if(tipo!=='clase'&&SLOT_TIPOS[tipo]){bg=SLOT_TIPOS[tipo].bg;txt=(slot.txt||SLOT_TIPOS[tipo].label).substring(0,12);}
         else if(slot.mId||slot.matNombre){
           var mat=slot.mId?DB.hMat.find(function(m){return m.id===slot.mId;}):null;
           bg=mat?mat.c:'#f0fdf4';
@@ -4619,16 +4620,12 @@ function imprimirHorario(){
   }
   function cajaVacia(){ return '<div class="hor-box" style="border:0"></div>'; }
   function horMaestro(m){ var h={}; DIAS2.forEach(function(d){h[d]=DB.tramos.map(function(t,ti){return getMaestroSlot(m.id,d,ti);});}); return h; }
-  // Una seccion: 2 horarios por fila, 6 por hoja (3 filas). Empieza en pagina nueva.
+  // Una seccion: cabecera + horarios en filas de 2, en flujo continuo (sin paginas
+  // forzadas) para que se agrupen y no queden hojas en blanco en medio.
   function seccion(titulo,color,boxes){
     if(!boxes.length)return '';
-    var s='';
-    for(var i=0;i<boxes.length;i+=6){
-      var pb=boxes.slice(i,i+6);
-      s+='<div class="pagina"><div class="titulo-sec" style="color:'+color+';border-bottom-color:'+color+'">'+titulo+(i>0?' (cont.)':'')+'</div>';
-      for(var j=0;j<pb.length;j+=2){ s+='<div class="fila">'+pb[j]+(pb[j+1]||cajaVacia())+'</div>'; }
-      s+='</div>';
-    }
+    var s='<div class="sec-head" style="color:'+color+';border-bottom-color:'+color+'">'+titulo+'</div>';
+    for(var j=0;j<boxes.length;j+=2){ s+='<div class="fila">'+boxes[j]+(boxes[j+1]||cajaVacia())+'</div>'; }
     return s;
   }
 
@@ -4637,11 +4634,10 @@ function imprimirHorario(){
   html+='<style>';
   html+='*{box-sizing:border-box;margin:0;padding:0}';
   html+='body{font-family:Arial,sans-serif;background:#fff}';
-  html+='.pagina{width:194mm;padding:0;page-break-after:always}';
-  html+='.pagina:last-child{page-break-after:auto}';
-  html+='.titulo-sec{font-size:12pt;font-weight:bold;border-bottom:2pt solid;margin:0 0 6pt;padding-bottom:2pt}';
-  html+='.fila{display:flex;gap:6mm;margin-bottom:6mm}';
-  html+='.hor-box{width:50%;min-width:0}';
+  html+='.sec-head{font-size:12pt;font-weight:bold;border-bottom:2pt solid;margin:7pt 0 5pt;padding-bottom:2pt;break-after:avoid;page-break-after:avoid;break-inside:avoid}';
+  html+='.sec-head:first-child{margin-top:0}';
+  html+='.fila{display:flex;gap:6mm;margin-bottom:5mm;break-inside:avoid;page-break-inside:avoid}';
+  html+='.hor-box{width:50%;min-width:0;break-inside:avoid;page-break-inside:avoid}';
   html+='.hor-titulo{font-size:9pt;font-weight:bold;color:#fff;padding:3pt 5pt;border-radius:2pt 2pt 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}';
   html+='table{width:100%;border-collapse:collapse;table-layout:fixed}';
   html+='td,th{border:0.4pt solid #ccc;vertical-align:top}';
