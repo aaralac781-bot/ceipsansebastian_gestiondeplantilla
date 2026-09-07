@@ -2072,21 +2072,9 @@ function _sustCandidatos(dia,ti,usados){
   DB.maestros.forEach(function(m){
     if(SUST_FALTAN.indexOf(m.id)>=0)return;
     if(usados[String(m.id)])return;         // ya cubre otra ausencia a esta misma hora
-    if(['PT','AL'].indexOf(m.e)>=0)return;   // PT/AL no sustituyen
-    if(_sustOcupado(m.id,dia,ti))return;     // esta dando clase
-    var sp=_sustSlotPropio(m.id,dia,ti);
-    var tipo=(sp&&sp.tipo)||'';
-    if(tipo==='reduccion')return;            // reduccion horaria: no se toca
-    var p, motivo;
-    if(tipo==='luciernaga'){p=1;motivo='Refuerzo/Luciernaga';}
-    else if(esZTS(m)){p=5;motivo='ZTS';}
-    else if(m.ref){p=2;motivo='Maestro de refuerzo';}
-    else if(tipo==='coord'){p=4;motivo='Coordinacion';}
-    else if(tipo==='direccion'||tipo==='jefatura'||tipo==='secretaria'){p=6;motivo='Equipo directivo';}
-    else {p=3;motivo='Hora libre';}
-    if(m.cargo==='Jefe de Estudios'||m.cargo==='Secretario'){p=Math.max(p,6);motivo='Equipo directivo';}
-    if(m.cargo==='Director'){p=7;motivo='Director (ultimo recurso)';}
-    out.push({m:m,p:p,motivo:motivo});
+    var r=_sustRol(m,dia,ti);               // mismo criterio que el cuadrante morado
+    if(!r)return;                           // tutor en su tutoria / clase / hueco: no disponible
+    out.push({m:m,p:r.p,motivo:r.motivo});
   });
   out.sort(function(a,b){return a.p-b.p;});
   return out;
@@ -2480,19 +2468,37 @@ function cargarHorariosExcel(input){
   rd.readAsArrayBuffer(f);
 }
 /* ── CUADRANTE DE DISPONIBLES PARA SUSTITUCIONES (editable, supervisado) ── */
-function _dispLibre(m,dia,ti){
-  if(_sustOcupado(m.id,dia,ti)) return false;
+// Rol por el que un maestro esta DISPONIBLE para sustituir en (dia,ti), con prioridad.
+// Un hueco en blanco de un tutor = esta en su tutoria: NO cuenta como disponible.
+// Solo cuentan actividades explicitas: REF/Luciernaga, refuerzo, ZTS, AL, PT, coordinacion
+// y, en ultima instancia, el equipo directivo.
+function _sustRol(m,dia,ti){
+  if(!m) return null;
+  if(_sustOcupado(m.id,dia,ti)) return null;                 // dando clase directa a un grupo
   var sp=_sustSlotPropio(m.id,dia,ti);
-  if(sp&&sp.tipo==='reduccion') return false;
-  return true;
+  var tipo=(sp&&sp.tipo)||'';
+  if(tipo==='reduccion') return null;                         // reduccion horaria: no se toca
+  var dir = m.cargo==='Director'||m.cargo==='Jefe de Estudios'||m.cargo==='Secretario'
+            || tipo==='direccion'||tipo==='jefatura'||tipo==='secretaria';
+  if(tipo==='luciernaga') return {p:1,motivo:'Refuerzo / Luciernaga'};
+  if(m.ref)               return {p:2,motivo:'Maestra/o de refuerzo'};
+  if(esZTS(m))            return {p:3,motivo:'ZTS'};
+  if(m.e==='AL')          return {p:4,motivo:'AL'};
+  if(m.e==='PT')          return {p:4,motivo:'PT'};
+  if(tipo==='coord')      return {p:5,motivo:'Coordinacion'};
+  if(dir)                 return {p:6,motivo:'Equipo directivo'};
+  return null;                                                // tutor en su tutoria / clase / hueco: NO disponible
 }
+function _dispLibre(m,dia,ti){ return !!_sustRol(m,dia,ti); }
 function dispDefault(dia,ti){
-  var ids=[];
+  var arr=[];
   (DB.maestros||[]).forEach(function(m){
     if(!_nomLimpio(m.n)) return;
-    if(_dispLibre(m,dia,ti)) ids.push(m.id);
+    var r=_sustRol(m,dia,ti);
+    if(r) arr.push({id:m.id,p:r.p});
   });
-  return ids;
+  arr.sort(function(a,b){return a.p-b.p;});   // REF/refuerzo primero; directivo el ultimo
+  return arr.map(function(x){return x.id;});
 }
 function dispGet(dia,ti){
   if(DB.dispSust && DB.dispSust[dia] && DB.dispSust[dia][ti]!==undefined) return DB.dispSust[dia][ti];
@@ -2556,7 +2562,9 @@ function dispRender(){
       ids.forEach(function(id){
         var m=(DB.maestros||[]).find(function(x){return String(x.id)===String(id);});
         if(!m||!_nomLimpio(m.n)) return;
-        h+='<span style="display:inline-flex;align-items:center;gap:3px;background:#dbeafe;color:#1e40af;border-radius:10px;padding:2px 6px;margin:2px;font-weight:700;font-size:10px">'+_primerNom(m.n)+'<span onclick="dispQuitar(\''+d+'\','+ti+','+JSON.stringify(String(id)).replace(/"/g,'&quot;')+')" style="cursor:pointer;font-weight:900">&times;</span></span>';
+        var _r=_sustRol(m,d,ti); var _mot=_r?_r.motivo:'Anadido a mano';
+        var _bg=_r&&_r.p>=6?'#ede9fe':'#dbeafe'; var _co=_r&&_r.p>=6?'#6d28d9':'#1e40af';
+        h+='<span title="'+_mot+'" style="display:inline-flex;align-items:center;gap:3px;background:'+_bg+';color:'+_co+';border-radius:10px;padding:2px 6px;margin:2px;font-weight:700;font-size:10px">'+_primerNom(m.n)+'<span onclick="dispQuitar(\''+d+'\','+ti+','+JSON.stringify(String(id)).replace(/"/g,'&quot;')+')" style="cursor:pointer;font-weight:900">&times;</span></span>';
       });
       var falt=(DB.maestros||[]).filter(function(m){ return _nomLimpio(m.n) && ids.map(String).indexOf(String(m.id))<0; });
       if(falt.length){
