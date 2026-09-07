@@ -4600,7 +4600,7 @@ function imprimirHorario(){
         if(tr.r||slot.r){t+='<td style="background:#fef9c3;font-size:7pt;text-align:center;color:#92400e">R</td>';return;}
         var bg='#fff',txt='',sub='';
         var tipo=slot.tipo||'clase';
-        if(tipo==='libre'){bg='#fff';}
+        if(tipo==='libre'){bg='#fff';if(slot.txt){txt=String(slot.txt).substring(0,12);}}
         else if(tipo!=='clase'&&SLOT_TIPOS[tipo]){bg=SLOT_TIPOS[tipo].bg;txt=(slot.txt||SLOT_TIPOS[tipo].label).substring(0,12);}
         else if(slot.mId||slot.matNombre){
           var mat=slot.mId?DB.hMat.find(function(m){return m.id===slot.mId;}):null;
@@ -6973,7 +6973,8 @@ function renderTablaRefLuc(m){
         var sp=_sustSlotPropio(m.id,d,ti);
         var tipo=(sp&&sp.tipo)||'';
         if(tipo==='luciernaga'){bg='#fef9c3';txt='Ref/Luc';sub=(sp&&sp.txt)||'';}
-        else if(tipo&&tipo!=='libre'&&SLOT_TIPOS[tipo]){bg=SLOT_TIPOS[tipo].bg||'#eee';txt=(SLOT_TIPOS[tipo].label||tipo).substr(0,6);}
+        else if(tipo&&tipo!=='libre'&&SLOT_TIPOS[tipo]){bg=SLOT_TIPOS[tipo].bg||'#eee';txt=(SLOT_TIPOS[tipo].label||tipo).substr(0,6);sub=(sp&&sp.txt)||'';}
+        else if(tipo==='libre'&&sp&&sp.txt){txt=String(sp.txt).substr(0,7);}
       }
       var sp2=_sustSlotPropio(m.id,d,ti);
       var fij=sp2&&sp2.fij;
@@ -7015,6 +7016,7 @@ function editRefLucSlot(mid,dia,ti){
   h += '<div class="fr"><span class="fl">Grupo</span><select class="fi" id="rl-grupo"><option value="">-- Sin grupo --</option>';
   (DB.hGrupos||[]).forEach(function(g){h += '<option value="'+g.n+'"'+(slot.txt===g.n?' selected':'')+'>'+g.n+'</option>';});
   h += '</select></div>';
+  h += '<div class="fr"><span class="fl">Texto libre</span><input class="fi" type="text" id="rl-desc" value="'+String(slot.txt||'').replace(/"/g,'&quot;')+'" placeholder="Escribe lo que quieras (opcional)"></div>';
   h += '<div class="ck" style="margin-top:6px"><input type="checkbox" id="rl-fij"'+(slot.fij?' checked':'')+' style="width:15px;height:15px;accent-color:#a16207"><span style="font-size:11px">Fijar celda</span></div>';
   h += '<div style="display:flex;gap:8px;margin-top:12px">';
   h += '<button class="btn bvd" style="flex:1" data-mid="'+mid+'" data-dia="'+dia+'" data-ti="'+ti+'" onclick="guardarRefLucSlotEl(this)">Guardar</button>';
@@ -7035,12 +7037,13 @@ function guardarRefLucSlotEl(el){
   var ti  = parseInt(el.getAttribute('data-ti'));
   var tipo = (document.getElementById('rl-tipo')||{}).value||'libre';
   var grupo = (document.getElementById('rl-grupo')||{}).value||'';
+  var desc = ((document.getElementById('rl-desc')||{}).value||'').trim();
   var fij = (document.getElementById('rl-fij')||{}).checked||false;
   var hp = getHorMaePropio(mid);
   if(!hp[dia])hp[dia]=[];
   if(!hp[dia][ti])hp[dia][ti]={};
   hp[dia][ti].tipo = tipo;
-  hp[dia][ti].txt = tipo==='libre'?'':grupo;
+  hp[dia][ti].txt = desc ? desc : (tipo==='libre'?'':grupo);
   hp[dia][ti].fij = fij;
   save();cerrarPanelLuc();renderLuciernaga();
 }
