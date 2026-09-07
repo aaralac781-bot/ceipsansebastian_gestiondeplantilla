@@ -2532,6 +2532,60 @@ function dispAnadir(dia,ti,id){
   dispSet(dia,ti,ids.map(_dispNum)); dispRender();
 }
 function _dispNum(x){ var n=Number(x); return isNaN(n)?x:n; }
+function abrirEF(){
+  var ov=document.getElementById('ef-ov'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='ef-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:#f1f5f9;overflow:auto;-webkit-overflow-scrolling:touch';
+  var ef=(DB.hMat||[]).find(function(m){return String(m.n||'').toUpperCase().replace(/[\s.]/g,'')==='EF';});
+  var efId=ef?ef.id:null;
+  var DIAS=['Lunes','Martes','Miercoles','Jueves','Viernes'];
+  var grupos=DB.hGrupos||[];
+  function gruposEF(dia,ti){
+    var out=[];
+    grupos.forEach(function(g){
+      var s=DB.hHor&&DB.hHor[g.id]&&DB.hHor[g.id][dia]&&DB.hHor[g.id][dia][ti];
+      if(s&&efId&&String(s.mId)===String(efId)) out.push(g);
+    });
+    return out;
+  }
+  var maxSim=0, conflictos=0, body='';
+  if(!efId){
+    body='<div style="background:#fef9c3;color:#92400e;border-radius:10px;padding:10px 12px;font-weight:600">No encuentro la materia E.F. en la lista de materias.</div>';
+  } else {
+    var tab='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:700px;background:#fff">';
+    tab+='<tr style="background:#0B132B;color:#fff"><th style="padding:6px;position:sticky;left:0;background:#0B132B">Hora</th>';
+    DIAS.forEach(function(d){tab+='<th style="padding:6px;min-width:120px">'+d+'</th>';});
+    tab+='<th style="padding:6px">Máx</th></tr>';
+    (DB.tramos||[]).forEach(function(t,ti){
+      if(t.r){tab+='<tr><td colspan="7" style="background:#fef3c7;color:#92400e;text-align:center;padding:3px;font-weight:700">RECREO</td></tr>';return;}
+      var maxFila=0, celdas='';
+      DIAS.forEach(function(d){
+        var gs=gruposEF(d,ti); var n=gs.length; if(n>maxFila)maxFila=n; if(n>maxSim)maxSim=n;
+        var alerta=n>2; if(alerta)conflictos++;
+        var bg=n===0?'#fff':(n<=2?'#dcfce7':'#fee2e2'); var col=n<=2?'#15803d':'#b91c1c';
+        celdas+='<td style="padding:5px;border:1px solid #eef2f7;vertical-align:top;background:'+bg+'">';
+        if(n){ celdas+='<div style="font-weight:800;color:'+col+';font-size:11px">'+n+' grupo'+(n>1?'s':'')+(alerta?' &#9888;':'')+'</div><div style="font-size:10px;color:#334155">'+gs.map(function(g){return g.n;}).join(', ')+'</div>'; }
+        else { celdas+='<span style="color:#cbd5e1">–</span>'; }
+        celdas+='</td>';
+      });
+      tab+='<tr><td style="padding:5px;font-weight:700;color:#334155;background:#f8fafc;position:sticky;left:0;white-space:nowrap">'+_tramoLbl(t)+'</td>'+celdas+'<td style="padding:5px;text-align:center;font-weight:800;color:'+(maxFila>2?'#b91c1c':'#334155')+'">'+maxFila+'</td></tr>';
+    });
+    tab+='</table></div>';
+    var totalPorGrupo=grupos.map(function(g){
+      var c=0; DIAS.forEach(function(d){(DB.tramos||[]).forEach(function(t,ti){ if(t.r)return; var s=DB.hHor&&DB.hHor[g.id]&&DB.hHor[g.id][d]&&DB.hHor[g.id][d][ti]; if(s&&String(s.mId)===String(efId))c++; });}); return {n:g.n,c:c};
+    });
+    var resumen='<div style="font-size:12px;color:#64748b;margin:12px 0 4px;font-weight:700">Horas de E.F. por grupo</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+totalPorGrupo.map(function(x){return '<span style="background:#dcfce7;color:#15803d;border-radius:10px;padding:3px 8px;font-size:11px;font-weight:700">'+x.n+': '+x.c+' h</span>';}).join('')+'</div>';
+    var aviso = maxSim>2
+      ? '<div style="background:#fee2e2;color:#b91c1c;border-radius:10px;padding:10px 12px;font-weight:600;margin-bottom:10px">&#9888; Hay tramos con hasta <b>'+maxSim+' grupos</b> de E.F. a la vez (máximo recomendado: 2 en el patio). Revisa las celdas en rojo: <b>'+conflictos+'</b> tramo(s) a corregir.</div>'
+      : '<div style="background:#dcfce7;color:#15803d;border-radius:10px;padding:10px 12px;font-weight:600;margin-bottom:10px">&#10003; Correcto: nunca coinciden más de <b>'+maxSim+'</b> grupos de E.F. a la vez. El patio no se satura.</div>';
+    body=aviso+tab+resumen;
+  }
+  ov.innerHTML='<div style="position:sticky;top:0;z-index:3;background:#0B132B;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+    '<button onclick="document.getElementById(\'ef-ov\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px;cursor:pointer">&#8592; Volver</button>'+
+    '<div style="font-size:1rem;font-weight:800;flex:1">&#127939; E.F. · grupos a la vez en el patio</div>'+
+    '</div><div style="padding:12px">'+body+'</div>';
+  document.body.appendChild(ov);
+}
 function abrirDisponibles(){
   var ov=document.getElementById('disp-ov'); if(ov) ov.remove();
   ov=document.createElement('div'); ov.id='disp-ov';
@@ -3553,6 +3607,7 @@ function rHHorario(){
   h+='<button class="btn bsm" style="background:#0e7490;color:#fff" onclick="document.getElementById(\'imp-horarios-xl\').click()">&#8679; Cargar Excel relleno</button>';
   h+='<input type="file" id="imp-horarios-xl" accept=".xlsx,.xls" style="display:none" onchange="cargarHorariosExcel(this)">';
   h+='<button class="btn bsm" style="background:#7c3aed;color:#fff" onclick="abrirDisponibles()">&#129513; Disponibles (sustituciones)</button>';
+  h+='<button class="btn bsm" style="background:#0e7490;color:#fff" onclick="abrirEF()">&#127939; E.F. / Patio</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosSSNet()">Exportar horarios a SSNet</button>';
   h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v36 · export horarios formato portal SSNet</span>';
   h+='</div>';
