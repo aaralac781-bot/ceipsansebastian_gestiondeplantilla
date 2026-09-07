@@ -4586,31 +4586,30 @@ function genHorario(){
 
 function imprimirHorario(){
   var DIAS2=['Lunes','Martes','Miercoles','Jueves','Viernes'];
-  var numTramos=DB.tramos.length;
 
   function tablaHTML(titulo,slots,colorHdr){
     var t='<table><thead><tr>';
-    t+='<th style="background:'+colorHdr+';color:#fff;padding:2pt 3pt;font-size:6pt;width:20pt">Hora</th>';
-    DIAS2.forEach(function(d){t+='<th style="background:'+colorHdr+';color:#fff;padding:2pt;font-size:6pt">'+d.charAt(0)+'</th>';});
+    t+='<th style="background:'+colorHdr+';color:#fff;padding:3pt 4pt;font-size:8pt;width:36pt">Hora</th>';
+    DIAS2.forEach(function(d){t+='<th style="background:'+colorHdr+';color:#fff;padding:3pt;font-size:8pt">'+d.charAt(0)+'</th>';});
     t+='</tr></thead><tbody>';
     DB.tramos.forEach(function(tr,ti){
       t+='<tr>';
-      t+='<td style="background:#f5f5f5;font-size:5pt;padding:1pt 2pt;text-align:right;color:#666;white-space:nowrap">'+fmt(tr.ini)+'</td>';
+      t+='<td style="background:#f5f5f5;font-size:7pt;padding:2pt 3pt;text-align:right;color:#555;white-space:nowrap">'+fmt(tr.ini)+'</td>';
       DIAS2.forEach(function(d){
         var slot=slots[d]&&slots[d][ti]?slots[d][ti]:{r:tr.r};
-        if(tr.r||slot.r){t+='<td style="background:#fef9c3;font-size:5pt;text-align:center;color:#92400e">R</td>';return;}
+        if(tr.r||slot.r){t+='<td style="background:#fef9c3;font-size:7pt;text-align:center;color:#92400e">R</td>';return;}
         var bg='#fff',txt='',sub='';
         var tipo=slot.tipo||'clase';
-        if(tipo!=='clase'&&SLOT_TIPOS[tipo]){bg=SLOT_TIPOS[tipo].bg;txt=(slot.txt||SLOT_TIPOS[tipo].label).substring(0,6);}
+        if(tipo!=='clase'&&SLOT_TIPOS[tipo]){bg=SLOT_TIPOS[tipo].bg;txt=(slot.txt||SLOT_TIPOS[tipo].label).substring(0,12);}
         else if(slot.mId||slot.matNombre){
           var mat=slot.mId?DB.hMat.find(function(m){return m.id===slot.mId;}):null;
           bg=mat?mat.c:'#f0fdf4';
-          txt=slot.matNombre||(mat?mat.n.substring(0,7):'');
+          txt=slot.matNombre||(mat?mat.n.substring(0,12):'');
           sub=slot.grupo||(slot.pId?((DB.maestros.find(function(m){return m.id===slot.pId;})||{}).n||'').split(' ')[0]:'');
         }
-        t+='<td style="background:'+bg+';padding:1pt 2pt;vertical-align:top">';
-        if(txt)t+='<div style="font-size:5pt;font-weight:bold;line-height:1.1">'+txt+'</div>';
-        if(sub)t+='<div style="font-size:4pt;color:#555;line-height:1.1">'+sub+'</div>';
+        t+='<td style="background:'+bg+';padding:2pt 3pt;vertical-align:top">';
+        if(txt)t+='<div style="font-size:7pt;font-weight:bold;line-height:1.15">'+txt+'</div>';
+        if(sub)t+='<div style="font-size:6pt;color:#555;line-height:1.15">'+sub+'</div>';
         t+='</td>';
       });
       t+='</tr>';
@@ -4618,32 +4617,41 @@ function imprimirHorario(){
     t+='</tbody></table>';
     return '<div class="hor-box"><div class="hor-titulo" style="background:'+colorHdr+'">'+titulo+'</div>'+t+'</div>';
   }
+  function cajaVacia(){ return '<div class="hor-box" style="border:0"></div>'; }
+  function horMaestro(m){ var h={}; DIAS2.forEach(function(d){h[d]=DB.tramos.map(function(t,ti){return getMaestroSlot(m.id,d,ti);});}); return h; }
+  // Una seccion: 2 horarios por fila, 6 por hoja (3 filas). Empieza en pagina nueva.
+  function seccion(titulo,color,boxes){
+    if(!boxes.length)return '';
+    var s='';
+    for(var i=0;i<boxes.length;i+=6){
+      var pb=boxes.slice(i,i+6);
+      s+='<div class="pagina"><div class="titulo-sec" style="color:'+color+';border-bottom-color:'+color+'">'+titulo+(i>0?' (cont.)':'')+'</div>';
+      for(var j=0;j<pb.length;j+=2){ s+='<div class="fila">'+pb[j]+(pb[j+1]||cajaVacia())+'</div>'; }
+      s+='</div>';
+    }
+    return s;
+  }
 
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8">';
   html+='<title>Horarios CEIP San Sebastian</title>';
   html+='<style>';
   html+='*{box-sizing:border-box;margin:0;padding:0}';
-  html+='body{font-family:Arial,sans-serif;font-size:7pt;background:#fff}';
-  html+='.pagina{width:277mm;min-height:190mm;padding:6mm;page-break-after:always}';
-  html+='.titulo-sec{font-size:9pt;font-weight:bold;color:#1e3a8a;border-bottom:1.5pt solid #1e3a8a;margin-bottom:4pt;padding-bottom:1pt}';
-  html+='.titulo-sec2{font-size:9pt;font-weight:bold;color:#14532d;border-bottom:1.5pt solid #14532d;margin-bottom:4pt;padding-bottom:1pt}';
-  html+='.titulo-sec3{font-size:9pt;font-weight:bold;color:#7c3aed;border-bottom:1.5pt solid #7c3aed;margin-bottom:4pt;padding-bottom:1pt}';
-  html+='.fila{display:flex;gap:3mm;margin-bottom:4mm;flex-wrap:nowrap}';
-  html+='.hor-box{flex:1;min-width:0}';
-  html+='.hor-titulo{font-size:7pt;font-weight:bold;color:#fff;padding:2pt 4pt;border-radius:2pt 2pt 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}';
+  html+='body{font-family:Arial,sans-serif;background:#fff}';
+  html+='.pagina{width:194mm;padding:0;page-break-after:always}';
+  html+='.pagina:last-child{page-break-after:auto}';
+  html+='.titulo-sec{font-size:12pt;font-weight:bold;border-bottom:2pt solid;margin:0 0 6pt;padding-bottom:2pt}';
+  html+='.fila{display:flex;gap:6mm;margin-bottom:6mm}';
+  html+='.hor-box{width:50%;min-width:0}';
+  html+='.hor-titulo{font-size:9pt;font-weight:bold;color:#fff;padding:3pt 5pt;border-radius:2pt 2pt 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}';
   html+='table{width:100%;border-collapse:collapse;table-layout:fixed}';
-  html+='td,th{border:0.3pt solid #ccc;vertical-align:top}';
-  html+='@page{size:A4 landscape;margin:5mm}';
+  html+='td,th{border:0.4pt solid #ccc;vertical-align:top}';
+  html+='@page{size:A4 portrait;margin:8mm}';
   html+='@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
   html+='</style></head><body>';
 
-  // PAGINA 1 a N: Grupos (3 pares grupo+tutor por pagina = 6 horarios)
-  html+='<div class="pagina">';
-  html+='<div class="titulo-sec">CEIP San Sebastian - Horarios de Grupos y Tutores</div>';
-  var col=0;
-  var filaAbierta=false;
-
-  DB.hGrupos.forEach(function(g,gi){
+  // 1) GRUPOS + TUTORES: cada fila = grupo (izq) + su tutor (der). 3 filas por hoja = 6 horarios.
+  var gruposBoxes=[];
+  DB.hGrupos.forEach(function(g){
     var tutor=DB.maestros.find(function(m){
       if(!m.t)return false;
       var mg=(m.g||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -4651,63 +4659,28 @@ function imprimirHorario(){
       var gn=g.n.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
       return mg===gn||mgr===gn;
     });
-    // Cada par grupo+tutor son 2 columnas
-    // Caben 3 pares por pagina (6 columnas en A4 landscape)
-    if(col===0){
-      if(filaAbierta)html+='</div>';
-      if(gi>0&&gi%6===0){html+='</div><div class="pagina"><div class="titulo-sec">CEIP San Sebastian - Horarios de Grupos y Tutores (cont.)</div>';}
-      html+='<div class="fila">';
-      filaAbierta=true;
-    }
-    var horG=getHorGrupo(g.id);
-    html+=tablaHTML(g.n,horG,'#1e3a8a');
-    if(tutor){
-      var horT={};
-      DIAS2.forEach(function(d){
-        horT[d]=DB.tramos.map(function(t,ti){return getMaestroSlot(tutor.id,d,ti);});
-      });
-      html+=tablaHTML(tutor.n,horT,'#15803d');
-    }else{
-      html+='<div class="hor-box" style="border:0.5pt dashed #ccc;border-radius:2pt;display:flex;align-items:center;justify-content:center;font-size:6pt;color:#aaa">Sin tutor</div>';
-    }
-    col+=2;
-    if(col>=6){col=0;}
+    gruposBoxes.push(tablaHTML(g.n,getHorGrupo(g.id),'#1e3a8a'));
+    if(tutor){ gruposBoxes.push(tablaHTML('Tutor/a · '+tutor.n,horMaestro(tutor),'#15803d')); }
+    else { gruposBoxes.push('<div class="hor-box" style="border:0.5pt dashed #ccc;border-radius:2pt;display:flex;align-items:center;justify-content:center;font-size:8pt;color:#aaa">Sin tutor/a asignado/a</div>'); }
   });
-  if(filaAbierta)html+='</div>';
-  html+='</div>';
+  html+=seccion('CEIP San Sebastian · Horarios de Grupos y Tutores','#1e3a8a',gruposBoxes);
 
-  // PAGINA: Equipo directivo
-  var directivo=DB.maestros.filter(function(m){
-    return['Director','Jefe de Estudios','Secretario'].indexOf(m.cargo)>=0;
+  // 2) Clasificar al resto (los que NO son tutores) en: especialistas, refuerzo, ZTS, directivo.
+  var especialistas=[],refuerzo=[],zts=[],directivo=[];
+  DB.maestros.forEach(function(m){
+    if(m.t)return;                                                   // tutores: ya salen con su grupo
+    if(['Director','Jefe de Estudios','Secretario'].indexOf(m.cargo)>=0){ directivo.push(m); return; }
+    if(esZTS(m)){ zts.push(m); return; }
+    if(m.ref){ refuerzo.push(m); return; }
+    especialistas.push(m);
   });
-  if(directivo.length>0){
-    html+='<div class="pagina"><div class="titulo-sec3">Equipo Directivo</div><div class="fila">';
-    directivo.forEach(function(m){
-      var horM={};
-      DIAS2.forEach(function(d){horM[d]=DB.tramos.map(function(t,ti){return getMaestroSlot(m.id,d,ti);});});
-      html+=tablaHTML(m.n+(m.cargo?' ('+m.cargo.split(' ')[0]+')':''),horM,'#7c3aed');
-    });
-    html+='</div></div>';
-  }
-
-  // PAGINA(S): Especialistas (4 por pagina)
-  var especialistas=DB.maestros.filter(function(m){
-    return['EF','Ingles','Frances','Musica','Religion'].indexOf(m.e)>=0&&
-           ['Director','Jefe de Estudios','Secretario'].indexOf(m.cargo)<0;
-  });
-  if(especialistas.length>0){
-    html+='<div class="pagina"><div class="titulo-sec2">Especialistas</div><div class="fila">';
-    especialistas.forEach(function(m,mi){
-      if(mi>0&&mi%4===0)html+='</div><div class="pagina"><div class="titulo-sec2">Especialistas (cont.)</div><div class="fila">';
-      var horM={};
-      DIAS2.forEach(function(d){horM[d]=DB.tramos.map(function(t,ti){return getMaestroSlot(m.id,d,ti);});});
-      html+=tablaHTML(m.n,horM,'#14532d');
-    });
-    html+='</div></div>';
-  }
+  html+=seccion('Especialistas sin tutoria','#14532d',especialistas.map(function(m){return tablaHTML(m.n,horMaestro(m),'#14532d');}));
+  html+=seccion('Maestros/as de Refuerzo','#b45309',refuerzo.map(function(m){return tablaHTML(m.n,horMaestro(m),'#b45309');}));
+  html+=seccion('ZTS','#7c3aed',zts.map(function(m){return tablaHTML(m.n,horMaestro(m),'#7c3aed');}));
+  html+=seccion('Equipo Directivo','#0f766e',directivo.map(function(m){return tablaHTML(m.n+(m.cargo?' ('+m.cargo.split(' ')[0]+')':''),horMaestro(m),'#0f766e');}));
 
   html+='</body></html>';
-  var w=window.open('','_blank','width=1100,height=800');
+  var w=window.open('','_blank','width=900,height=800');
   w.document.write(html);
   w.document.close();
   setTimeout(function(){w.print();},800);
