@@ -7007,8 +7007,9 @@ function editRefLucSlot(mid,dia,ti){
     h += '<div class="al w"><span>!</span><span>Este maestro ya tiene clase ('+(_sustGrupoDe(mid,dia,ti)||'')+') a esta hora. Si asignas refuerzo aqui, revisa el solape.</span></div>';
   }
   h += '<div class="fr"><span class="fl">Tipo</span><select class="fi" id="rl-tipo">';
-  [['libre','Libre'],['luciernaga','Refuerzo / Luciernaga']].forEach(function(o){
-    h += '<option value="'+o[0]+'"'+((slot.tipo||'libre')===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  Object.keys(SLOT_TIPOS).forEach(function(k){
+    var lab = k==='luciernaga' ? 'Refuerzo / Luciernaga' : SLOT_TIPOS[k].label;
+    h += '<option value="'+k+'"'+((slot.tipo||'libre')===k?' selected':'')+'>'+lab+'</option>';
   });
   h += '</select></div>';
   h += '<div class="fr"><span class="fl">Grupo</span><select class="fi" id="rl-grupo"><option value="">-- Sin grupo --</option>';
