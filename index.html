@@ -1837,7 +1837,7 @@ function setFechaSust(dateStr){
 
 function getSustKey(dia){return'sust_'+dia;}
 function loadSust(dia){try{var r=localStorage.getItem(getSustKey(dia));return r?JSON.parse(r):{};}catch(e){return{};}}
-function saveSust(dia,t){try{localStorage.setItem(getSustKey(dia),JSON.stringify(t));}catch(e){}}
+function saveSust(dia,t){try{localStorage.setItem(getSustKey(dia),JSON.stringify(t));}catch(e){}if(typeof _autoSyncNube==='function')_autoSyncNube();}
 
 function priSust(m,gid,cicloD){
   if((m.asig||[]).some(function(a){return a.gid===gid;}))return 0;
@@ -2516,11 +2516,20 @@ function dispGet(dia,ti){
   if(DB.dispSust && DB.dispSust[dia] && DB.dispSust[dia][ti]!==undefined) return DB.dispSust[dia][ti];
   return dispDefault(dia,ti);
 }
+// Auto-sincroniza a la nube (Sheets) tras editar el cuadrante o las sustituciones,
+// con un pequeno retardo para no enviar en cada clic. Reutiliza doSync (que ya
+// avisa si hay cambios de otro sin recibir, para no pisarlos).
+var _autoSyncNubeT=null;
+function _autoSyncNube(){
+  if(!window.DB||!DB.scriptUrl)return;
+  if(_autoSyncNubeT)clearTimeout(_autoSyncNubeT);
+  _autoSyncNubeT=setTimeout(function(){ _autoSyncNubeT=null; try{doSync();}catch(e){} },2500);
+}
 function dispSet(dia,ti,ids){
   if(!DB.dispSust) DB.dispSust={};
   if(!DB.dispSust[dia]) DB.dispSust[dia]=[];
   DB.dispSust[dia][ti]=ids;
-  save();
+  save(); _autoSyncNube();
 }
 function dispRecalcular(){
   DB.dispSust={};
@@ -2530,7 +2539,7 @@ function dispRecalcular(){
       DB.dispSust[dia][ti]=t.r?[]:dispDefault(dia,ti);
     });
   });
-  save();
+  save(); _autoSyncNube();
   dispRender();
 }
 function dispQuitar(dia,ti,id){
