@@ -2054,17 +2054,42 @@ function _sustTutorGrupo(mid){
   var g=(DB.hGrupos||[]).find(function(gg){return norm(gg.n)===ref;});
   return g?g.n:(m.g||m.gRef||'');
 }
-// Estamos en el proceso en que los tutores aun cuadran su horario: las horas
-// que un/a tutor/a tiene EN BLANCO son las que pasa con SU grupo. Devuelve el
-// grupo si esta hora es una de esas (blanco y sin tarea propia asignada).
-function _sustGrupoTutorBlanco(mid,dia,ti){
+// Grupo "de referencia" del ausente ese dia: su tutoria (por nombre) o, si no,
+// el UNICO grupo al que da clase ese dia. Asi sabemos con quien esta en sus horas
+// en blanco (principio de curso: el horario aun no esta cuadrado del todo).
+function _sustHomeGrupo(mid,dia){
   var gt=_sustTutorGrupo(mid);
-  if(!gt)return '';
+  if(gt){
+    var gg=(DB.hGrupos||[]).find(function(x){return x.n===gt;});
+    if(gg)return gg;
+  }
+  var m=(DB.maestros||[]).find(function(x){return String(x.id)===String(mid);});
+  // El equipo directivo no "da clase" en sus huecos (son gestion): no aplicar.
+  if(m&&['Director','Jefe de Estudios','Secretario'].indexOf(m.cargo)>=0)return null;
+  var set={};
+  (DB.hGrupos||[]).forEach(function(g){
+    (DB.tramos||[]).forEach(function(t,ti){
+      if(t.r)return;
+      var sx=DB.hHor[g.id]&&DB.hHor[g.id][dia]&&DB.hHor[g.id][dia][ti];
+      if(sx&&String(sx.pId)===String(mid))set[g.id]=g;
+    });
+  });
+  var ids=Object.keys(set);
+  return ids.length===1?set[ids[0]]:null;
+}
+// Horas en blanco del ausente = las que pasa con SU grupo (aun sin cuadrar la
+// asignatura). Solo si esa hora esta libre para el/ella Y su grupo no tiene ya
+// a otro maestro (especialista) delante ese tramo.
+function _sustGrupoTutorBlanco(mid,dia,ti){
   var s=getMaestroSlot(mid,dia,ti);
   var tipo=(s&&s.tipo)||'libre';
-  // Solo cuenta como "clase con su grupo" si esta hora esta libre/en blanco.
-  // Si tiene una tarea propia (reduccion, coordinacion, direccion...) no da clase.
-  return tipo==='libre'?gt:'';
+  if(tipo!=='libre')return '';                            // tiene actividad propia
+  var g=_sustHomeGrupo(mid,dia);
+  if(!g)return '';
+  var sx=DB.hHor[g.id]&&DB.hHor[g.id][dia]&&DB.hHor[g.id][dia][ti];
+  if(sx&&sx.r)return '';                                  // el grupo esta en recreo
+  if(sx&&sx.pId&&String(sx.pId)!==String(mid))return '';  // hay un especialista con el grupo
+  return g.n;
 }
 // Actividad real del ausente a esa hora (mirando primero el slot de grupo con su
 // pId, que conserva el tipo original, y luego su horario propio). Las horas de
