@@ -1977,11 +1977,8 @@ function renderSust(){
         if(!mF3){h+='<td style="border:1px solid #e2e8f0"></td>';return;}
         var key=String(mFId)+'_'+ti;
         var cel=tbl[key]||{};
-        if(cel.libre){
-          // El ausente no daba clase a esa hora: nada que cubrir
-          h+='<td style="padding:3px 6px;border:1px solid #e2e8f0;background:#f8fafc;text-align:center;color:#cbd5e1;font-size:12px">&mdash;</td>';
-          return;
-        }
+        // Desplegable SIEMPRE (en todos los tramos). Si se queda en "— elegir —" (sin
+        // sustituto) significa que a esa hora no hay que cubrir al ausente.
         var sust=cel.sust||'';
         var grp=cel.grupo||'';
         var selId=cel.sustId!=null?String(cel.sustId):'';
@@ -1991,7 +1988,7 @@ function renderSust(){
         if(par){opts+='<option value="'+par.id+'"'+(selId===String(par.id)?' selected':'')+'>'+_primerNom(par.n)+' (paralelo)</option>';}
         disp.forEach(function(o){ if(par&&String(o.id)===String(par.id))return; opts+='<option value="'+o.id+'"'+(selId===String(o.id)?' selected':'')+'>'+_primerNom(o.n)+'</option>'; });
         opts+='<option value="__nadie"'+((cel.sinCubrir&&!sust)?' selected':'')+'>Sin cubrir</option>';
-        var bg=sust?'#f0fdf4':(cel.sinCubrir?'#fff5f5':'#fff');
+        var bg=sust?'#f0fdf4':(cel.sinCubrir?'#fff5f5':(cel.faltaCubrir?'#fff7ed':'#fff'));
         h+='<td style="padding:3px 4px;border:1px solid #e2e8f0;vertical-align:top;background:'+bg+'">';
         if(grp)h+='<div style="font-size:9px;color:#64748b;margin-bottom:2px">'+grp+'</div>';
         h+='<select data-key="'+key+'" data-dia="'+SUST_DIA+'" onchange="setSustSel(this)" style="width:100%;font-size:11px;padding:3px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:'+(sust?'#15803d':'#334155')+';font-weight:'+(sust?'700':'400')+'">'+opts+'</select>';
@@ -2152,24 +2149,51 @@ function _sustDispCelda(ti,mFId,tbl){
   out.sort(function(a,b){return _primerNom(a.n).localeCompare(_primerNom(b.n));});
   return out;
 }
+// Mejor disponible del CUADRANTE VALIDADO para una celda, por prioridad y reparto.
+function _sustAutoPick(dia,ti,mFId,tbl,carga){
+  carga=carga||{};
+  var disp=_sustDispCelda(ti,mFId,tbl);   // del cuadrante validado, sin ausentes ni ya usados
+  if(!disp.length)return null;
+  var arr=disp.map(function(o){
+    var m=DB.maestros.find(function(x){return String(x.id)===String(o.id);});
+    var r=m?_sustRol(m,dia,ti):null;
+    return {id:o.id,n:o.n,p:r?r.p:90};
+  });
+  arr.sort(function(a,b){
+    if(a.p!==b.p)return a.p-b.p;                         // prioridad (luciernaga, refuerzo, libre...)
+    var ca=carga[String(a.id)]||0,cb=carga[String(b.id)]||0;
+    if(ca!==cb)return ca-cb;                             // reparto: el menos cargado
+    return _primerNom(a.n).localeCompare(_primerNom(b.n));
+  });
+  return arr[0];
+}
 function genTabla(){
   var tbl=loadSust(SUST_DIA);
   var dia=SUST_DIA;
-  // Marca cada hueco: si el ausente NO daba clase, nada que cubrir; si SI daba,
-  // se deja listo para elegir entre los disponibles (el desplegable lo muestra).
+  // Reparto: cuenta las asignaciones MANUALES ya existentes para equilibrar.
+  var carga={};
+  Object.keys(tbl).forEach(function(k){var c=tbl[k];if(c&&c.manual&&c.sustId!=null)carga[String(c.sustId)]=(carga[String(c.sustId)]||0)+1;});
+  // Todos los tramos tendran desplegable. Solo se auto-asigna en las horas que hay
+  // que cubrir (materia/clase segun el horario visual). Refuerzo luciernaga y
+  // coordinacion NO se cubren -> quedan en "elegir". Lo que Paula toca se respeta.
   (DB.tramos||[]).forEach(function(t,ti){
     if(t.r)return;
     SUST_FALTAN.forEach(function(mFId){
       var key=String(mFId)+'_'+ti;
-      if(tbl[key]&&tbl[key].sust)return;                       // respetar lo elegido a mano
-      // Coordinaciones y refuerzo luciernaga NO se sustituyen.
-      if(_sustNoSeCubre(mFId,dia,ti)){ tbl[key]={libre:true}; return; }
-      var grupo=_sustGrupoDe(mFId,dia,ti);
-      // Si no da clase asignada explicitamente pero es tutor/a y la hora esta en
-      // blanco, es una hora con SU grupo (aun sin cuadrar) -> hay que cubrirla.
-      if(!grupo)grupo=_sustGrupoTutorBlanco(mFId,dia,ti);
-      if(!grupo){ tbl[key]={libre:true}; return; }             // no da clase
-      tbl[key]={tipo:'sust',grupo:grupo,sust:'',sustId:null};  // a elegir entre disponibles
+      var prev=tbl[key]||{};
+      if(prev.manual)return;                              // respetar lo elegido a mano
+      var grupo='';
+      if(!_sustNoSeCubre(mFId,dia,ti)){
+        grupo=_sustGrupoDe(mFId,dia,ti)||_sustGrupoTutorBlanco(mFId,dia,ti);
+      }
+      if(!grupo){ tbl[key]={grupo:'',sust:'',sustId:null}; return; }   // no cubrir -> "elegir"
+      var pick=_sustAutoPick(dia,ti,mFId,tbl,carga);
+      if(pick){
+        carga[String(pick.id)]=(carga[String(pick.id)]||0)+1;
+        tbl[key]={tipo:'sust',grupo:grupo,sust:pick.n,sustId:(isNaN(+pick.id)?pick.id:+pick.id),auto:true};
+      }else{
+        tbl[key]={tipo:'sust',grupo:grupo,sust:'',sustId:null,faltaCubrir:true};  // hay que cubrir pero nadie libre
+      }
     });
   });
   saveSust(SUST_DIA,tbl);renderSust();
@@ -2180,7 +2204,8 @@ function setSustSel(sel){
   var val=sel.value;
   var tbl=loadSust(dia);
   if(!tbl[key])tbl[key]={};
-  delete tbl[key].libre;
+  delete tbl[key].libre; delete tbl[key].auto; delete tbl[key].faltaCubrir;
+  tbl[key].manual=true;   // Paula lo ha tocado: respetarlo al re-generar
   if(val===''){ tbl[key].sust=''; tbl[key].sustId=null; delete tbl[key].sinCubrir; }
   else if(val==='__nadie'){ tbl[key].sust=''; tbl[key].sustId=null; tbl[key].sinCubrir=true; }
   else { var m=DB.maestros.find(function(x){return String(x.id)===String(val);}); tbl[key].sust=m?m.n:''; tbl[key].sustId=(isNaN(+val)?val:+val); delete tbl[key].sinCubrir; }
