@@ -2069,6 +2069,26 @@ function _sustGrupoTutorBlanco(mid,dia,ti){
   // Si tiene una tarea propia (reduccion, coordinacion, direccion...) no da clase.
   return tipo==='libre'?gt:'';
 }
+// Actividad real del ausente a esa hora (mirando primero el slot de grupo con su
+// pId, que conserva el tipo original, y luego su horario propio). Las horas de
+// COORDINACION y de REFUERZO LUCIERNAGA no se sustituyen.
+function _sustTipoAusente(mid,dia,ti){
+  var tipo='';
+  (DB.hGrupos||[]).forEach(function(g){
+    var sx=DB.hHor[g.id]&&DB.hHor[g.id][dia]&&DB.hHor[g.id][dia][ti];
+    if(sx&&String(sx.pId)===String(mid))tipo=sx.tipo||'clase';
+  });
+  if(!tipo){
+    var hp=getHorMaePropio(mid);
+    var s=hp&&hp[dia]&&hp[dia][ti];
+    tipo=(s&&s.tipo)||'libre';
+  }
+  return tipo;
+}
+function _sustNoSeCubre(mid,dia,ti){
+  var t=_sustTipoAusente(mid,dia,ti);
+  return t==='coord'||t==='luciernaga';
+}
 // Si falta el maestro de Religion, el paralelo (ATEDU, normalmente el tutor)
 // se queda con TODO el grupo
 function _sustParaleloRelig(faltaId,dia,ti){
@@ -2142,6 +2162,8 @@ function genTabla(){
     SUST_FALTAN.forEach(function(mFId){
       var key=String(mFId)+'_'+ti;
       if(tbl[key]&&tbl[key].sust)return;                       // respetar lo elegido a mano
+      // Coordinaciones y refuerzo luciernaga NO se sustituyen.
+      if(_sustNoSeCubre(mFId,dia,ti)){ tbl[key]={libre:true}; return; }
       var grupo=_sustGrupoDe(mFId,dia,ti);
       // Si no da clase asignada explicitamente pero es tutor/a y la hora esta en
       // blanco, es una hora con SU grupo (aun sin cuadrar) -> hay que cubrirla.
