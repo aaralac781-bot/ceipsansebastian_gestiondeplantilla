@@ -2047,6 +2047,28 @@ function _sustGrupoDe(mid,dia,ti){
   });
   return r;
 }
+// Grupo del que un/a maestro/a es tutor/a (por gRef o g, comparado con el nombre del grupo).
+function _sustTutorGrupo(mid){
+  var m=(DB.maestros||[]).find(function(x){return String(x.id)===String(mid);});
+  if(!m||!m.t)return '';
+  var norm=function(s){return (s||'').toString().trim().toLowerCase().replace(/[^a-z0-9]/g,'');};
+  var ref=norm(m.gRef)||norm(m.g);
+  if(!ref)return '';
+  var g=(DB.hGrupos||[]).find(function(gg){return norm(gg.n)===ref;});
+  return g?g.n:(m.g||m.gRef||'');
+}
+// Estamos en el proceso en que los tutores aun cuadran su horario: las horas
+// que un/a tutor/a tiene EN BLANCO son las que pasa con SU grupo. Devuelve el
+// grupo si esta hora es una de esas (blanco y sin tarea propia asignada).
+function _sustGrupoTutorBlanco(mid,dia,ti){
+  var gt=_sustTutorGrupo(mid);
+  if(!gt)return '';
+  var s=getMaestroSlot(mid,dia,ti);
+  var tipo=(s&&s.tipo)||'libre';
+  // Solo cuenta como "clase con su grupo" si esta hora esta libre/en blanco.
+  // Si tiene una tarea propia (reduccion, coordinacion, direccion...) no da clase.
+  return tipo==='libre'?gt:'';
+}
 // Si falta el maestro de Religion, el paralelo (ATEDU, normalmente el tutor)
 // se queda con TODO el grupo
 function _sustParaleloRelig(faltaId,dia,ti){
@@ -2121,6 +2143,9 @@ function genTabla(){
       var key=String(mFId)+'_'+ti;
       if(tbl[key]&&tbl[key].sust)return;                       // respetar lo elegido a mano
       var grupo=_sustGrupoDe(mFId,dia,ti);
+      // Si no da clase asignada explicitamente pero es tutor/a y la hora esta en
+      // blanco, es una hora con SU grupo (aun sin cuadrar) -> hay que cubrirla.
+      if(!grupo)grupo=_sustGrupoTutorBlanco(mFId,dia,ti);
       if(!grupo){ tbl[key]={libre:true}; return; }             // no da clase
       tbl[key]={tipo:'sust',grupo:grupo,sust:'',sustId:null};  // a elegir entre disponibles
     });
