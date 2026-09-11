@@ -5693,7 +5693,17 @@ function publicarCuadranteSSN(){
   initCuadrante();
   var mes=RECREO_MES_ACTUAL;
   var prim=_recNodo('prim',mes), inf=DB.recreo.cuad.infantil;
-  // SSNet guarda el recreo como eventos por FECHA (accion=publicarRecreo -> _rec).
+  // 1) REJILLA COMPLETA para el Cuaderno de horarios (igual que en la app, misma para
+  //    todos). Se guarda tal cual (nombres como se escriben) y SSNet la pinta como tablas.
+  try{
+    var grid={mes:mes, mesLabel:getMesLabel2(mes),
+      primaria:{puestos:prim.puestos, filas:prim.filas, nota:prim.nota||''},
+      infantil:{puestos:inf.puestos, filas:inf.filas, nota:inf.nota||''}};
+    fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'accion=publicarRecreoCuad&datos='+encodeURIComponent(JSON.stringify(grid))});
+  }catch(e){}
+  // 2) SSNet guarda el recreo de cada DÍA como eventos (accion=publicarRecreo -> _rec)
+  //    para mostrar el turno de hoy en Al Día.
   // Expandimos la rejilla semanal a una fila por dia laborable del mes; cada
   // columna es un puesto y su valor el maestro de ese dia. Asi aparece en Al Dia
   // (turno de hoy) y en el Cuaderno de horarios (por maestro).
