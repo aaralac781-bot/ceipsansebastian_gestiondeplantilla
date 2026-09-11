@@ -5270,7 +5270,7 @@ function renderRecreo(){
   } else if(RECREO_VISTA_ACTUAL==='alumnos'){
     h += renderRecreoAlumnos();
   } else {
-    h += renderRecreoTurnos2();
+    h += renderCuadrante();
   }
 
   document.getElementById('pg-recreo-inner').innerHTML = h;
@@ -5377,6 +5377,264 @@ function renderRecreoConf(){
 
   h += '</div>';
   return h;
+}
+
+// ══════════════ CUADRANTE DE VIGILANCIA DE RECREO (mes a mes, editable) ══════════════
+// Datos de partida tomados del diseño del curso 2026-2027. Solo se cargan si no existen;
+// las ediciones del usuario se conservan y se sincronizan a la nube.
+function _recCuadSeed(){
+  var D=function(l,m,x,j,v){return [l,m,x,j,v];};
+  var INF={
+    nota:'Cuatro personas cada día: tres al cuidado del patio y una acompañando a Alma. En Infantil el cuadrante es el mismo todo el curso.',
+    puestos:['Cuidado 1','Cuidado 2','Cuidado 3','Acompaña a Alma'],
+    filas:{
+      'Cuidado 1':D('Nati','Francis','Cristina','Ana','Francis'),
+      'Cuidado 2':D('Ana','M.ª Carmen Torres','Nati','Lara','M.ª Carmen Torres'),
+      'Cuidado 3':D('Manoli','Lara','Manoli','Cristina','Lola López'),
+      'Acompaña a Alma':D('Toñi García','Nerea','Carmen Miranda','Nerea','Carmen Miranda')
+    }
+  };
+  var PSEP=['Aula de la Naturaleza 1','Aula de la Naturaleza 2','Pistas deportivas','Baños y porche','Merenderos','Acompaña a Antonella','Acompaña a Tadeo'];
+  var POCT=['Aula de la Naturaleza 1','Aula de la Naturaleza 2','La Aldea de los Cuentos','Pistas deportivas','Baño y porche','Merenderos y porche','Acompaña a Antonella','Acompaña a Tadeo'];
+  var notaSep='Recreo de 12:00 a 12:30 · en septiembre el recreo es libre, sin organización del alumnado. Los espacios nuevos están cerrados hasta octubre: solo funciona el Aula de la Naturaleza (entran por la puerta de Infantil que da al huerto). Siete puestos.';
+  var notaOct='Recreo de 12:00 a 12:30 · rotación mensual. Ocho puestos: dos personas acompañan a Antonella y a Tadeo. Dos turnos por persona (tres: Ángel, Aurora, Vanessa, Paula y Toñi). Desde octubre arranca la rotación del alumnado por zonas.';
+  function M(puestos,nota,rows){var f={};puestos.forEach(function(p,i){f[p]=rows[i];});return {puestos:puestos.slice(),nota:nota,filas:f};}
+  var meses={};
+  meses['2026-09']=M(PSEP,notaSep,[
+    D('Ángel','Vanessa','Ángel','Aurora','Vanessa'),
+    D('Aurora','Paula','Paula','Ángel','M.ª José D.'),
+    D('A. Jiménez','J. M. García','A. Jiménez','Gabriel','Fran Ríos'),
+    D('M.ª José D.','Mariló','Inma','Patricia','J. M. García'),
+    D('Fran Ríos','A. Cordero','Aurora','Chelo','Paula'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Inma','Gabriel','Patricia','Vanessa','Chelo')
+  ]);
+  meses['2026-10']=M(POCT,notaOct,[
+    D('Ángel','Vanessa','Ángel','Aurora','Vanessa'),
+    D('Aurora','Paula','Paula','Ángel','Fran Ríos'),
+    D('Patricia','Aurora','J. M. García','Gabriel','Paula'),
+    D('A. Jiménez','Gabriel','A. Jiménez','Patricia','J. M. García'),
+    D('Chelo','Fran Ríos','A. Cordero','Chelo','A. Cordero'),
+    D('M.ª José D.','Mariló','Inma','M.ª José D.','Mariló'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','Inma')
+  ]);
+  meses['2026-11']=M(POCT,notaOct,[
+    D('Vanessa','Ángel','Aurora','Aurora','Ángel'),
+    D('Paula','Aurora','Ángel','Fran Ríos','Paula'),
+    D('Mariló','Inma','Chelo','Mariló','Inma'),
+    D('Fran Ríos','A. Jiménez','M.ª José D.','A. Jiménez','Gabriel'),
+    D('J. M. García','Gabriel','Vanessa','J. M. García','Patricia'),
+    D('A. Cordero','Patricia','Paula','A. Cordero','Chelo'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','M.ª José D.')
+  ]);
+  meses['2026-12']=M(POCT,notaOct,[
+    D('Aurora','Vanessa','Vanessa','Ángel','Ángel'),
+    D('Ángel','Paula','Paula','Aurora','Fran Ríos'),
+    D('Patricia','Gabriel','Aurora','Patricia','Paula'),
+    D('Chelo','Fran Ríos','A. Jiménez','Chelo','A. Jiménez'),
+    D('M.ª José D.','J. M. García','Inma','Mariló','J. M. García'),
+    D('Mariló','A. Cordero','Gabriel','M.ª José D.','A. Cordero'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','Inma')
+  ]);
+  meses['2027-01']=M(POCT,notaOct,[
+    D('Ángel','Vanessa','Ángel','Aurora','Vanessa'),
+    D('Aurora','Paula','Paula','Ángel','Gabriel'),
+    D('Fran Ríos','Aurora','Patricia','Fran Ríos','Paula'),
+    D('A. Jiménez','Inma','A. Jiménez','J. M. García','Patricia'),
+    D('J. M. García','Gabriel','Chelo','A. Cordero','Chelo'),
+    D('A. Cordero','Mariló','M.ª José D.','Inma','Mariló'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','M.ª José D.')
+  ]);
+  meses['2027-02']=M(POCT,notaOct,[
+    D('Vanessa','Ángel','Aurora','Aurora','Ángel'),
+    D('Paula','Aurora','Ángel','Gabriel','Paula'),
+    D('Mariló','Gabriel','A. Cordero','Mariló','M.ª José D.'),
+    D('Patricia','A. Jiménez','Inma','A. Jiménez','Fran Ríos'),
+    D('Chelo','Fran Ríos','Vanessa','Patricia','J. M. García'),
+    D('M.ª José D.','J. M. García','Paula','Chelo','A. Cordero'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','Inma')
+  ]);
+  meses['2027-03']=M(POCT,notaOct,[
+    D('Aurora','Vanessa','Vanessa','Ángel','Ángel'),
+    D('Ángel','Paula','Paula','Aurora','Gabriel'),
+    D('Fran Ríos','Inma','Aurora','J. M. García','Paula'),
+    D('J. M. García','Gabriel','A. Jiménez','A. Cordero','A. Jiménez'),
+    D('A. Cordero','Patricia','M.ª José D.','Mariló','Patricia'),
+    D('Mariló','Chelo','Fran Ríos','Inma','Chelo'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','M.ª José D.')
+  ]);
+  meses['2027-04']=M(POCT,notaOct,[
+    D('Ángel','Vanessa','Ángel','Aurora','Vanessa'),
+    D('Aurora','Paula','Paula','Ángel','Fran Ríos'),
+    D('Patricia','Aurora','J. M. García','Gabriel','Paula'),
+    D('A. Jiménez','Gabriel','A. Jiménez','Patricia','J. M. García'),
+    D('Chelo','Fran Ríos','A. Cordero','Chelo','A. Cordero'),
+    D('M.ª José D.','Mariló','Inma','M.ª José D.','Mariló'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','Inma')
+  ]);
+  meses['2027-05']=M(POCT,notaOct,[
+    D('Vanessa','Ángel','Aurora','Aurora','Ángel'),
+    D('Paula','Aurora','Ángel','Fran Ríos','Paula'),
+    D('Mariló','Inma','Chelo','Mariló','Inma'),
+    D('Fran Ríos','A. Jiménez','M.ª José D.','A. Jiménez','Gabriel'),
+    D('J. M. García','Gabriel','Vanessa','J. M. García','Patricia'),
+    D('A. Cordero','Patricia','Paula','A. Cordero','Chelo'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','M.ª José D.')
+  ]);
+  meses['2027-06']=M(POCT,notaOct,[
+    D('Aurora','Vanessa','Vanessa','Ángel','Ángel'),
+    D('Ángel','Paula','Paula','Aurora','Fran Ríos'),
+    D('Patricia','Gabriel','Aurora','Patricia','Paula'),
+    D('Chelo','Fran Ríos','A. Jiménez','Chelo','A. Jiménez'),
+    D('M.ª José D.','J. M. García','Inma','Mariló','J. M. García'),
+    D('Mariló','A. Cordero','Gabriel','M.ª José D.','A. Cordero'),
+    D('Carmen Miranda','Carmen Miranda','Toñi García','Carmen Miranda','Ángela Puerta'),
+    D('Lola López','Toñi García','Ángela Puerta','Vanessa','Inma')
+  ]);
+  return {infantil:INF, meses:meses};
+}
+function initCuadrante(){
+  if(!DB.recreo)DB.recreo={};
+  if(!DB.recreo.cuad||!DB.recreo.cuad.meses||!DB.recreo.cuad.infantil){
+    DB.recreo.cuad=_recCuadSeed(); save();
+  }
+}
+function _recNodo(amb,mes){
+  var c=DB.recreo.cuad;
+  if(amb==='inf')return c.infantil;
+  if(!c.meses[mes]){
+    var esSep=/-09$/.test(mes);
+    var pu=esSep
+      ?['Aula de la Naturaleza 1','Aula de la Naturaleza 2','Pistas deportivas','Baños y porche','Merenderos','Acompaña a Antonella','Acompaña a Tadeo']
+      :['Aula de la Naturaleza 1','Aula de la Naturaleza 2','La Aldea de los Cuentos','Pistas deportivas','Baño y porche','Merenderos y porche','Acompaña a Antonella','Acompaña a Tadeo'];
+    var f={}; pu.forEach(function(p){f[p]=['','','','',''];});
+    c.meses[mes]={puestos:pu,nota:'',filas:f};
+  }
+  return c.meses[mes];
+}
+function _recDatalist(){
+  var set={};
+  (DB.maestros||[]).forEach(function(m){if(m.n)set[m.n]=1;});
+  var c=DB.recreo&&DB.recreo.cuad;
+  if(c){
+    var add=function(node){if(!node)return;(node.puestos||[]).forEach(function(p){(node.filas[p]||[]).forEach(function(v){if(v)set[v]=1;});});};
+    add(c.infantil); Object.keys(c.meses||{}).forEach(function(k){add(c.meses[k]);});
+  }
+  var h='<datalist id="rec-nombres">';
+  Object.keys(set).sort().forEach(function(nm){h+='<option value="'+esc(nm)+'"></option>';});
+  h+='</datalist>';
+  return h;
+}
+function _recGridHTML(amb,mes){
+  var node=_recNodo(amb,mes);
+  var esInf=amb==='inf';
+  var titulo=esInf?'Vigilancia de Infantil · todo el curso':('Vigilancia de Primaria · '+getMesLabel2(mes));
+  var col=esInf?'#92400e':'#15803d';
+  var dias=['L','M','X','J','V'];
+  var h='<div class="card" style="padding:10px">';
+  h+='<div class="ct" style="color:'+col+'">'+titulo+'</div>';
+  h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:11px;min-width:540px">';
+  h+='<tr><th style="text-align:left;padding:5px 6px;background:'+col+';color:#fff;min-width:130px;position:sticky;left:0">Puesto</th>';
+  dias.forEach(function(d){h+='<th style="padding:5px;background:'+col+';color:#fff;min-width:80px">'+d+'</th>';});
+  h+='<th style="width:24px;background:'+col+'"></th></tr>';
+  node.puestos.forEach(function(p,pi){
+    h+='<tr>';
+    h+='<td style="padding:2px 4px;border:1px solid #e2e8f0;background:#f8fafc;position:sticky;left:0">'
+      +'<input value="'+esc(p)+'" data-amb="'+amb+'" data-mes="'+mes+'" data-pi="'+pi+'" onchange="cuadRenombra(this)" style="width:100%;border:none;background:transparent;font-size:11px;font-weight:700;color:'+col+'"></td>';
+    (node.filas[p]||['','','','','']).forEach(function(v,di){
+      h+='<td style="padding:2px;border:1px solid #e2e8f0"><input list="rec-nombres" value="'+esc(v)+'" data-amb="'+amb+'" data-mes="'+mes+'" data-pi="'+pi+'" data-di="'+di+'" onchange="cuadSet(this)" style="width:100%;border:none;background:transparent;font-size:11px;text-align:center"></td>';
+    });
+    h+='<td style="border:1px solid #e2e8f0;text-align:center"><button onclick="cuadDelPuesto(\''+amb+'\',\''+mes+'\','+pi+')" title="Eliminar puesto" style="border:none;background:transparent;color:#b91c1c;font-weight:700;cursor:pointer;font-size:14px">×</button></td>';
+    h+='</tr>';
+  });
+  h+='</table></div>';
+  h+='<button class="btn bgy bsm" style="margin-top:6px" onclick="cuadAddPuesto(\''+amb+'\',\''+mes+'\')">+ Puesto</button>';
+  h+='<textarea data-amb="'+amb+'" data-mes="'+mes+'" onchange="cuadNota(this)" placeholder="Nota (horario, criterios...)" style="width:100%;margin-top:8px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;padding:6px;min-height:46px;color:#64748b;font-family:inherit">'+esc(node.nota||'')+'</textarea>';
+  h+='</div>';
+  return h;
+}
+function renderCuadrante(){
+  initRecreo(); initCuadrante();
+  var mes=RECREO_MES_ACTUAL;
+  var esSep=/-09$/.test(mes);
+  var h='<div style="padding:10px 14px">';
+  h+=_recDatalist();
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
+  h+='<button class="btn bgy bsm" onclick="cambiarMesRecreo(-1)">&#8592;</button>';
+  h+='<span style="font-size:14px;font-weight:800;flex:1;text-align:center">'+getMesLabel2(mes)+'</span>';
+  h+='<button class="btn bgy bsm" onclick="cambiarMesRecreo(1)">&#8594;</button>';
+  h+='</div>';
+  h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Escribe o elige el nombre en cada casilla. Los cambios se guardan y sincronizan solos. '+(esSep?'Septiembre: recreo libre, sin zonas de alumnado.':'Desde octubre: ocho puestos y rotación del alumnado por zonas.')+'</span></div>';
+  h+=_recGridHTML('prim',mes);
+  h+=_recGridHTML('inf',mes);
+  h+='<button class="btn" style="background:#0f9d58;color:#fff;padding:9px 14px;font-size:12px;border-radius:8px;margin-top:6px" onclick="publicarCuadranteSSN()">Publicar en SSN</button>';
+  h+='</div>';
+  return h;
+}
+function _recNodoRef(amb,mes){return amb==='inf'?DB.recreo.cuad.infantil:_recNodo('prim',mes);}
+function cuadSet(el){
+  var n=_recNodoRef(el.getAttribute('data-amb'),el.getAttribute('data-mes'));
+  var pi=+el.getAttribute('data-pi'),di=+el.getAttribute('data-di');
+  var p=n.puestos[pi]; if(p==null)return;
+  if(!n.filas[p])n.filas[p]=['','','','',''];
+  n.filas[p][di]=el.value.trim();
+  save(); if(typeof _autoSyncNube==='function')_autoSyncNube();
+}
+function cuadRenombra(el){
+  var n=_recNodoRef(el.getAttribute('data-amb'),el.getAttribute('data-mes'));
+  var pi=+el.getAttribute('data-pi');
+  var viejo=n.puestos[pi];
+  var nuevo=el.value.trim()||('Puesto '+(pi+1));
+  if(nuevo===viejo)return;
+  n.filas[nuevo]=n.filas[viejo]||['','','','',''];
+  if(nuevo!==viejo)delete n.filas[viejo];
+  n.puestos[pi]=nuevo;
+  save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); renderRecreo();
+}
+function cuadNota(el){
+  var n=_recNodoRef(el.getAttribute('data-amb'),el.getAttribute('data-mes'));
+  n.nota=el.value; save(); if(typeof _autoSyncNube==='function')_autoSyncNube();
+}
+function cuadAddPuesto(amb,mes){
+  var n=_recNodoRef(amb,mes);
+  var nm='Puesto '+(n.puestos.length+1);
+  n.puestos.push(nm); n.filas[nm]=['','','','',''];
+  save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); renderRecreo();
+}
+function cuadDelPuesto(amb,mes,pi){
+  var n=_recNodoRef(amb,mes);
+  var p=n.puestos[pi]; if(!p)return;
+  if(!confirm('¿Eliminar el puesto "'+p+'"?'))return;
+  n.puestos.splice(pi,1); delete n.filas[p];
+  save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); renderRecreo();
+}
+function publicarCuadranteSSN(){
+  var url=DB.scriptUrl;
+  if(!url){alert('Configura la URL del script en Config.');return;}
+  initCuadrante();
+  var mes=RECREO_MES_ACTUAL;
+  var prim=_recNodo('prim',mes), inf=DB.recreo.cuad.infantil;
+  var filas=[['Puesto','Lunes','Martes','Miercoles','Jueves','Viernes']];
+  filas.push(['— PRIMARIA · '+getMesLabel2(mes)+' —','','','','','']);
+  prim.puestos.forEach(function(p){filas.push([p].concat((prim.filas[p]||['','','','','']).map(function(v){return v||'';})));});
+  filas.push(['— INFANTIL (todo el curso) —','','','','','']);
+  inf.puestos.forEach(function(p){filas.push([p].concat((inf.filas[p]||['','','','','']).map(function(v){return v||'';})));});
+  var cb='_cuad'+Date.now();
+  window[cb]=function(r){delete window[cb];if(r&&r.ok)alert('Cuadrante publicado en San Sebastian Net.');else alert('Error: '+(r?r.error:'sin respuesta'));};
+  var datos=JSON.stringify({tipo:'cuadrante',mes:mes,mesLabel:getMesLabel2(mes),filas:filas});
+  var s=document.createElement('script');
+  s.src=url+'?accion=publicarRecreo&callback='+cb+'&datos='+encodeURIComponent(datos);
+  s.onerror=function(){delete window[cb];alert('Error de conexion al publicar.');};
+  document.head.appendChild(s);
+  setTimeout(function(){if(window[cb]){delete window[cb];alert('Timeout.');}},25000);
 }
 
 function renderRecreoTurnos2(){
