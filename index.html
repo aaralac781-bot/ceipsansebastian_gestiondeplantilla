@@ -5693,20 +5693,34 @@ function publicarCuadranteSSN(){
   initCuadrante();
   var mes=RECREO_MES_ACTUAL;
   var prim=_recNodo('prim',mes), inf=DB.recreo.cuad.infantil;
-  // 1) REJILLA COMPLETA para el Cuaderno de horarios (igual que en la app, misma para
-  //    todos). Se guarda tal cual (nombres como se escriben) y SSNet la pinta como tablas.
-  try{
-    var grid={mes:mes, mesLabel:getMesLabel2(mes),
-      primaria:{puestos:prim.puestos, filas:prim.filas, nota:prim.nota||''},
-      infantil:{puestos:inf.puestos, filas:inf.filas, nota:inf.nota||''}};
-    fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'accion=publicarRecreoCuad&datos='+encodeURIComponent(JSON.stringify(grid))});
-  }catch(e){}
-  // 2) SSNet guarda el recreo de cada DÍA como eventos (accion=publicarRecreo -> _rec)
-  //    para mostrar el turno de hoy en Al Día.
-  // Expandimos la rejilla semanal a una fila por dia laborable del mes; cada
-  // columna es un puesto y su valor el maestro de ese dia. Asi aparece en Al Dia
-  // (turno de hoy) y en el Cuaderno de horarios (por maestro).
+
+  // Envío por JSONP (GET con callback) para poder CONFIRMAR que SSNet responde.
+  // Si el payload es muy grande para la URL, cae a POST no-cors (sin confirmación).
+  function _ssnGet(action, datosStr, done){
+    var cb='_ssn'+Math.random().toString(36).slice(2);
+    var full=url+'?accion='+action+'&callback='+cb+'&datos='+encodeURIComponent(datosStr);
+    if(full.length>7000){
+      fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:'accion='+action+'&datos='+encodeURIComponent(datosStr)})
+        .then(function(){done(null,{ok:true,_nocors:true});})
+        .catch(function(e){done(e);});
+      return;
+    }
+    var s=document.createElement('script');
+    var to=setTimeout(function(){cleanup();done(new Error('SSNet no respondió a tiempo'));},15000);
+    function cleanup(){clearTimeout(to);try{delete window[cb];}catch(e){}if(s.parentNode)s.parentNode.removeChild(s);}
+    window[cb]=function(r){cleanup();done(null,r);};
+    s.onerror=function(){cleanup();done(new Error('No se pudo conectar con SSNet'));};
+    s.src=full; document.head.appendChild(s);
+  }
+
+  // 1) REJILLA COMPLETA para el Cuaderno de horarios (igual para todos, tal cual se escribe).
+  var grid={mes:mes, mesLabel:getMesLabel2(mes),
+    primaria:{puestos:prim.puestos, filas:prim.filas, nota:prim.nota||''},
+    infantil:{puestos:inf.puestos, filas:inf.filas, nota:inf.nota||''}};
+
+  // 2) Eventos por FECHA (turno de hoy en Al Día): una fila por día laborable del mes,
+  //    columnas por puesto, nombres enlazados con la plantilla (_recCellNames).
   var diasNom=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
   var cab=['Fecha','Dia'].concat(prim.puestos).concat(inf.puestos.map(function(p){return 'Inf · '+p;}));
   var filas=[cab];
@@ -5725,22 +5739,37 @@ function publicarCuadranteSSN(){
     d.setDate(d.getDate()+1);
   }
   if(filas.length<2){alert('No hay dias laborables en '+getMesLabel2(mes)+'.');return;}
-  var payload=encodeURIComponent(JSON.stringify({mes:mes,mesLabel:getMesLabel2(mes),filas:filas}));
-  var getUrl=url+'?accion=publicarRecreo&callback=_rcX&datos='+payload;
-  var okMsg='✅ Recreo de '+getMesLabel2(mes)+' publicado en SSNet. Míralo en Al Día (turno de hoy) y en Cuaderno de horarios.';
-  if(getUrl.length<=7000){
-    var cb='_rc'+Date.now();
-    window[cb]=function(r){delete window[cb];if(r&&(r.ok||r.success))alert(okMsg);else alert('SSNet devolvió un error: '+((r&&r.error)||'sin respuesta'));};
-    var s=document.createElement('script');
-    s.src=url+'?accion=publicarRecreo&callback='+cb+'&datos='+payload;
-    s.onerror=function(){delete window[cb];alert('Error de conexión con SSNet.');};
-    document.head.appendChild(s);
-    setTimeout(function(){if(window[cb]){delete window[cb];alert('SSNet no respondió a tiempo. Reintenta en unos segundos.');}},15000);
-  } else {
-    fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'accion=publicarRecreo&datos='+payload})
-    .then(function(){alert(okMsg+'\n(Si no aparece, espera unos segundos y refresca SSNet.)');})
-    .catch(function(e){alert('Error de conexión: '+e);});
-  }
+  var eventos={mes:mes,mesLabel:getMesLabel2(mes),filas:filas};
+
+  // Publicar en cadena: grid -> eventos -> LEER DE VUELTA para comprobar que quedó guardado.
+  _ssnGet('publicarRecreoCuad', JSON.stringify(grid), function(e1){
+    _ssnGet('publicarRecreo', JSON.stringify(eventos), function(e2){
+      var quien=(DB.maestros&&DB.maestros[0]&&DB.maestros[0].n)||'x';
+      _ssnGet('getCuadHorarios', JSON.stringify({teacher:quien}), function(e3,r3){
+        var rc=r3&&r3.recreoCuad;
+        var okGrid=!!(rc&&((rc.primaria&&rc.primaria.puestos&&rc.primaria.puestos.length)||
+                           (rc.infantil&&rc.infantil.puestos&&rc.infantil.puestos.length)));
+        if(okGrid){
+          alert('✅ Recreo de '+getMesLabel2(mes)+' publicado y COMPROBADO en SSNet.\n\n'+
+                '• Cuaderno de horarios: cuadrante completo (igual para todos).\n'+
+                '• Al Día: turno del día.\n\nRefresca SSNet para verlo.');
+        } else if(r3&&r3.ok===false){
+          alert('⚠️ SSNet respondió con un error al leer el cuadrante:\n'+(r3.error||'')+'\n\n'+
+                'Revisa en SSNet (Code.gs) que existe la función getCuadHorarios y que devuelve recreoCuad, y vuelve a Implementar una versión nueva.');
+        } else if(e1||e2){
+          alert('⚠️ No se pudo publicar. Revisa la URL del script en Config e inténtalo otra vez.\n('+
+                ((e1&&e1.message)||(e2&&e2.message)||'sin detalle')+')');
+        } else {
+          alert('⚠️ Se envió el cuadrante, pero SSNet todavía NO lo devuelve.\n\n'+
+                'En SSNet (Code.gs) faltan (o no están implementadas) estas piezas:\n'+
+                '  · en _acc: accion "publicarRecreoCuad" -> _recCuad(datos)\n'+
+                '  · funciones _recCuad y _getRecreoCuad\n'+
+                '  · getCuadHorarios debe terminar con recreoCuad:_getRecreoCuad()\n\n'+
+                'Tras pegarlas, haz Implementar > Versión nueva y vuelve a pulsar Publicar.');
+        }
+      });
+    });
+  });
 }
 
 function renderRecreoTurnos2(){
