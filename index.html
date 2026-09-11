@@ -5525,6 +5525,40 @@ function initCuadrante(){
   if(!DB.recreo.cuad||!DB.recreo.cuad.meses||!DB.recreo.cuad.infantil){
     DB.recreo.cuad=_recCuadSeed(); save();
   }
+  if(!Array.isArray(DB.recreo.ptis))DB.recreo.ptis=[];
+}
+// Conjunto de personas disponibles para el recreo: plantilla + PTIS (no docentes).
+function _recPersonas(){
+  var out=(DB.maestros||[]).map(function(m){return m.n;}).filter(Boolean);
+  ((DB.recreo&&DB.recreo.ptis)||[]).forEach(function(n){if(n)out.push(n);});
+  return out;
+}
+function _recNorm(s){return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9ñ ]/g,' ').replace(/\s+/g,' ').trim();}
+function _recTok(s){return _recNorm(s).split(' ').filter(function(w){return w.length>=3;});}
+// Resuelve un nombre escrito (corto: "Ángel", "A. Jiménez") al nombre COMPLETO de la
+// plantilla/PTIS, para que SSNet lo empareje (_mismoNom exige >=2 palabras o exacto).
+function _recResolve(w){
+  w=(w||'').trim(); if(!w)return '';
+  var pool=_recPersonas(), nw=_recNorm(w), i;
+  for(i=0;i<pool.length;i++){ if(_recNorm(pool[i])===nw) return pool[i]; }   // exacto
+  var wt=_recTok(w), best=null,bestScore=0,empate=false;
+  pool.forEach(function(p){
+    var pt=_recTok(p); if(!pt.length)return;
+    var score=0;
+    wt.forEach(function(x){
+      if(pt.indexOf(x)>=0){score+=2;return;}                                  // palabra exacta
+      if(pt.some(function(y){return y.indexOf(x)===0||x.indexOf(y)===0;}))score+=1; // prefijo (Inma->Inmaculada)
+    });
+    if(score>bestScore){bestScore=score;best=p;empate=false;}
+    else if(score===bestScore&&score>0&&best&&_recNorm(p)!==_recNorm(best)){empate=true;}
+  });
+  return (best&&bestScore>=1&&!empate)?best:w;   // sin match claro: se deja tal cual
+}
+// Una celda puede tener varios nombres ("Vanessa + Lola"): se separan y se juntan por COMA
+// (SSNet separa por comas para detectar a cada maestro/a).
+function _recCellNames(v){
+  return (v||'').split(/\s*[+,\/·]\s*/).map(function(x){return x.trim();})
+    .filter(Boolean).map(_recResolve).join(', ');
 }
 function _recNodo(amb,mes){
   var c=DB.recreo.cuad;
@@ -5542,6 +5576,7 @@ function _recNodo(amb,mes){
 function _recDatalist(){
   var set={};
   (DB.maestros||[]).forEach(function(m){if(m.n)set[m.n]=1;});
+  ((DB.recreo&&DB.recreo.ptis)||[]).forEach(function(n){if(n)set[n]=1;});
   var c=DB.recreo&&DB.recreo.cuad;
   if(c){
     var add=function(node){if(!node)return;(node.puestos||[]).forEach(function(p){(node.filas[p]||[]).forEach(function(v){if(v)set[v]=1;});});};
@@ -5591,13 +5626,30 @@ function renderCuadrante(){
   h+='<span style="font-size:14px;font-weight:800;flex:1;text-align:center">'+getMesLabel2(mes)+'</span>';
   h+='<button class="btn bgy bsm" onclick="cambiarMesRecreo(1)">&#8594;</button>';
   h+='</div>';
-  h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Escribe o elige el nombre en cada casilla. Los cambios se guardan y sincronizan solos. '+(esSep?'Septiembre: recreo libre, sin zonas de alumnado.':'Desde octubre: ocho puestos y rotación del alumnado por zonas.')+'</span></div>';
+  h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Escribe o elige el nombre en cada casilla (mejor el nombre completo de la lista). Si en un puesto hay varias personas, sepáralas por coma. Al publicar, los nombres se enlazan con la plantilla para que SSNet los reconozca. '+(esSep?'Septiembre: recreo libre, sin zonas de alumnado.':'Desde octubre: ocho puestos y rotación del alumnado por zonas.')+'</span></div>';
   h+=_recGridHTML('prim',mes);
   h+=_recGridHTML('inf',mes);
+  h+=_recPtisHTML();
   h+='<button class="btn" style="background:#0f9d58;color:#fff;padding:9px 14px;font-size:12px;border-radius:8px;margin-top:6px" onclick="publicarCuadranteSSN()">Publicar en SSN</button>';
   h+='</div>';
   return h;
 }
+// PTIS / personal no docente que también entra en los turnos (con su nombre completo).
+function _recPtisHTML(){
+  var ptis=(DB.recreo&&DB.recreo.ptis)||[];
+  var h='<div class="card" style="padding:10px"><div class="ct" style="color:#0e7490">PTIS y personal no docente</div>';
+  h+='<div style="font-size:11px;color:#64748b;margin-bottom:6px">Personas que no están en la plantilla docente pero entran en el recreo (p. ej. acompañamiento). Aquí quedan disponibles para elegir en las casillas.</div>';
+  ptis.forEach(function(n,i){
+    h+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">'
+      +'<input value="'+esc(n)+'" data-i="'+i+'" onchange="ptisSet(this)" style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:6px;font-size:12px">'
+      +'<button onclick="ptisDel('+i+')" style="border:none;background:transparent;color:#b91c1c;font-weight:700;cursor:pointer;font-size:16px">×</button></div>';
+  });
+  h+='<button class="btn bgy bsm" style="margin-top:4px" onclick="ptisAdd()">+ Persona</button></div>';
+  return h;
+}
+function ptisAdd(){ if(!DB.recreo.ptis)DB.recreo.ptis=[]; DB.recreo.ptis.push(''); save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); renderRecreo(); }
+function ptisSet(el){ var i=+el.getAttribute('data-i'); DB.recreo.ptis[i]=el.value.trim(); save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); }
+function ptisDel(i){ DB.recreo.ptis.splice(i,1); save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); renderRecreo(); }
 function _recNodoRef(amb,mes){return amb==='inf'?DB.recreo.cuad.infantil:_recNodo('prim',mes);}
 function cuadSet(el){
   var n=_recNodoRef(el.getAttribute('data-amb'),el.getAttribute('data-mes'));
@@ -5656,8 +5708,8 @@ function publicarCuadranteSSN(){
       var di=dow-1;
       var fecha=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       var row=[fecha, diasNom[dow]];
-      prim.puestos.forEach(function(p){ row.push((prim.filas[p]||[])[di]||''); });
-      inf.puestos.forEach(function(p){ row.push((inf.filas[p]||[])[di]||''); });
+      prim.puestos.forEach(function(p){ row.push(_recCellNames((prim.filas[p]||[])[di]||'')); });
+      inf.puestos.forEach(function(p){ row.push(_recCellNames((inf.filas[p]||[])[di]||'')); });
       filas.push(row);
     }
     d.setDate(d.getDate()+1);
