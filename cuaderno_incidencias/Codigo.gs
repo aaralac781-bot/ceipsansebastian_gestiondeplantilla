@@ -511,7 +511,20 @@ function generarPDF(curso, alumno) {
     }
 
     doc.saveAndClose();
-    return doc.getUrl().replace("/edit", "/export?format=pdf");
+
+    // Convertimos a PDF y lo devolvemos como datos (base64) para descargarlo directamente.
+    // Así el profesor NO necesita permisos sobre el Drive del propietario: el PDF se genera
+    // en el servidor (como propietario) y se descarga en su dispositivo. Además se borra el
+    // documento temporal para no llenar el Drive.
+    const archivoDoc = DriveApp.getFileById(doc.getId());
+    const pdf = archivoDoc.getAs('application/pdf');
+    const datosB64 = Utilities.base64Encode(pdf.getBytes());
+    archivoDoc.setTrashed(true);
+
+    return {
+      nombre: 'Informe_Incidencias_' + alumno + '.pdf',
+      datos: datosB64
+    };
   } catch (error) {
     throw new Error("Error al generar el PDF: " + error.message);
   }

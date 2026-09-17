@@ -43,6 +43,37 @@ const EMAIL_AVISOS   = '41003522@g.educaand.es'; // Destinatario de los avisos
 const CLAVE_DIRECCION = 'Ssnet2026';             // Contraseña del panel de Dirección
 ```
 
+## 🔑 Permisos en educaand (IMPORTANTE)
+
+Para que **ningún profesor tenga problemas de permisos** al registrar incidencias,
+generar informes o imprimir, la app debe desplegarse así:
+
+*Implementar → Nueva implementación (o Gestionar implementaciones) → ⚙ Tipo: Aplicación web*
+
+- **Ejecutar como:** **Yo** (`tu_cuenta@g.educaand.es`, la dueña del proyecto).
+- **Quién tiene acceso:** **Cualquier usuario de tu organización** (o «Cualquier
+  usuario de g.educaand.es»).
+
+Con **«Ejecutar como: Yo»**:
+
+- Todo el código del servidor (leer/escribir las hojas, leer los membretes del
+  Drive, generar el PDF, enviar el email) se ejecuta con **tu** cuenta.
+- Los profesores **no necesitan** tener acceso a las hojas de cálculo ni a los
+  membretes, y **no ven ninguna pantalla de permisos** al entrar.
+- No aparece el aviso de «app no verificada» a cada profe (solo tú autorizas una vez).
+
+> ⚠️ Requisito: **tu** cuenta (la que ejecuta) debe tener acceso a las 4 IDs
+> configuradas (las dos hojas de cálculo y los dos membretes). Como son tuyas, ya lo cumple.
+
+### Por qué el PDF ahora no da error de permisos
+
+Antes el botón de PDF devolvía un enlace a un Google Doc creado en tu Drive; al
+abrirlo, el profesor (que no es el dueño del Doc) recibía **«Necesitas permiso
+para acceder»**. Ahora el PDF se genera en el servidor y **se descarga directamente**
+en el dispositivo del profe (el Doc temporal se borra solo), así que no hay ningún
+acceso cruzado ni permisos que pedir. El botón **🖨 Imprimir** tampoco pide permisos:
+el informe se arma en el servidor y se imprime desde el navegador.
+
 ## Nota de seguridad
 
 La contraseña del panel se comprueba en el servidor (no viaja en el HTML), pero

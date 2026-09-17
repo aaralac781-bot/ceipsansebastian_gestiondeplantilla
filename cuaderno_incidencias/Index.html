@@ -397,7 +397,25 @@
         boton.disabled = true;
 
         google.script.run
-          .withSuccessHandler(url => { boton.innerText = textoOriginal; boton.disabled = false; window.open(url, '_blank'); })
+          .withSuccessHandler(res => {
+            boton.innerText = textoOriginal; boton.disabled = false;
+            try {
+              const binario = atob(res.datos);
+              const bytes = new Uint8Array(binario.length);
+              for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+              const blob = new Blob([bytes], { type: 'application/pdf' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = res.nombre;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              setTimeout(() => URL.revokeObjectURL(url), 4000);
+            } catch (e) {
+              alert('No se pudo descargar el PDF: ' + e.message);
+            }
+          })
           .withFailureHandler(error => { alert("Ocurrió un problema: " + error); boton.innerText = textoOriginal; boton.disabled = false; })
           .generarPDF(curso, alumno);
       }
