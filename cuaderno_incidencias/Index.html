@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+      body { font-family: 'Arial', sans-serif; padding: 20px; background-color: #f8f9fa; margin: 0;}
+      select, input, textarea, button { width: 100%; padding: 12px; margin-top: 5px; margin-bottom: 10px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; font-size: 14px;}
+      details { background: white; margin-bottom: 10px; padding: 12px; border-radius: 8px; border-left: 6px solid #4285f4; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      summary { font-weight: bold; font-size: 16px; cursor: pointer; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+      summary::-webkit-details-marker { display: none; }
+      summary:after { content: '▼ Opciones'; font-size: 12px; background: #e8eaed; padding: 5px 10px; border-radius: 15px; }
+      details[open] summary:after { content: '▲ Cerrar'; }
+
+      .acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+      .btn-guardar { background-color: #34a853; color: white; border: none; font-weight: bold; cursor: pointer; width: 100%; font-size: 15px; padding: 14px;}
+      .btn-historial { background-color: #fbbc05; color: black; border: none; font-weight: bold; cursor: pointer; flex: 1; border-radius: 5px; min-width: 110px; padding: 10px;}
+      .btn-pdf { background-color: #ea4335; color: white; border: none; font-weight: bold; cursor: pointer; flex: 1; border-radius: 5px; min-width: 110px; padding: 10px;}
+      .btn-imprimir { background-color: #1a73e8; color: white; border: none; font-weight: bold; cursor: pointer; flex: 1; border-radius: 5px; min-width: 110px; padding: 10px;}
+      .btn-baja { background-color: #555555; color: white; border: none; font-weight: bold; cursor: pointer; flex: 1; border-radius: 5px; min-width: 110px; padding: 10px;}
+
+      .btn-borrar { float: right; background-color: #dc3545; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: bold; margin-left: 5px; }
+
+      .historial-box { display: none; background: #f1f3f4; padding: 10px; margin-top: 10px; border-radius: 5px; font-size: 14px; max-height: 250px; overflow-y: auto; }
+      .incidencia-item { border-bottom: 1px solid #ccc; padding-bottom: 8px; margin-bottom: 8px; }
+      .incidencia-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+      #loader { display: none; color: #4285f4; font-weight: bold; text-align: center; margin-bottom: 15px;}
+
+      /* ESTILO DEL NUEVO BOTÓN DESPLEGABLE PARA AÑADIR ALUMNOS */
+      .detalle-nuevo-alumno { border-left-color: #1a73e8; background-color: #e8f0fe; margin-bottom: 20px; }
+      .detalle-nuevo-alumno summary { color: #1a73e8; font-size: 15px; }
+      .detalle-nuevo-alumno summary:after { background: #d2e3fc; color: #1a73e8; }
+      .btn-nuevo { background-color: #1a73e8; color: white; border: none; border-radius: 5px; padding: 14px; font-weight: bold; cursor: pointer; font-size: 15px; margin-top: 5px;}
+
+      /* --- ACCESO DIRECCIÓN --- */
+      .barra-superior { display: flex; justify-content: center; margin-bottom: 15px; }
+      .btn-direccion { background: #4c1130; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-weight: bold; cursor: pointer; font-size: 13px; width: auto; margin: 0; }
+      .btn-direccion:hover { background: #6a1846; }
+
+      /* --- ESTILOS DEL TUTORIAL / MODALES --- */
+      .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 9999; backdrop-filter: blur(2px); }
+      .modal-content { background: white; padding: 25px; border-radius: 12px; max-width: 600px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; max-height: 90vh; overflow-y: auto; }
+      .modal-titulo { font-size: 20px; font-weight: bold; color: #1a73e8; margin-bottom: 15px; border-bottom: 2px solid #e8eaed; padding-bottom: 10px; }
+      .modal-pasos { font-size: 14.5px; color: #444; line-height: 1.6; }
+      .modal-pasos ul { padding-left: 20px; margin-top: 10px; }
+      .modal-pasos li { margin-bottom: 12px; }
+      .btn-cerrar-modal { background: #1a73e8; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; font-size: 15px; }
+      .btn-cerrar-modal:hover { background: #1557b0; }
+      .btn-ayuda-flotante { position: fixed; bottom: 20px; right: 20px; background: #1a73e8; color: white; border: none; border-radius: 50px; padding: 12px 20px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; z-index: 9998; font-size: 14px; display: flex; align-items: center; gap: 8px; width: auto; }
+      .btn-ayuda-flotante:hover { background: #1557b0; transform: scale(1.05); transition: 0.2s ease-in-out; }
+
+      /* --- PANEL DE DIRECCIÓN --- */
+      #panelDireccion { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8f9fa; display: none; z-index: 10000; overflow-y: auto; }
+      .dir-cabecera { background: #4c1130; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 5; }
+      .dir-cabecera h2 { margin: 0; font-size: 18px; }
+      .btn-cerrar-panel { background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 6px; padding: 8px 14px; font-weight: bold; cursor: pointer; width: auto; margin: 0; }
+      .dir-cuerpo { padding: 18px; }
+      .dir-resumen { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+      .dir-tarjeta-num { background: white; border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 140px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); text-align: center; }
+      .dir-tarjeta-num .n { font-size: 26px; font-weight: bold; color: #4c1130; }
+      .dir-tarjeta-num .t { font-size: 12px; color: #777; text-transform: uppercase; letter-spacing: .5px; }
+      .dir-curso { background: white; border-radius: 10px; margin-bottom: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden; }
+      .dir-curso-titulo { background: #efe6ec; color: #4c1130; font-weight: bold; padding: 12px 16px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+      .dir-curso-titulo .cuenta { font-size: 12px; background: #4c1130; color: white; border-radius: 20px; padding: 3px 10px; }
+      .dir-alumno { border-top: 1px solid #f0f0f0; padding: 12px 16px; }
+      .dir-alumno-fila { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+      .dir-alumno-nombre { font-weight: bold; color: #222; font-size: 14px; }
+      .dir-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+      .badge-g { font-size: 11px; font-weight: bold; color: white; border-radius: 20px; padding: 2px 9px; }
+      .badge-g.total { background: #4c1130; }
+      .badge-g.leve { background: #34a853; }
+      .badge-g.grave { background: #f39c12; }
+      .badge-g.muygrave { background: #ea4335; }
+      .dir-acciones { display: flex; gap: 8px; }
+      .dir-acciones button { width: auto; margin: 0; padding: 7px 12px; font-size: 12px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; }
+      .dir-btn-hist { background: #fbbc05; color: #000; }
+      .dir-btn-print { background: #1a73e8; color: #fff; }
+      .dir-hist-box { display: none; background: #f7f7f9; border-radius: 6px; padding: 10px; margin-top: 10px; font-size: 13.5px; }
+    </style>
+  </head>
+  <body>
+    <h2 style="text-align:center; color:#333; margin-top:0; margin-bottom:12px;">📋 Cuaderno de Incidencias</h2>
+
+    <div class="barra-superior">
+      <button class="btn-direccion" onclick="abrirDireccion()">🔒 Acceso Dirección</button>
+    </div>
+
+    <label>1. Selecciona el Curso:</label>
+    <select id="selectCurso" onchange="cargarAlumnos()">
+      <option value="">Cargando cursos...</option>
+    </select>
+
+    <div id="cajaNuevoAlumno" style="display:none;">
+      <details class="detalle-nuevo-alumno">
+        <summary>➕ Matricular Nuevo Alumno/a al curso</summary>
+        <div style="margin-top: 10px;">
+          <label style="color:#1a73e8;">Apellidos y Nombre:</label>
+          <input type="text" id="inputNuevoAlumno" placeholder="Ej: García López, María">
+          <button type="button" class="btn-nuevo" onclick="guardarNuevoAlumno()">💾 Matricular en este curso</button>
+        </div>
+      </details>
+    </div>
+
+    <div id="loader">Cargando alumnos... ⏳</div>
+    <div id="listaAlumnos"></div>
+
+    <!-- BOTÓN FLOTANTE DE AYUDA -->
+    <button class="btn-ayuda-flotante" onclick="abrirTutorial()">❓ Cómo funciona</button>
+
+    <!-- MODAL DEL TUTORIAL -->
+    <div id="modalTutorial" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-titulo">👋 ¡Bienvenido/a al Cuaderno de Incidencias!</div>
+        <div class="modal-pasos">
+          <p>Esta aplicación digital centraliza las incidencias del alumnado. Está preparada para que todo quede registrado, <b>ya ocurra en una clase, en el recreo o en una excursión</b>.</p>
+          <ul>
+            <li><strong>1️⃣ Selecciona el grupo:</strong> Abre el desplegable superior y selecciona el curso al que pertenece el alumno/a implicado (si hay varios implicados de distintos cursos, deberás seleccionarlos uno a uno).</li>
+            <li><strong>2️⃣ Registrar la Incidencia:</strong> <b>El docente que ha intervenido</b> en la incidencia debe buscar el nombre del alumno, rellenar el formulario (fecha, gravedad, nombre del docente, hechos y medidas) y pulsar <b>"💾 Registrar Nueva Incidencia"</b>.</li>
+            <li><strong>3️⃣ Añadir Alumnos:</strong> Si falta un alumno/a en la lista, abre el panel azul <b>"➕ Matricular Nuevo Alumno/a"</b>, escribe sus apellidos y nombre, y guárdalo para que aparezca al instante.</li>
+            <li><strong>4️⃣ 👁 Ver Historial:</strong> Este botón amarillo te permite consultar todas las incidencias pasadas de un alumno/a o borrar una incidencia específica si te has equivocado al registrarla.</li>
+            <li><strong>5️⃣ 🖨 Imprimir / Exportar PDF:</strong> Crea un informe oficial de disciplina con el membrete del centro, ideal para imprimir o para entregárselo a Jefatura y a las familias.</li>
+            <li><strong>6️⃣ 🗑️ Dar de Baja:</strong> Si un alumno se marcha del centro, pulsa este botón gris. Su nombre desaparecerá del listado, pero <b>sus incidencias previas se conservarán intactas</b> en el archivo central.</li>
+          </ul>
+        </div>
+        <button class="btn-cerrar-modal" onclick="cerrarTutorial()">¡Entendido, a registrar! 🚀</button>
+      </div>
+    </div>
+
+    <!-- MODAL DE CONTRASEÑA DE DIRECCIÓN -->
+    <div id="modalClave" class="modal-overlay">
+      <div class="modal-content" style="max-width:400px;">
+        <div class="modal-titulo" style="color:#4c1130;border-color:#efe6ec;">🔒 Acceso a Dirección</div>
+        <p style="color:#555;font-size:14px;">Introduce la contraseña para consultar el resumen de incidencias por cursos.</p>
+        <input type="password" id="inputClave" placeholder="Contraseña" onkeydown="if(event.key==='Enter')entrarDireccion()">
+        <button class="btn-cerrar-modal" style="background:#4c1130;" onclick="entrarDireccion()">Entrar</button>
+        <button class="btn-cerrar-modal" style="background:#999;margin-top:8px;" onclick="cerrarModalClave()">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- PANEL PRIVADO DE DIRECCIÓN -->
+    <div id="panelDireccion">
+      <div class="dir-cabecera">
+        <h2>🏫 Panel de Dirección · Incidencias por curso</h2>
+        <button class="btn-cerrar-panel" onclick="cerrarDireccion()">✖ Cerrar</button>
+      </div>
+      <div class="dir-cuerpo" id="dirCuerpo">
+        <p style="text-align:center;color:#777;">Cargando...</p>
+      </div>
+    </div>
+
+    <script>
+      // 🟢 COMPROBACIÓN DEL TUTORIAL AL CARGAR LA PÁGINA
+      document.addEventListener('DOMContentLoaded', function() {
+        if (!localStorage.getItem('tutorial_incidencias_visto_v2')) {
+          abrirTutorial();
+        }
+      });
+
+      function abrirTutorial() { document.getElementById('modalTutorial').style.display = 'flex'; }
+      function cerrarTutorial() {
+        document.getElementById('modalTutorial').style.display = 'none';
+        localStorage.setItem('tutorial_incidencias_visto_v2', 'true');
+      }
+
+      // Escapa un texto para poder incrustarlo con seguridad dentro de un onclick="f('...')"
+      function escJS(s) {
+        return String(s)
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/"/g, '&quot;');
+      }
+      // Escapa un texto para mostrarlo como HTML
+      function escHTML(s) {
+        return String(s === null || s === undefined ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      google.script.run.withSuccessHandler(llenarSelectCursos).obtenerCursos();
+
+      function llenarSelectCursos(cursos) {
+        const select = document.getElementById('selectCurso');
+        select.innerHTML = '<option value="">-- Elige un curso --</option>';
+        cursos.forEach(curso => select.innerHTML += `<option value="${escHTML(curso)}">${escHTML(curso)}</option>`);
+      }
+
+      function cargarAlumnos() {
+        const curso = document.getElementById('selectCurso').value;
+        const lista = document.getElementById('listaAlumnos');
+        const cajaNuevo = document.getElementById('cajaNuevoAlumno');
+
+        lista.innerHTML = '';
+
+        if(!curso) {
+          cajaNuevo.style.display = 'none';
+          return;
+        }
+
+        cajaNuevo.style.display = 'block';
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('loader').innerText = 'Cargando alumnos... ⏳';
+
+        google.script.run.withSuccessHandler(mostrarAlumnos).obtenerAlumnos(curso);
+      }
+
+      function mostrarAlumnos(alumnos) {
+        document.getElementById('loader').style.display = 'none';
+        const lista = document.getElementById('listaAlumnos');
+
+        if(alumnos.length === 0) {
+          lista.innerHTML = '<p style="color: #555; text-align: center; background:white; padding:20px; border-radius:8px;">No hay alumnos registrados en este curso. Puedes añadir uno desplegando la caja azul de arriba 👆.</p>';
+          return;
+        }
+
+        alumnos.forEach((alumno, index) => {
+          const colores = ['#4285f4', '#ea4335', '#fbbc05', '#34a853', '#673ab7'];
+          const color = colores[index % colores.length];
+          const idUnico = 'alumno_' + index;
+          const a = escJS(alumno);
+
+          const htmlTarjeta = `
+            <details style="border-left-color: ${color}">
+              <summary>ALUMNO/A: ${escHTML(alumno)}</summary>
+              <div class="acciones">
+                <button type="button" class="btn-historial" onclick="verHistorial('${a}', '${idUnico}')">👁 Historial</button>
+                <button type="button" class="btn-imprimir" onclick="imprimirInforme('${a}', this)">🖨 Imprimir</button>
+                <button type="button" class="btn-pdf" onclick="descargarPDF('${a}', event)">📄 PDF</button>
+                <button type="button" class="btn-baja" onclick="eliminarEstudiante('${a}')">🗑️ Baja</button>
+              </div>
+              <div id="historial_${idUnico}" class="historial-box"></div>
+              <hr style="margin: 15px 0; border: 0.5px solid #eee;">
+              <form onsubmit="enviarIncidencia(event, '${a}')">
+                <div style="display: flex; gap: 10px;">
+                  <div style="flex: 1;"><label>Fecha:</label><input type="date" name="fecha" required></div>
+                  <div style="flex: 1;">
+                    <label>Gravedad:</label>
+                    <select name="tipo" required>
+                      <option value="">- Selecciona -</option>
+                      <option value="Leve">Leve</option>
+                      <option value="Grave">Grave</option>
+                      <option value="Muy Grave">Muy Grave</option>
+                    </select>
+                  </div>
+                </div>
+                <label>Maestro/a:</label><input type="text" name="maestro" placeholder="Nombre del docente que interviene" required>
+                <label>Descripción de los hechos:</label><textarea name="descripcion" rows="2" required></textarea>
+                <label>Medidas Adoptadas:</label><textarea name="medidas" rows="2" required></textarea>
+                <button type="submit" class="btn-guardar">💾 Registrar Nueva Incidencia</button>
+              </form>
+            </details>
+          `;
+          lista.innerHTML += htmlTarjeta;
+        });
+      }
+
+      function guardarNuevoAlumno() {
+        const curso = document.getElementById('selectCurso').value;
+        const input = document.getElementById('inputNuevoAlumno');
+        const nombre = input.value.trim();
+
+        if(!nombre) {
+           alert("❌ Por favor, escribe los apellidos y nombre del alumno/a.");
+           return;
+        }
+
+        input.disabled = true;
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('loader').innerText = 'Matriculando alumno/a en la base de datos... ⏳';
+        document.getElementById('listaAlumnos').innerHTML = '';
+
+        google.script.run
+          .withSuccessHandler(() => {
+            input.value = '';
+            input.disabled = false;
+            document.querySelector('.detalle-nuevo-alumno').removeAttribute('open');
+            alert('✅ Alumno/a añadido correctamente al curso.');
+            cargarAlumnos();
+          })
+          .withFailureHandler(err => {
+            input.disabled = false;
+            alert('❌ Error: ' + err);
+            cargarAlumnos();
+          })
+          .agregarAlumnoNuevo(curso, nombre);
+      }
+
+      function eliminarEstudiante(alumno) {
+        const seguro = confirm(`⚠️ ATENCIÓN: ¿Seguro que quieres dar de baja a ${alumno}?\n\nSu nombre desaparecerá de esta lista, pero sus incidencias se mantendrán intactas en Jefatura.`);
+        if(!seguro) return;
+
+        const curso = document.getElementById('selectCurso').value;
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('loader').innerText = 'Dando de baja al alumno/a... ⏳';
+        document.getElementById('listaAlumnos').innerHTML = '';
+
+        google.script.run
+          .withSuccessHandler(() => {
+            alert('✅ Alumno/a dado de baja correctamente.');
+            cargarAlumnos();
+          })
+          .withFailureHandler(err => {
+            alert('❌ Error: ' + err);
+            cargarAlumnos();
+          })
+          .borrarAlumno(curso, alumno);
+      }
+
+      function enviarIncidencia(event, nombreAlumno) {
+        event.preventDefault();
+        try {
+          const form = event.target;
+          const boton = form.querySelector('.btn-guardar');
+          boton.disabled = true;
+          boton.innerText = 'Guardando en Jefatura... ⏳';
+
+          const cursoVal = document.getElementById('selectCurso').value;
+          const fechaVal = form.querySelector('[name="fecha"]').value;
+          const maestroVal = form.querySelector('[name="maestro"]').value;
+          const tipoVal = form.querySelector('[name="tipo"]').value;
+          const descripcionVal = form.querySelector('[name="descripcion"]').value;
+          const medidasVal = form.querySelector('[name="medidas"]').value;
+
+          const datos = { curso: cursoVal, alumno: nombreAlumno, fecha: fechaVal, maestro: maestroVal, tipo: tipoVal, descripcion: descripcionVal, medidas: medidasVal };
+
+          google.script.run
+            .withSuccessHandler(() => {
+              alert('¡Incidencia guardada correctamente en el Cuaderno Central!');
+              form.reset();
+              boton.disabled = false;
+              boton.innerText = '💾 Registrar Nueva Incidencia';
+            })
+            .withFailureHandler((error) => {
+              alert("Error al guardar en el servidor: " + error);
+              boton.disabled = false;
+              boton.innerText = '💾 Registrar Nueva Incidencia';
+            })
+            .guardarIncidencia(datos);
+
+        } catch (err) {
+          alert("Error crítico en el formulario web: " + err.message);
+          const btn = event.target.querySelector('.btn-guardar');
+          if(btn) { btn.disabled = false; btn.innerText = '💾 Registrar Nueva Incidencia'; }
+        }
+      }
+
+      function verHistorial(alumno, idUnico) {
+        const curso = document.getElementById('selectCurso').value;
+        const caja = document.getElementById('historial_' + idUnico);
+
+        if (caja.style.display === 'block') {
+            caja.style.display = 'none';
+            return;
+        }
+
+        caja.style.display = 'block';
+        caja.innerHTML = 'Buscando incidencias... ⏳';
+
+        google.script.run.withSuccessHandler(historial => {
+          if(historial.length === 0) {
+            caja.innerHTML = '<strong>✅ No hay incidencias registradas.</strong>';
+            return;
+          }
+          let html = `<strong style="color:#ea4335;">Historial (${historial.length} incidencias):</strong><br><br>`;
+          historial.forEach(inc => {
+            html += `<div class="incidencia-item">
+              <button type="button" class="btn-borrar" onclick="confirmarBorrado(${inc.fila}, '${escJS(alumno)}', '${idUnico}')">🗑️ Borrar</button>
+              📅 ${escHTML(inc.fecha)} | <strong style="color:#ea4335;">${escHTML(inc.tipo)}</strong> | 🧑‍🏫 ${escHTML(inc.maestro)}<br>
+              <em>Desc:</em> ${escHTML(inc.descripcion)}<br>
+              <em>Medidas:</em> ${escHTML(inc.medidas)}
+            </div>`;
+          });
+          caja.innerHTML = html;
+        }).obtenerHistorial(curso, alumno);
+      }
+
+      function confirmarBorrado(fila, alumno, idUnico) {
+        const seguro = confirm("⚠️ ¿Estás seguro de que deseas borrar esta incidencia de " + alumno + "?\n\nEsta acción la eliminará definitivamente del Cuaderno Central.");
+        if (!seguro) return;
+
+        const curso = document.getElementById('selectCurso').value;
+        const caja = document.getElementById('historial_' + idUnico);
+        caja.innerHTML = 'Borrando incidencia... ⏳';
+
+        google.script.run
+          .withSuccessHandler(() => { alert("✅ Incidencia borrada correctamente."); caja.style.display = 'none'; verHistorial(alumno, idUnico); })
+          .withFailureHandler(error => { alert("❌ Error al borrar: " + error); })
+          .eliminarIncidencia(curso, fila);
+      }
+
+      function descargarPDF(alumno, event) {
+        const curso = document.getElementById('selectCurso').value;
+        const boton = event.target;
+        const textoOriginal = boton.innerText;
+        boton.innerText = 'Generando... ⏳';
+        boton.disabled = true;
+
+        google.script.run
+          .withSuccessHandler(url => { boton.innerText = textoOriginal; boton.disabled = false; window.open(url, '_blank'); })
+          .withFailureHandler(error => { alert("Ocurrió un problema: " + error); boton.innerText = textoOriginal; boton.disabled = false; })
+          .generarPDF(curso, alumno);
+      }
+
+      // ==========================================================================
+      // --- IMPRIMIR INFORME (con membretes del centro) ---
+      // ==========================================================================
+      function imprimirInforme(alumno, btnEl, cursoParam) {
+        const curso = cursoParam || document.getElementById('selectCurso').value;
+        const textoOriginal = btnEl ? btnEl.innerText : '';
+        if (btnEl) { btnEl.innerText = 'Preparando... ⏳'; btnEl.disabled = true; }
+
+        google.script.run
+          .withSuccessHandler(html => {
+            if (btnEl) { btnEl.innerText = textoOriginal; btnEl.disabled = false; }
+            lanzarImpresion(html);
+          })
+          .withFailureHandler(error => {
+            if (btnEl) { btnEl.innerText = textoOriginal; btnEl.disabled = false; }
+            alert("No se pudo generar el informe para imprimir: " + error);
+          })
+          .generarInformeHTML(curso, alumno);
+      }
+
+      // Imprime el HTML del informe mediante un iframe oculto (evita bloqueadores de pop-ups)
+      function lanzarImpresion(html) {
+        const anterior = document.getElementById('iframeImpresion');
+        if (anterior) anterior.remove();
+
+        const iframe = document.createElement('iframe');
+        iframe.id = 'iframeImpresion';
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        // Damos un margen para que carguen las imágenes (membretes en base64) antes de imprimir
+        setTimeout(function() {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (e) {
+            alert("Tu navegador ha bloqueado la impresión. Inténtalo de nuevo.");
+          }
+        }, 600);
+      }
+
+      // ==========================================================================
+      // --- ZONA PRIVADA DE DIRECCIÓN ---
+      // ==========================================================================
+      function abrirDireccion() {
+        document.getElementById('inputClave').value = '';
+        document.getElementById('modalClave').style.display = 'flex';
+        setTimeout(() => document.getElementById('inputClave').focus(), 100);
+      }
+      function cerrarModalClave() { document.getElementById('modalClave').style.display = 'none'; }
+      function cerrarDireccion() { document.getElementById('panelDireccion').style.display = 'none'; }
+
+      function entrarDireccion() {
+        const clave = document.getElementById('inputClave').value;
+        if (!clave) { alert('Introduce la contraseña.'); return; }
+
+        const dirCuerpo = document.getElementById('dirCuerpo');
+        dirCuerpo.innerHTML = '<p style="text-align:center;color:#777;">Cargando resumen de incidencias... ⏳</p>';
+
+        google.script.run
+          .withSuccessHandler(res => {
+            if (!res || !res.ok) {
+              alert('❌ Contraseña incorrecta.');
+              return;
+            }
+            cerrarModalClave();
+            document.getElementById('panelDireccion').style.display = 'block';
+            renderDireccion(res);
+          })
+          .withFailureHandler(err => { alert('❌ Error al acceder: ' + err); })
+          .obtenerResumenDireccion(clave);
+      }
+
+      function renderDireccion(res) {
+        const dirCuerpo = document.getElementById('dirCuerpo');
+
+        if (!res.cursos || res.cursos.length === 0) {
+          dirCuerpo.innerHTML = '<p style="text-align:center;color:#777;padding:30px;">Todavía no hay ninguna incidencia registrada en el centro. 🎉</p>';
+          return;
+        }
+
+        let html = `
+          <div class="dir-resumen">
+            <div class="dir-tarjeta-num"><div class="n">${res.totalIncidencias}</div><div class="t">Incidencias</div></div>
+            <div class="dir-tarjeta-num"><div class="n">${res.totalAlumnos}</div><div class="t">Alumnos implicados</div></div>
+            <div class="dir-tarjeta-num"><div class="n">${res.cursos.length}</div><div class="t">Cursos afectados</div></div>
+          </div>`;
+
+        res.cursos.forEach((c, ci) => {
+          html += `<div class="dir-curso">
+            <div class="dir-curso-titulo">📚 ${escHTML(c.curso)} <span class="cuenta">${c.totalCurso} incidencia(s)</span></div>`;
+
+          c.alumnos.forEach((al, ai) => {
+            const idBox = 'dirhist_' + ci + '_' + ai;
+            const a = escJS(al.nombre);
+            const cu = escJS(c.curso);
+            let badges = `<span class="badge-g total">${al.total} total</span>`;
+            if (al.leves) badges += `<span class="badge-g leve">${al.leves} leve(s)</span>`;
+            if (al.graves) badges += `<span class="badge-g grave">${al.graves} grave(s)</span>`;
+            if (al.muyGraves) badges += `<span class="badge-g muygrave">${al.muyGraves} muy grave(s)</span>`;
+
+            html += `<div class="dir-alumno">
+              <div class="dir-alumno-fila">
+                <div>
+                  <div class="dir-alumno-nombre">👤 ${escHTML(al.nombre)}</div>
+                  <div class="dir-badges">${badges}</div>
+                </div>
+                <div class="dir-acciones">
+                  <button class="dir-btn-hist" onclick="verHistorialDir('${cu}','${a}','${idBox}')">👁 Historial</button>
+                  <button class="dir-btn-print" onclick="imprimirInforme('${a}', this, '${cu}')">🖨 Imprimir</button>
+                </div>
+              </div>
+              <div id="${idBox}" class="dir-hist-box"></div>
+            </div>`;
+          });
+
+          html += `</div>`;
+        });
+
+        dirCuerpo.innerHTML = html;
+      }
+
+      function verHistorialDir(curso, alumno, idBox) {
+        const caja = document.getElementById(idBox);
+        if (caja.style.display === 'block') { caja.style.display = 'none'; return; }
+
+        caja.style.display = 'block';
+        caja.innerHTML = 'Buscando incidencias... ⏳';
+
+        google.script.run.withSuccessHandler(historial => {
+          if (historial.length === 0) { caja.innerHTML = '<strong>✅ Sin incidencias.</strong>'; return; }
+          let html = `<strong style="color:#4c1130;">Historial (${historial.length}):</strong><br><br>`;
+          historial.forEach(inc => {
+            html += `<div class="incidencia-item">
+              📅 ${escHTML(inc.fecha)} | <strong style="color:#ea4335;">${escHTML(inc.tipo)}</strong> | 🧑‍🏫 ${escHTML(inc.maestro)}<br>
+              <em>Desc:</em> ${escHTML(inc.descripcion)}<br>
+              <em>Medidas:</em> ${escHTML(inc.medidas)}
+            </div>`;
+          });
+          caja.innerHTML = html;
+        }).obtenerHistorial(curso, alumno);
+      }
+    </script>
+  </body>
+</html>
