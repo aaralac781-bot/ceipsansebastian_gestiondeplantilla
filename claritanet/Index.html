@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Bitter:ital,wght@0,400;0,600;0,700;1,400&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<title>Claritanet</title>
+<!-- Claritanet -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#7A1B39">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Claritanet">
+<!-- icono del centro 180px: pega aqui el <link rel="apple-touch-icon" href="..."> de Claritanet -->
+<!-- icono del centro 192px: pega aqui el <link rel="icon" ...> de Claritanet -->
+<?!= include("Styles"); ?>
+</head>
+<body>
+
+<!-- ═══════ LOGIN ═══════ -->
+<div id="login-screen">
+  <div class="login-sheet">
+    <div class="login-logo-row">
+      <!-- logo del centro: pega aqui el <img class="login-logo" src="..." alt="Claritanet"> -->
+      <div>
+        <div class="login-school-name">Claritanet</div>
+        <div class="login-school-sub">CEIP Clara Campoamor</div>
+      </div>
+    </div>
+    <h1 id="login-greeting">Bienvenido/a!</h1> 
+<p id="login-quote">Accede con tu cuenta del centro</p>
+    <form id="login-form" onsubmit="doLogin();return false;" autocomplete="on">
+    <input type="email" id="inp-email" name="username" class="inp" placeholder="correo@g.educaand.es" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('inp-pass').focus()">
+    <input type="password" id="inp-pass" name="password" class="inp" placeholder="Contraseña de la app" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-primary" id="btn-login" type="submit">Acceder</button>
+    </form>
+    <div id="login-err"></div>
+    <div id="login-spin">...</div>
+  </div>
+</div>
+
+<!-- ═══════ APP ═══════ -->
+<div id="app">
+  <header class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-avatar" id="hdr-avatar">D</div>
+      <div>
+        <div id="hdr-name">Docente</div>
+        <div id="hdr-sub">CEIP Clara Campoamor</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <button id="btn-refresh" onclick="refreshManual()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        <span id="badge-new"></span>
+      </button>
+      <!-- logo cabecera: pega aqui el <img src="..." style="height:32px;border-radius:8px"> de Claritanet -->
+    </div>
+  </header>
+
+  <div id="toast">Hay novedades en la agenda!</div>
+
+  <div class="res-bar" id="res-bar">
+    <button class="btn-back" onclick="closeIframe()">Cerrar</button>
+    <select id="dd-tutor" style="display:none" onchange="if(this.value)loadIframe(this.value)">
+      <option value="">Recursos del Curso...</option>
+      <option value="">Lista alumnado imprimir</option>
+      <option value="">Acta 1 Evaluacion</option>
+      <option value="">Acta 2 Evaluacion</option>
+      <option value="">Acta Evaluacion Ordinaria</option>
+    </select>
+    <select id="dd-sust" style="display:none" onchange="if(this.value)loadIframe(this.value)">
+      <option value="">Seleccionar Curso...</option>
+      <option value="">1 A</option>
+    </select>
+    <select id="dd-inc" style="display:none" onchange="if(this.value)loadIframe(this.value)">
+      <option value="">Curso Incidencias...</option>
+      <option value="">Infantil</option>
+    </select>
+<script>
+/* ── CUADERNO DE HORARIOS (letrero + 4 origenes) ── */
+function openHorariosDetail(){
+  var ov=document.getElementById('ov-horarios'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='ov-horarios';
+  ov.style.cssText='position:fixed;inset:0;background:#f1f5f9;z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch';
+  var opts='', first='', sel=document.getElementById('sched-sel');
+  if(sel){ Array.prototype.forEach.call(sel.options,function(o){ if(o.value){ if(!first)first=o.value; opts+='<option value="'+o.value+'"'+(o.value===sel.value?' selected':'')+'>'+o.text+'</option>'; } }); if(sel.value)first=sel.value; }
+  if(!opts) opts='<option value="">(abre Al Día para cargar la plantilla)</option>';
+  ov.innerHTML=
+    '<div style="position:sticky;top:0;background:#F59E0B;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;z-index:3">'+
+      '<button onclick="document.getElementById(\'ov-horarios\').remove()" style="background:rgba(255,255,255,.25);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px">&#8592; Volver</button>'+
+      '<div style="font-size:1.05rem;font-weight:800">Cuaderno de horarios</div></div>'+
+    '<div style="margin:12px;border-radius:18px;padding:16px 16px 12px;color:#fff;background:linear-gradient(135deg,#0B132B 0%,#1e2a52 55%,#5B21B6 130%);box-shadow:0 8px 24px rgba(11,19,43,.3)">'+
+      '<div style="font-size:1.15rem;font-weight:800">Cuaderno de horarios</div>'+
+      '<div style="font-size:.75rem;opacity:.85;margin-top:2px">CEIP Clara Campoamor · se actualiza en cada exportación</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px">'+
+        _legChip('#2563eb','Grupo','horario del curso')+_legChip('#7C3AED','Maestro','horario personal')+
+        _legChip('#F59E0B','Luciérnaga','refuerzo · sustit.')+_legChip('#EC4899','Recreo','maestro y grupo')+'</div></div>'+
+    '<div style="padding:0 12px"><label style="font-size:.72rem;font-weight:700;color:#64748b">MAESTRO/A</label>'+
+      '<select id="cuad-hor-sel" style="width:100%;margin-top:4px;padding:9px 10px;border-radius:10px;border:1px solid #e2e8f0;font-weight:600" onchange="cargarCuadHorarios(this.value)">'+opts+'</select></div>'+
+    '<div id="cuad-hor-body" style="padding:12px">Cargando horarios...</div>';
+  document.body.appendChild(ov);
+  cargarCuadHorarios(first);
+}
+function _legChip(color,titulo,sub){
+  return '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:7px 9px">'+
+    '<span style="width:14px;height:14px;border-radius:5px;background:'+color+';flex:0 0 auto"></span>'+
+    '<span style="font-size:.72rem;font-weight:700;line-height:1.1">'+titulo+'<br><span style="font-weight:500;opacity:.8;font-size:.62rem">'+sub+'</span></span></div>';
+}
+function cargarCuadHorarios(name){
+  var b=document.getElementById('cuad-hor-body'); if(b) b.innerHTML='Cargando horarios...';
+  google.script.run.withSuccessHandler(renderCuadHorarios)
+    .withFailureHandler(function(){ if(b) b.innerHTML='<div style="padding:14px;background:#fff;border-radius:14px">No se pudieron cargar los horarios.</div>'; })
+    .getCuadHorarios(name||'','');
+}
+function cuadranteRecreoHTML(c){
+  if(!c || (!c.primaria && !c.infantil)){
+    return '<div style="padding:10px 14px;margin-bottom:14px;background:#fff;border-radius:14px;color:#64748b;font-size:.78rem">Sin cuadrante de recreo publicado.</div>';
+  }
+  var D=['L','M','X','J','V'];
+  function tabla(titulo,color,node){
+    if(!node || !node.puestos || !node.puestos.length) return '';
+    var h='<div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px;overflow:hidden">';
+    h+='<div style="background:'+color+';color:#fff;font-weight:800;padding:10px 14px">'+titulo+'</div>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:420px">';
+    h+='<tr style="background:#0B132B;color:#fff"><th style="padding:5px 6px;text-align:left">Puesto</th>';
+    D.forEach(function(d){ h+='<th style="padding:5px 4px">'+d+'</th>'; }); h+='</tr>';
+    node.puestos.forEach(function(p,i){
+      var fila=(node.filas && node.filas[p]) || ['','','','',''];
+      h+='<tr style="background:'+(i%2?'#f8fafc':'#fff')+'"><td style="padding:4px 6px;font-weight:700;color:#334155;border-top:1px solid #eef2f7;white-space:nowrap">'+p+'</td>';
+      for(var k=0;k<5;k++){ var v=fila[k]||''; h+='<td style="padding:4px 4px;text-align:center;border-top:1px solid #eef2f7;border-left:1px solid #f1f5f9">'+(v||'<span style="color:#e2e8f0">&mdash;</span>')+'</td>'; }
+      h+='</tr>';
+    });
+    h+='</table></div>';
+    if(node.nota) h+='<div style="padding:8px 14px;font-size:.68rem;color:#64748b;border-top:1px solid #f1f5f9">'+node.nota+'</div>';
+    h+='</div>';
+    return h;
+  }
+  var out='';
+  out+=tabla('Recreo · Vigilancia de Primaria'+(c.mesLabel?' · '+c.mesLabel:''),'#EC4899',c.primaria);
+  out+=tabla('Recreo · Vigilancia de Infantil','#F59E0B',c.infantil);
+  return out || '<div style="padding:10px 14px;margin-bottom:14px;background:#fff;border-radius:14px;color:#64748b;font-size:.78rem">Sin cuadrante de recreo publicado.</div>';
+}
+function renderCuadHorarios(r){
+  var body=document.getElementById('cuad-hor-body'); if(!body) return;
+  if(!r||!r.ok){ body.innerHTML='<div style="padding:14px;background:#fff;border-radius:14px">'+((r&&r.error)||'Error')+'</div>'; return; }
+  if(!r.tramos||!r.tramos.length){ body.innerHTML='<div style="padding:14px;background:#fff;border-radius:14px">Sin horario para <b>'+(r.teacher||'')+'</b>. Publícalo desde la App con <b>Exportar horarios a SSNet</b>.</div>'; return; }
+  var D=['L','M','X','J','V'];
+  function tabla(titulo,color,datos){
+    var h='<div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px;overflow:hidden"><div style="background:'+color+';color:#fff;font-weight:800;padding:10px 14px">'+titulo+'</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:340px"><tr style="background:#0B132B;color:#fff"><th style="padding:5px 6px;text-align:left">Hora</th>';
+    D.forEach(function(d){ h+='<th style="padding:5px 4px">'+d+'</th>'; }); h+='</tr>';
+    var hay=false;
+    r.tramos.forEach(function(t,i){ var fila=datos[t]||['','','','','']; if(fila.some(function(x){return x;}))hay=true;
+      h+='<tr style="background:'+(i%2?'#f8fafc':'#fff')+'"><td style="padding:4px 6px;font-weight:700;color:#64748b;white-space:nowrap;border-top:1px solid #eef2f7">'+t+'</td>';
+      fila.forEach(function(c){ h+='<td style="padding:4px 4px;text-align:center;border-top:1px solid #eef2f7;border-left:1px solid #f1f5f9">'+(c||'<span style="color:#e2e8f0">&mdash;</span>')+'</td>'; }); h+='</tr>'; });
+    h+='</table></div></div>'; return hay?h:'';
+  }
+  function listaRecreo(titulo,color,arr){
+    if(!arr||!arr.length) return '';
+    var h='<div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px;overflow:hidden"><div style="background:'+color+';color:#fff;font-weight:800;padding:10px 14px">'+titulo+'</div><div style="padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px">';
+    arr.forEach(function(x){ h+='<span style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:999px;padding:3px 9px;font-size:.7rem;font-weight:700;color:#9d174d">'+x.fecha+' · '+x.zona+'</span>'; });
+    h+='</div></div>'; return h;
+  }
+  var out='';
+  out+=tabla('Horario del maestro/a — '+(r.teacher||''),'#7C3AED',r.maestro);
+  if(r.group) out+=tabla('Horario del grupo '+r.group,'#2563eb',r.grupo);
+  out+=tabla('Refuerzo / Luciérnaga','#F59E0B',r.refuerzo)||'<div style="padding:10px 14px;margin-bottom:14px;background:#fff;border-radius:14px;color:#64748b;font-size:.78rem">Sin horas de refuerzo/luciérnaga.</div>';
+   out+=cuadranteRecreoHTML(r.recreoCuad);
+  body.innerHTML=out;
+}
+
+</script>
+  
+  </div>
+
+  <main class="main" id="main">
+    <div id="iframe-wrap">
+      <iframe class="embed-frame" id="app-frame" src="" allowfullscreen></iframe>
+    </div>
+
+    <!-- ═══ AL DIA ═══ -->
+    <section id="v-aldia" class="view on">
+      <div class="welcome">
+        <div class="welcome-name" id="welcome-name">Cargando...</div>
+        <div class="welcome-quote" id="welcome-quote"></div>
+      </div>
+      <div id="refresh-bar"><div id="rdot"></div><span id="rlabel">Actualiza en 90s</span></div>
+
+
+      <!-- TABLÓN DE ANUNCIOS -->
+      <div id="tablon-section" style="margin-bottom:14px">
+        <div style="font-size:.7rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#64748b;margin:16px 0 8px;display:flex;align-items:center;gap:6px">
+          📌 Tablón de anuncios
+          <span style="flex:1;height:1px;background:#e2e8f0;display:block"></span>
+        </div>
+        <div id="tablon-items-box">
+          <div style="font-size:.8rem;color:#94a3b8;padding:12px;text-align:center">Cargando...</div>
+        </div>
+      </div>
+      <!-- Horario del dia -->
+      <div class="sec-title">Horario de Hoy</div>
+      <select id="sched-sel" class="form-sel" onchange="fetchSchedule(this.value)">
+        <option value="">Cargando plantilla...</option>
+      </select>
+      <div id="sched-box"></div>
+
+      <!-- Sustituciones del dia -->
+      <div class="sec-title" style="color:#ef4444">Sustituciones</div>
+      <div id="sust-box"><div class="no-ev">Sin sustituciones hoy.</div></div>
+
+      <!-- Recreo del dia -->
+      <div class="sec-title" style="color:#10b981">Recreo de Hoy</div>
+      <div id="recreo-box"><div class="no-ev">Sin cuadrante de recreo publicado.</div></div>
+
+      <!-- Eventos del dia (cronograma/proyectos) -->
+      <div class="sec-title">Eventos del Dia</div>
+      <div id="aldia-box" class="card"><div class="no-ev">Cargando...</div></div>
+    </section>
+
+    <!-- ═══ AGENDA ═══ -->
+    <section id="v-agenda" class="view">
+      <!-- Calendario mensual -->
+      <div class="cal-wrap">
+        <div class="cal-top">
+          <button class="cal-nav" onclick="shiftMonth(-1)">&#9664;</button>
+          <span id="cal-title">...</span>
+          <button class="cal-nav" onclick="shiftMonth(1)">&#9654;</button>
+        </div>
+        <div id="cal-grid" class="cal-grid"></div>
+      </div>
+      <!-- Vista semanal con desplegables por dia -->
+      <div class="sec-title">Semana en Curso</div>
+      <div id="week-box"></div>
+    </section>
+
+    <!-- CUADERNOS -->
+    <section id="v-cuadernos" class="view">
+      <div id="cuad-main">
+        <div style="background:linear-gradient(135deg,#0B132B,#1c2541);border-radius:14px;padding:18px 16px;margin-bottom:16px;color:white;position:relative;overflow:hidden"><div style="font-size:1.1rem;font-weight:800;margin-bottom:4px">Cuadernos y Documentos</div><div style="font-size:.75rem;opacity:.7">Accede a tus cuadernos de tutor/a y documentos del centro</div></div>
+        
+        <div class="sec-title">Mis Cuadernos de Tutor/a</div>
+        <div id="cuad-libros-box"><div class="no-ev" style="padding:14px">Cargando...</div></div>
+                <div class="sec-title" style="margin-top:20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="toggleCuadSec('docs-centro-box','arr-docs')">
+          <span>📁 Documentos del Centro</span>
+          <span id="arr-docs" style="font-size:.9rem;color:#94a3b8;transition:transform .2s">▾</span>
+        </div>
+        <div id="docs-centro-box" style="display:none">
+          <div style="text-align:center;padding:16px;color:#94a3b8;font-size:.8rem">Cargando documentos...</div>
+        </div>
+        <div class="sec-title" style="margin-top:16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="toggleCuadSec('actas-centro-box','arr-actas')">
+          <span>📋 Actas del Centro</span>
+          <span id="arr-actas" style="font-size:.9rem;color:#94a3b8;transition:transform .2s">▾</span>
+        </div>
+        <div id="actas-centro-box" style="display:none">
+          <div style="text-align:center;padding:16px;color:#94a3b8;font-size:.8rem">Cargando actas...</div>
+        </div>
+        <div class="sec-title" style="margin-top:16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="toggleCuadSec('drive-centro-box','arr-drive')">
+          <span>💽 Drive del Centro</span>
+          <span id="arr-drive" style="font-size:.9rem;color:#94a3b8;transition:transform .2s">▾</span>
+        </div>
+        <div id="drive-centro-box" style="display:none">
+          <div style="text-align:center;padding:16px;color:#94a3b8;font-size:.8rem">Cargando Drive...</div>
+        </div>
+      </div>
+      <div id="cuad-inner" style="display:none;animation:fadeIn .22s ease"></div>
+    </section>
+
+    <!-- ═══ PROYECTOS ═══ -->
+    <section id="v-proyectos" class="view">
+      <div class="sec-title">Calendario de Proyectos</div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <button onclick="shiftMonthProy(-1)" style="border:none;background:#f1f5f9;border-radius:8px;width:34px;height:34px;font-size:.9rem;cursor:pointer;color:#0B132B">&#9664;</button>
+          <div id="pcal-title" style="font-weight:800;color:#0B132B"></div>
+          <button onclick="shiftMonthProy(1)" style="border:none;background:#f1f5f9;border-radius:8px;width:34px;height:34px;font-size:.9rem;cursor:pointer;color:#0B132B">&#9654;</button>
+        </div>
+        <div id="pcal-grid" class="cal-grid"></div>
+      </div>
+      <div class="sec-title" id="proy-ev-title">Pr&oacute;ximos eventos</div>
+      <div id="proy-box"><div class="no-ev">Cargando...</div></div>
+      <div class="sec-title">Proyectos del centro</div>
+      <div id="proy-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px"><div class="no-ev">Cargando...</div></div>
+
+      <!-- Detalle: carpeta navegable del proyecto -->
+      <div id="proy-detail" class="util-panel" style="display:none">
+        <div class="util-panel-hdr"><span id="proy-detail-title">Proyecto</span><button class="btn-back" onclick="closeProyDetail()">X</button></div>
+        <div id="proy-folder-box" style="margin-top:10px"></div>
+      </div>
+    </section>
+
+    <!-- ═══ UTILIDADES ═══ -->
+    <section id="v-util" class="view">
+      <div class="sec-title">Herramientas</div>
+      <div class="util-grid">
+        <button class="util-btn" onclick="showPanel('p-cartelera')"><div class="util-ico">&#127916;</div><span>Cartelera</span></button>
+        <button class="util-btn" onclick="openEmbed('','')"><div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="43" rx="20" ry="4" fill="#15803d" opacity=".5"/><path d="M6 10h30a4 4 0 014 4v14a4 4 0 01-4 4H18l-8 7v-7H6a4 4 0 01-4-4V14a4 4 0 014-4z" fill="white" opacity=".97"/><path d="M6 10h30a4 4 0 014 4v3H2v-3a4 4 0 014-4z" fill="#22C55E" opacity=".85"/><circle cx="13" cy="24" r="2.3" fill="#22C55E"/><circle cx="21" cy="24" r="2.3" fill="#4ADE80"/><circle cx="29" cy="24" r="2.3" fill="#86EFAC"/><rect x="38" y="30" width="3" height="12" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="39.5" cy="26" rx="6" ry="6.5" fill="#166534" opacity=".8"/></svg></div><span>Centro de Comunicaciones SSNet</span></button>
+        <button class="util-btn" data-url="https%3A%2F%2Fprofes.tv%2Frecursos.html" onclick="openEmbedEnc(this)"><div class="util-ico" style="font-size:.62rem;font-weight:900;letter-spacing:-.5px">profes<span style="color:#b91c1c">.tv</span></div><span>profes.tv &middot; IA en el aula<br><small style="font-weight:400;opacity:.7">de C&eacute;sar Poyatos</small></span></button>
+        <button class="util-btn" onclick="showPanel('p-fotos')"><div class="util-ico">&#128248;</div><span>Subir Fotos al Drive</span></button>
+        <button class="util-btn" onclick="showPanel('p-galeria')">
+          <div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="2" y="42" width="44" height="5" rx="2.5" fill="#15803d" opacity=".4"/><rect x="38" y="30" width="3" height="12" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="39" cy="27" rx="6" ry="5" fill="#15803d" opacity=".7"/><rect x="2" y="4" width="20" height="14" rx="3" fill="#0B132B" opacity=".9"/><rect x="4" y="6" width="16" height="10" rx="2" fill="#166534" opacity=".7"/><circle cx="8" cy="10" r="2" fill="#FCD34D" opacity=".7"/><rect x="24" y="4" width="22" height="14" rx="3" fill="#0B132B" opacity=".9"/><rect x="26" y="6" width="18" height="10" rx="2" fill="#1e3a5f" opacity=".7"/><circle cx="30" cy="11" r="3" fill="#EF4444" opacity=".7"/><rect x="2" y="20" width="20" height="14" rx="3" fill="#0B132B" opacity=".9"/><rect x="4" y="22" width="16" height="10" rx="2" fill="#4c1d95" opacity=".6"/><circle cx="7" cy="25" r="1.5" fill="#4ADE80" opacity=".9"/><rect x="24" y="20" width="12" height="14" rx="3" fill="#0B132B" opacity=".9"/><rect x="26" y="22" width="8" height="10" rx="2" fill="#92400e" opacity=".6"/></svg></div>
+          <span>Ver Galería</span>
+        </button>
+        
+        <button class="util-btn" onclick="openSalasDetail()">
+          <div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><rect x="4" y="10" width="26" height="20" rx="5" fill="#0B132B" opacity=".9"/><rect x="6" y="12" width="22" height="16" rx="3" fill="#1e3a5f" opacity=".8"/><circle cx="12" cy="18" r="3" fill="#22C55E" opacity=".8"/><circle cx="20" cy="16" r="3" fill="#3B82F6" opacity=".8"/><circle cx="28" cy="18" r="3" fill="#EF4444" opacity=".7"/><rect x="14" y="24" width="8" height="4" rx="2" fill="#4ADE80" opacity=".7"/><path d="M30 20 L38 14 L38 28 Z" fill="#22C55E" opacity=".8"/><circle cx="8" cy="38" r="2" fill="#4ADE80" opacity=".9"/></svg></div>
+          <span>Salas Meet</span>
+        </button>
+        <button class="util-btn" onclick="window.open('','_blank')">
+          <div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><rect x="4" y="14" width="28" height="20" rx="5" fill="#FF5500" opacity=".9"/><circle cx="12" cy="24" r="6" fill="white" opacity=".9"/><circle cx="12" cy="24" r="3" fill="#FF5500" opacity=".9"/><rect x="22" y="18" width="6" height="2" rx="1" fill="white" opacity=".7"/><rect x="22" y="22" width="8" height="2" rx="1" fill="white" opacity=".6"/><rect x="22" y="26" width="5" height="2" rx="1" fill="white" opacity=".5"/><circle cx="38" cy="18" r="5" fill="#FCD34D" opacity=".8"/><circle cx="38" cy="14" r="3" fill="#FCD34D" opacity=".6"/></svg></div>
+          <span>Radio</span>
+        </button>
+        <button class="util-btn" onclick="abrirReservasEspacios()"><div class="util-ico">&#128273;</div><span>Reservas</span></button>
+                <button class="util-btn" onclick="window.open('','_blank')">
+          <div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="8" y="24" width="32" height="18" rx="2.5" fill="#0f4d31"/><rect x="8" y="24" width="32" height="6" rx="2.5" fill="#1c6b45"/><rect x="20" y="21" width="8" height="4" rx="1.2" fill="#123f28"/><rect x="19" y="7" width="12" height="15" rx="1.5" fill="#fff"/><line x1="22" y1="11" x2="28" y2="11" stroke="#9a6b12" stroke-width="1.3" stroke-linecap="round"/><line x1="22" y1="14" x2="28" y2="14" stroke="#cbd5e1" stroke-width="1.3" stroke-linecap="round"/><line x1="22" y1="17" x2="26" y2="17" stroke="#cbd5e1" stroke-width="1.3" stroke-linecap="round"/><circle cx="38" cy="10" r="3.5" fill="#F59E0B" opacity=".85"/></svg></div>
+          <span>Consejo Escolar</span>
+        </button>
+      </div>
+      <div id="p-cartelera" class="util-panel">
+        <div class="util-panel-hdr"><span>Cartelera</span><button class="btn-back" onclick="hidePanel('p-cartelera')">X</button></div>
+        <div id="cartelera-box"><div class="no-ev" style="padding:20px;text-align:center">Cargando...</div></div>
+      </div>
+      <div id="p-salas" class="util-panel">
+        <div class="util-panel-hdr">
+          <span>Salas de Reuniones</span>
+          <button class="btn-back" onclick="hidePanel('p-salas')">X</button>
+        </div>
+        <div class="util-panel-body">
+          <div style="font-size:.8rem;color:#64748b;margin-bottom:14px">Pulsa para entrar directamente a la reunión. Los enlaces son fijos — siempre el mismo para cada equipo.</div>
+          <div onclick="openEmbed('','')" style="background:#dbeafe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><circle cx="12" cy="14" r="5" fill="#1e40af" opacity=".9"/><circle cx="24" cy="12" r="5.5" fill="#1e40af"/><circle cx="36" cy="14" r="5" fill="#1e40af" opacity=".9"/><path d="M5 32 Q5 23 12 23 Q19 23 19 32" fill="#1d4ed8" opacity=".7"/><path d="M17 32 Q17 22 24 22 Q31 22 31 32" fill="#2563eb"/><path d="M29 32 Q29 23 36 23 Q43 23 43 32" fill="#1d4ed8" opacity=".7"/><circle cx="12" cy="7" r="1.5" fill="#FCD34D" opacity=".8"/><circle cx="24" cy="5" r="1.5" fill="#FCD34D" opacity=".8"/><circle cx="36" cy="7" r="1.5" fill="#FCD34D" opacity=".8"/></svg></div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.92rem;color:#0B132B">ETCP</div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:2px">Equipo Tecnico de Coordinacion Pedagogica</div>
+            </div>
+            <div style="background:#0B132B;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+          </div>
+          <div onclick="openEmbed('','')" style="background:#d1fae5;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".5"/><rect x="20" y="33" width="3" height="10" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="21" cy="30" rx="8" ry="6" fill="#15803d" opacity=".7"/><circle cx="8" cy="18" r="4" fill="#22C55E" opacity=".9"/><circle cx="16" cy="15" r="4.5" fill="#16a34a"/><circle cx="24" cy="13" r="5" fill="#15803d"/><circle cx="32" cy="15" r="4.5" fill="#16a34a"/><circle cx="40" cy="18" r="4" fill="#22C55E" opacity=".9"/><path d="M3 32 Q3 26 8 26 Q13 26 13 32" fill="#22C55E" opacity=".6"/><path d="M10 32 Q10 24 16 24 Q22 24 22 32" fill="#16a34a" opacity=".7"/><path d="M26 32 Q26 24 32 24 Q38 24 38 32" fill="#16a34a" opacity=".7"/><path d="M35 32 Q35 26 40 26 Q45 26 45 32" fill="#22C55E" opacity=".6"/></svg></div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.92rem;color:#14532d">Claustro</div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:2px">Todo el equipo docente</div>
+            </div>
+            <div style="background:#14532d;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+          </div>
+          <div onclick="openEmbed('','')" style="background:#ede9fe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".55"/><rect x="8" y="16" width="32" height="22" rx="5" fill="#ede9fe" opacity=".9"/><rect x="8" y="16" width="32" height="8" rx="5" fill="#7C3AED" opacity=".8"/><rect x="8" y="20" width="32" height="4" fill="#7C3AED" opacity=".8"/><circle cx="16" cy="20" r="2.5" fill="white" opacity=".9"/><circle cx="24" cy="20" r="2.5" fill="white" opacity=".9"/><circle cx="32" cy="20" r="2.5" fill="white" opacity=".9"/><line x1="12" y1="30" x2="36" y2="30" stroke="#c4b5fd" stroke-width="1.5"/><line x1="12" y1="34" x2="28" y2="34" stroke="#c4b5fd" stroke-width="1.5"/><circle cx="8" cy="10" r="4" fill="#EC4899" opacity=".8"/><circle cx="8" cy="7" r="2.5" fill="#F9A8D4" opacity=".7"/></svg></div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.92rem;color:#4c1d95">Consejo Escolar</div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:2px">Organo de gobierno del centro</div>
+            </div>
+            <div style="background:#4c1d95;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+          </div>
+          <div onclick="openEmbed('','')" style="background:#fce7f3;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="14" cy="18" r="7" fill="#EC4899" opacity=".9"/><path d="M5 38 Q5 28 14 28 Q23 28 23 38" fill="#be185d" opacity=".8"/><circle cx="32" cy="20" r="6" fill="#F9A8D4" opacity=".9"/><path d="M24 38 Q24 30 32 30 Q40 30 40 38" fill="#EC4899" opacity=".7"/><circle cx="14" cy="10" r="2" fill="#FCD34D" opacity=".8"/><circle cx="32" cy="12" r="2" fill="#FCD34D" opacity=".8"/><circle cx="6" cy="40" r="2.5" fill="#4ADE80" opacity=".8"/></svg></div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.92rem;color:#be185d">Ciclo Infantil</div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:2px">3, 4 y 5 anos</div>
+            </div>
+            <div style="background:#be185d;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+          </div>
+          <div onclick="openEmbed('','')" style="background:#fef3c7;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><line x1="24" y1="10" x2="24" y2="38" stroke="#F59E0B" stroke-width="2" stroke-dasharray="3,2" opacity=".5"/><circle cx="14" cy="16" r="6" fill="#F59E0B" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#D97706" opacity=".8"/><circle cx="34" cy="18" r="6" fill="#FCD34D" opacity=".9"/><path d="M26 36 Q26 28 34 28 Q42 28 42 36" fill="#F59E0B" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">1</text><text x="34" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">2</text></svg></div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.92rem;color:#b45309">Primer Ciclo</div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:2px">1º y 2º curso</div>
+            </div>
+            <div style="background:#b45309;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+          </div>
+          <div onclick="openEmbed('','')" style="background:#fee2e2;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><line x1="24" y1="10" x2="24" y2="38" stroke="#EF4444" stroke-width="2" stroke-dasharray="3,2" opacity=".5"/><circle cx="14" cy="16" r="6" fill="#EF4444" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#DC2626" opacity=".8"/><circle cx="34" cy="18" r="6" fill="#FCA5A5" opacity=".9"/><path d="M26 36 Q26 28 34 28 Q42 28 42 36" fill="#EF4444" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">3</text><text x="34" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">4</text></svg></div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.92rem;color:#b91c1c">Segundo Ciclo</div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:2px">3º y 4º curso</div>
+            </div>
+            <div style="background:#b91c1c;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+          </div>
+          <div onclick="openEmbed('','')" style="background:#dbeafe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><line x1="24" y1="10" x2="24" y2="38" stroke="#3B82F6" stroke-width="2" stroke-dasharray="3,2" opacity=".5"/><circle cx="14" cy="16" r="6" fill="#3B82F6" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#1d4ed8" opacity=".8"/><circle cx="34" cy="18" r="6" fill="#93c5fd" opacity=".9"/><path d="M26 36 Q26 28 34 28 Q42 28 42 36" fill="#3B82F6" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">5</text><text x="34" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">6</text></svg></div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.92rem;color:#1e40af">Tercer Ciclo</div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:2px">5º y 6º curso</div>
+            </div>
+            <div style="background:#1e40af;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+          </div>
+                    <div onclick="window.open('','_blank')" style="background:#cffafe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="20" cy="22" r="15" fill="#cffafe"/><circle cx="20" cy="22" r="15" fill="none" stroke="#0e7490" stroke-width="2.5"/><polygon points="20,9 23,22 17,22" fill="#ef4444"/><polygon points="20,35 23,22 17,22" fill="#0e7490"/><circle cx="20" cy="22" r="2.2" fill="#0B132B"/></svg></div>
+            <div style="flex:1">
+              <div style="font-weight:800;font-size:.92rem;color:#0e7490">Equipo de Orientación</div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:2px">Orientación, PT y AL</div>
+            </div>
+            <div style="background:#0e7490;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- GALERÍA DE FOTOS -->
+      <div id="p-galeria" class="util-panel">
+        <div class="util-panel-hdr">
+          <span>Galería de Fotos</span>
+          <button class="btn-back" onclick="hidePanel('p-galeria')">X</button>
+        </div>
+        <div class="util-panel-body">
+          <div style="font-size:.8rem;color:#64748b;margin-bottom:12px">
+            Fotos del claustro · Drive del centro
+          </div>
+          <div id="galeria-box" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;min-height:80px;width:100%">
+            <div style="text-align:center;padding:20px;color:#94a3b8;font-size:.78rem;grid-column:1/-1">
+              Pulsa Actualizar para cargar
+            </div>
+          </div>
+          <button onclick="loadGaleria()" style="background:#15803d;color:white;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer;margin-top:12px;width:100%">
+            🔄 Actualizar galería
+          </button>
+        </div>
+      </div>
+      <div id="p-notif" class="util-panel">
+        <div class="util-panel-hdr"><span>Enviar Aviso</span><button class="btn-back" onclick="hidePanel('p-notif')">X</button></div>
+        <div class="util-panel-body">
+          <div class="fgroup"><label class="field-lbl">Destinatario</label><select id="notif-dest" class="form-sel" style="margin-bottom:0"><option value="todos">Todo el Claustro</option></select></div>
+          <div class="fgroup"><label class="field-lbl">Asunto</label><input type="text" id="notif-asunto" class="inp" style="margin-bottom:0" placeholder="Ej: Reunion manana"></div>
+          <div class="fgroup" style="margin-top:10px"><label class="field-lbl">Mensaje</label><textarea id="notif-msg" rows="4" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:.88rem;font-family:inherit;resize:vertical" placeholder="Escribe aqui..."></textarea></div>
+          <div class="fgroup" style="margin-top:8px"><label class="field-lbl">Enlace (opcional)</label><input type="url" id="notif-link" class="inp" style="margin-bottom:0" placeholder="https://..."></div>
+          <button class="btn-primary" id="btn-notif" onclick="sendNotif()">&#9993; Enviar por Email</button>
+          <div id="notif-res" style="margin-top:10px;font-size:.83rem;display:none;padding:12px;border-radius:8px"></div>
+        </div>
+      </div>
+      <div id="p-fotos" class="util-panel">
+        <div class="util-panel-hdr"><span>Subir Fotos</span><button class="btn-back" onclick="hidePanel('p-fotos')">X</button></div>
+        <div class="util-panel-body">
+          <div class="fgroup"><label class="field-lbl">Carpeta</label><select id="foto-carpeta" class="form-sel" style="margin-bottom:0"><option value="">Cargando...</option></select></div>
+          <div class="fgroup" style="margin-top:10px"><input type="file" id="foto-input" accept="image/*" multiple style="width:100%;padding:12px;border:2px dashed #e2e8f0;border-radius:10px;font-size:.85rem;background:#f8fafc" onchange="previewFotos(this)"></div>
+          <div id="foto-prev-wrap" style="display:none;margin-bottom:14px"><div id="foto-prevs" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+          <button id="btn-upload" class="btn-primary" onclick="uploadFotos()" style="background:#10b981" disabled>Subir a Drive</button>
+          <div id="foto-res" style="margin-top:10px;font-size:.83rem;display:none;padding:12px;border-radius:8px"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══ NAV con SVG temáticos ═══ -->
+  <nav class="nav">
+    <button class="nbtn on" id="nb-aldia" onclick="goTab('aldia',this)">
+      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="2" y="4" width="12" height="5" rx="1.5" fill="#7C3AED" opacity=".45"/><rect x="16" y="4" width="10" height="5" rx="1.5" fill="#7C3AED" opacity=".35"/><circle cx="34" cy="22" r="7" fill="#FCD34D"/><circle cx="34" cy="22" r="5" fill="#F59E0B"/><line x1="34" y1="12" x2="34" y2="10" stroke="#FCD34D" stroke-width="2" stroke-linecap="round"/><line x1="41" y1="15" x2="43" y2="13" stroke="#FCD34D" stroke-width="2" stroke-linecap="round"/><ellipse cx="12" cy="34" rx="7" ry="3" fill="white" opacity=".9"/><path d="M5 34 Q5 42 12 43 Q19 42 19 34" fill="#E8D5B0" opacity=".85"/><ellipse cx="9" cy="29" rx="4" ry="6" fill="#22C55E" opacity=".9" transform="rotate(-15 9 29)"/><rect x="2" y="44" width="44" height="3" rx="1.5" fill="#16A34A" opacity=".7"/><rect x="4" y="44" width="6" height="3" rx="1" fill="#EF4444" opacity=".8"/><rect x="13" y="44" width="6" height="3" rx="1" fill="#F59E0B" opacity=".8"/><rect x="22" y="44" width="6" height="3" rx="1" fill="#3B82F6" opacity=".8"/><rect x="31" y="44" width="6" height="3" rx="1" fill="#A855F7" opacity=".8"/></svg>
+      <span>Al Dia</span><span class="nbadge" id="nb-badge-aldia"></span>
+    </button>
+    <button class="nbtn" id="nb-agenda" onclick="goTab('agenda',this)">
+      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="6" y="10" width="36" height="30" rx="5" fill="white" opacity=".15"/><rect x="6" y="10" width="36" height="11" rx="5" fill="#3B82F6" opacity=".9"/><rect x="6" y="16" width="36" height="5" fill="#3B82F6" opacity=".9"/><circle cx="14" cy="29" r="3" fill="#EF4444" opacity=".5"/><circle cx="24" cy="29" r="3" fill="#A855F7"/><circle cx="42" cy="12" r="4" fill="#EC4899" opacity=".8"/><circle cx="8" cy="40" r="3" fill="#FCD34D" opacity=".7"/></svg>
+      <span>Agenda</span>
+    </button>
+    <button class="nbtn" id="nb-cuadernos" onclick="goTab('cuadernos',this)">
+      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="2" y="40" width="44" height="6" rx="3" fill="#15803d" opacity=".5"/><rect x="28" y="28" width="4" height="12" rx="2" fill="#92400e" opacity=".7"/><ellipse cx="30" cy="24" rx="9" ry="8" fill="#15803d"/><ellipse cx="25" cy="26" rx="6" ry="4" fill="#22C55E" opacity=".8"/><rect x="6" y="8" width="22" height="30" rx="4" fill="white" opacity=".95"/><rect x="6" y="8" width="4" height="30" rx="4" fill="#15803d" opacity=".6"/><line x1="14" y1="16" x2="24" y2="16" stroke="#e2e8f0" stroke-width="1.5"/><line x1="14" y1="22" x2="24" y2="22" stroke="#e2e8f0" stroke-width="1.5"/></svg>
+      <span>Cuadernos</span>
+    </button>
+    <button class="nbtn" id="nb-proyectos" onclick="goTab('proyectos',this)">
+      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><circle cx="10" cy="10" r="2" fill="#FCD34D" opacity=".6"/><circle cx="38" cy="10" r="5" fill="#FCD34D" opacity=".85"/><circle cx="41" cy="8" r="4" fill="#1e1b4b"/><ellipse cx="24" cy="42" rx="22" ry="5" fill="#15803d" opacity=".55"/><rect x="22" y="28" width="4" height="14" rx="2" fill="#166534" opacity=".7"/><ellipse cx="24" cy="24" rx="10" ry="9" fill="#166534" opacity=".8"/><circle cx="15" cy="36" r="2" fill="#4ADE80" opacity=".9"/><circle cx="28" cy="34" r="1.5" fill="#4ADE80" opacity=".8"/></svg>
+      <span>Proyectos</span>
+    </button>
+    <button class="nbtn" id="nb-util" onclick="goTab('util',this)">
+      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="8" y="22" width="32" height="20" rx="4" fill="#fed7aa" opacity=".95"/><rect x="8" y="22" width="32" height="8" rx="4" fill="#f97316" opacity=".9"/><rect x="22" y="16" width="4" height="10" rx="2" fill="#c2410c" opacity=".9"/><line x1="15" y1="30" x2="15" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="15" cy="28" rx="3" ry="4" fill="#EF4444" opacity=".85"/><line x1="22" y1="29" x2="22" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="22" cy="27" rx="3" ry="4" fill="#3B82F6" opacity=".85"/><line x1="29" y1="30" x2="29" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="29" cy="28" rx="3" ry="4" fill="#22C55E" opacity=".85"/><line x1="36" y1="29" x2="36" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="36" cy="27" rx="3" ry="4" fill="#A855F7" opacity=".85"/><ellipse cx="40" cy="16" rx="5" ry="2" fill="white" opacity=".8"/><path d="M35 16 Q35 22 40 23 Q45 22 45 16" fill="#E8D5B0" opacity=".75"/><circle cx="40" cy="12" r="3.5" fill="#EC4899" opacity=".85"/></svg>
+      <span>Utilidades</span>
+    </button>
+  </nav>
+</div>
+
+<div id="video-modal">
+  <div id="video-title"></div>
+  <div id="video-wrap"><iframe id="video-frame" src="" allowfullscreen allow="autoplay"></iframe></div>
+  <button id="btn-close-video" onclick="closeVideo()">Cerrar</button>
+</div>
+
+<?!= include("Membretes"); ?>
+<?!= include("Scripts"); ?>
+
+    <!-- SALAS DE REUNIONES MODAL -->
+    <div class="salas-detail" id="salas-detail">
+      <div class="salas-detail-hdr">
+        <button class="salas-back" onclick="closeSalasDetail()">&#8592; Volver</button>
+        <div class="salas-detail-title">Salas de Reuniones</div>
+      </div>
+      <div class="salas-detail-body">
+        <div style="font-size:.8rem;color:#64748b;margin-bottom:14px">Pulsa <strong>Entrar</strong> para acceder directamente a tu reunión. Los enlaces son fijos.</div>
+          <div class="sala-card" onclick="abrirSala('MEET_ETCP')">
+            <div class="sala-ico" style="background:#dbeafe"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><circle cx="12" cy="14" r="5" fill="#1e40af" opacity=".9"/><circle cx="24" cy="12" r="5.5" fill="#1e40af"/><circle cx="36" cy="14" r="5" fill="#1e40af" opacity=".9"/><path d="M5 32 Q5 23 12 23 Q19 23 19 32" fill="#1d4ed8" opacity=".7"/><path d="M17 32 Q17 22 24 22 Q31 22 31 32" fill="#2563eb"/><path d="M29 32 Q29 23 36 23 Q43 23 43 32" fill="#1d4ed8" opacity=".7"/><circle cx="24" cy="5" r="1.5" fill="#FCD34D" opacity=".8"/></svg></div>
+            <div class="sala-info">
+              <div class="sala-nombre">ETCP</div>
+              <div class="sala-desc">Equipo Técnico de Coordinación Pedagógica</div>
+            </div>
+            <button class="sala-btn" style="background:#1e40af" onclick="event.stopPropagation();abrirSala('MEET_ETCP')">Entrar</button>
+          </div>
+          <div class="sala-card" onclick="abrirSala('MEET_CLAUSTRO')">
+            <div class="sala-ico" style="background:#d1fae5"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".5"/><rect x="20" y="33" width="3" height="10" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="21" cy="30" rx="8" ry="6" fill="#15803d" opacity=".7"/><circle cx="8" cy="18" r="4" fill="#22C55E" opacity=".9"/><circle cx="16" cy="15" r="4.5" fill="#16a34a"/><circle cx="24" cy="13" r="5" fill="#15803d"/><circle cx="32" cy="15" r="4.5" fill="#16a34a"/><circle cx="40" cy="18" r="4" fill="#22C55E" opacity=".9"/><path d="M3 32 Q3 26 8 26 Q13 26 13 32" fill="#22C55E" opacity=".6"/><path d="M10 32 Q10 24 16 24 Q22 24 22 32" fill="#16a34a" opacity=".7"/><path d="M26 32 Q26 24 32 24 Q38 24 38 32" fill="#16a34a" opacity=".7"/><path d="M35 32 Q35 26 40 26 Q45 26 45 32" fill="#22C55E" opacity=".6"/></svg></div>
+            <div class="sala-info">
+              <div class="sala-nombre">Claustro</div>
+              <div class="sala-desc">Todo el equipo docente</div>
+            </div>
+            <button class="sala-btn" style="background:#15803d" onclick="event.stopPropagation();abrirSala('MEET_CLAUSTRO')">Entrar</button>
+          </div>
+          <div class="sala-card" onclick="abrirSala('MEET_CONSEJO')">
+            <div class="sala-ico" style="background:#ede9fe"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".55"/><rect x="8" y="16" width="24" height="20" rx="5" fill="#ede9fe" opacity=".9"/><rect x="8" y="16" width="24" height="8" rx="5" fill="#7C3AED" opacity=".8"/><rect x="8" y="20" width="24" height="4" fill="#7C3AED" opacity=".8"/><circle cx="14" cy="20" r="2" fill="white" opacity=".9"/><circle cx="20" cy="20" r="2" fill="white" opacity=".9"/><circle cx="26" cy="20" r="2" fill="white" opacity=".9"/><line x1="12" y1="29" x2="28" y2="29" stroke="#c4b5fd" stroke-width="1.5"/><line x1="12" y1="33" x2="22" y2="33" stroke="#c4b5fd" stroke-width="1.5"/><circle cx="8" cy="10" r="4" fill="#EC4899" opacity=".8"/></svg></div>
+            <div class="sala-info">
+              <div class="sala-nombre">Consejo Escolar</div>
+              <div class="sala-desc">Órgano de gobierno del centro</div>
+            </div>
+            <button class="sala-btn" style="background:#7C3AED" onclick="event.stopPropagation();abrirSala('MEET_CONSEJO')">Entrar</button>
+          </div>
+          <div class="sala-card" onclick="abrirSala('MEET_INFANTIL')">
+            <div class="sala-ico" style="background:#fce7f3"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="14" cy="18" r="7" fill="#EC4899" opacity=".9"/><path d="M5 38 Q5 28 14 28 Q23 28 23 38" fill="#be185d" opacity=".8"/><circle cx="32" cy="20" r="6" fill="#F9A8D4" opacity=".9"/><path d="M24 38 Q24 30 32 30 Q40 30 40 38" fill="#EC4899" opacity=".7"/><circle cx="14" cy="10" r="2" fill="#FCD34D" opacity=".8"/><circle cx="32" cy="12" r="2" fill="#FCD34D" opacity=".8"/></svg></div>
+            <div class="sala-info">
+              <div class="sala-nombre">Ciclo Infantil</div>
+              <div class="sala-desc">3, 4 y 5 años</div>
+            </div>
+            <button class="sala-btn" style="background:#be185d" onclick="event.stopPropagation();abrirSala('MEET_INFANTIL')">Entrar</button>
+          </div>
+          <div class="sala-card" onclick="abrirSala('MEET_CICLO1')">
+            <div class="sala-ico" style="background:#fef3c7"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="14" cy="16" r="6" fill="#F59E0B" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#D97706" opacity=".8"/><circle cx="32" cy="18" r="6" fill="#FCD34D" opacity=".9"/><path d="M24 36 Q24 28 32 28 Q40 28 40 36" fill="#F59E0B" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">1</text><text x="32" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">2</text></svg></div>
+            <div class="sala-info">
+              <div class="sala-nombre">Primer Ciclo</div>
+              <div class="sala-desc">1º y 2º curso</div>
+            </div>
+            <button class="sala-btn" style="background:#b45309" onclick="event.stopPropagation();abrirSala('MEET_CICLO1')">Entrar</button>
+          </div>
+          <div class="sala-card" onclick="abrirSala('MEET_CICLO2')">
+            <div class="sala-ico" style="background:#fee2e2"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="14" cy="16" r="6" fill="#EF4444" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#DC2626" opacity=".8"/><circle cx="32" cy="18" r="6" fill="#FCA5A5" opacity=".9"/><path d="M24 36 Q24 28 32 28 Q40 28 40 36" fill="#EF4444" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">3</text><text x="32" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">4</text></svg></div>
+            <div class="sala-info">
+              <div class="sala-nombre">Segundo Ciclo</div>
+              <div class="sala-desc">3º y 4º curso</div>
+            </div>
+            <button class="sala-btn" style="background:#b91c1c" onclick="event.stopPropagation();abrirSala('MEET_CICLO2')">Entrar</button>
+          </div>
+          <div class="sala-card" onclick="abrirSala('MEET_CICLO3')">
+            <div class="sala-ico" style="background:#dbeafe"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="14" cy="16" r="6" fill="#3B82F6" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#1d4ed8" opacity=".8"/><circle cx="32" cy="18" r="6" fill="#93c5fd" opacity=".9"/><path d="M24 36 Q24 28 32 28 Q40 28 40 36" fill="#3B82F6" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">5</text><text x="32" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">6</text></svg></div>
+            <div class="sala-info">
+              <div class="sala-nombre">Tercer Ciclo</div>
+              <div class="sala-desc">5º y 6º curso</div>
+            </div>
+            <button class="sala-btn" style="background:#1e40af" onclick="event.stopPropagation();abrirSala('MEET_CICLO3')">Entrar</button>
+          </div>
+      </div>
+    </div>
+
+    <!-- LISTADO PARA IMPRIMIR MODAL -->
+    <div class="listado-detail" id="listado-detail">
+      <div class="listado-hdr">
+        <button class="listado-back" onclick="closeListadoDetail()">&#8592; Volver</button>
+        <div class="listado-title">Lista para Imprimir</div>
+        <button class="listado-print-btn" onclick="imprimirListado()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Imprimir
+        </button>
+      </div>
+      <div class="listado-body">
+
+        <!-- Selector de curso y columnas -->
+        <div class="listado-selector">
+          <label>Curso</label>
+          <select class="listado-sel" id="listado-curso-sel" onchange="generarListado()">
+            <option value="">Selecciona un curso...</option>
+          </select>
+          <div style="margin-top:12px">
+            <label>Columnas para anotar</label>
+            <div class="listado-cols" id="listado-cols-box">
+              <span class="listado-col-chip on" data-col="asistencia" onclick="toggleCol(this)">Asistencia</span>
+              <span class="listado-col-chip on" data-col="col1" onclick="toggleCol(this)">Columna 1</span>
+              <span class="listado-col-chip on" data-col="col2" onclick="toggleCol(this)">Columna 2</span>
+              <span class="listado-col-chip on" data-col="col3" onclick="toggleCol(this)">Columna 3</span>
+              <span class="listado-col-chip" data-col="col4" onclick="toggleCol(this)">Columna 4</span>
+              <span class="listado-col-chip" data-col="col5" onclick="toggleCol(this)">Columna 5</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview del listado -->
+        <div class="listado-preview" id="listado-preview-box">
+          <div style="padding:24px;text-align:center;color:#94a3b8;font-size:.85rem">
+            Selecciona un curso para ver el listado
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- AREA DE IMPRESION (oculta en pantalla, visible al imprimir) -->
+    <div id="listado-print-area"></div>
+
+    <!-- CONTROL DE LIBROS MODAL -->
+    <div class="listado-detail" id="libros-detail">
+      <div class="listado-hdr">
+        <button class="listado-back" onclick="closeLibrosDetail()">&#8592; Volver</button>
+        <div class="listado-title">Lista Control de Libros</div>
+        <div style="display:flex;gap:6px">
+          <button class="listado-print-btn" onclick="imprimirLibros()" style="background:#374151">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir
+          </button>
+          <button class="listado-print-btn" onclick="crearLibrosDrive()" style="background:#7C3AED">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            Crear en Drive
+          </button>
+        </div>
+      </div>
+      <div class="listado-body">
+        <div class="listado-selector">
+          <label>Curso (3º a 6º)</label>
+          <select class="listado-sel" id="libros-curso-sel" onchange="generarListadoLibros()">
+            <option value="">Selecciona un curso...</option>
+            <option value="3oA">3º A</option>
+            <option value="3oB">3º B</option>
+            <option value="4oA">4º A</option>
+            <option value="4oB">4º B</option>
+            <option value="5oA">5º A</option>
+            <option value="5oB">5º B</option>
+            <option value="6oA">6º A</option>
+            <option value="6oB">6º B</option>
+          </select>
+          <div style="font-size:.72rem;color:#64748b;margin-top:8px">
+            📚 Materias según nivel · Desplegables: Nuevo / Buen estado / Deteriorado / Inutilizable
+          </div>
+        </div>
+        <div class="listado-preview" id="libros-preview-box">
+          <div style="padding:24px;text-align:center;color:#94a3b8;font-size:.85rem">
+            Selecciona un curso para previsualizar
+          </div>
+        </div>
+        <div id="libros-drive-res" style="display:none;margin-top:12px;padding:14px;border-radius:10px;background:#d1fae5;font-size:.85rem;font-weight:600;color:#065f46"></div>
+      </div>
+    </div>
+
+    <!-- LIGHTBOX -->
+    <div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+      <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+      <button class="lightbox-prev" onclick="lightboxNav(-1)">‹</button>
+      <img id="lightbox-img" src="" alt="">
+      <button class="lightbox-next" onclick="lightboxNav(1)">›</button>
+      <div class="lightbox-caption" id="lightbox-cap"></div>
+    </div>
+
+    <!-- LISTA RELIGIÓN / ATEDU -->
+    <div class="listado-detail" id="religion-detail">
+      <div class="listado-hdr">
+        <button class="listado-back" onclick="closeReligionDetail()">← Volver</button>
+        <div class="listado-title">Lista Religión / ATEDU</div>
+        <button class="listado-print-btn" onclick="imprimirReligion()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Imprimir
+        </button>
+      </div>
+      <div class="listado-body">
+        <div class="listado-selector">
+          <label>Curso</label>
+          <select class="listado-sel" id="religion-curso-sel" onchange="generarListadoReligion()">
+            <option value="">Selecciona un curso...</option>
+          </select>
+          <div style="margin-top:10px">
+            <label>Mostrar</label>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <button id="btn-religion" onclick="setModoReligion('religion')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #0B132B;background:#0B132B;color:white;font-weight:700;cursor:pointer;font-size:.82rem">Religión</button>
+              <button id="btn-atedu" onclick="setModoReligion('atedu')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #e2e8f0;background:white;color:#64748b;font-weight:700;cursor:pointer;font-size:.82rem">ATEDU</button>
+              <button id="btn-todos" onclick="setModoReligion('todos')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #e2e8f0;background:white;color:#64748b;font-weight:700;cursor:pointer;font-size:.82rem">Todos</button>
+            </div>
+          </div>
+        </div>
+        <div class="listado-preview" id="religion-preview-box">
+          <div style="padding:24px;text-align:center;color:#94a3b8;font-size:.85rem">
+            Selecciona un curso para ver la lista
+          </div>
+        </div>
+      </div>
+    </div>
+<script>
+/* ── TOUR DE BIENVENIDA SSNet v2 ── */
+(function(){
+  var CUAD=[
+    {ic:'📁',n:'Documentos y actas del centro',d:'Acceso a los documentos y actas oficiales del centro.'},
+    {ic:'🖨️',n:'Lista para imprimir',d:'Las listas de todos los grupos, para descargarlas o imprimirlas directamente.'},
+    {ic:'📚',n:'Lista de control de libros',d:'Para controlar el uso de los libros en septiembre y en junio. Uso obligatorio (de 3º a 6º).'},
+    {ic:'🗒️',n:'Cuaderno de Programaciones semanales',d:'Construye tu programación semanal adaptada a ti, con opción de compartir con compis de nivel y/o especialidad. Uso voluntario pero muy recomendable.'},
+    {ic:'✅',n:'Cuaderno de criterios de evaluación',d:'Accede a los criterios de tu área y nivel; ponte de acuerdo con tu compi y marca con un check los que trabajarás en cada situación de aprendizaje, por trimestres. Puedes imprimir o exportar a tu Drive. Uso obligatorio.'},
+    {ic:'📊',n:'Portal de Actas',d:'Este curso las actas se hacen aquí: descarga las calificaciones de Séneca, rellénalas y vuelve a subirlas a Séneca como siempre. Uso obligatorio.'},
+    {ic:'🗓️',n:'Cuaderno de Horarios',d:'Tu horario semanal, el de tu grupo (si eres tutor/a), el de Luciérnaga/Refuerzo/PT y tus turnos de recreo (del curso y el tuyo).'},
+    {ic:'🔄',n:'Cuaderno de sustituciones',d:'Cuando te ausentes, deja indicaciones al compi que te sustituye; quien sustituye consulta lo preparado y te devuelve un feedback de cómo fue la jornada. Uso obligatorio.'},
+    {ic:'⚠️',n:'Cuaderno de incidencias',d:'Solo en caso de incidencia con un alumno/a: entra en su curso, abre su nombre y completa el formulario. Uso obligatorio para todos.'},
+    {ic:'❤️',n:'Cuaderno de enfermedades crónicas',d:'Cada tutor/a rellena los casos de su clase, con foto del niño/a y de la autorización firmada por la familia en caso de incidencia grave.'}
+  ];
+  var UTIL=[
+    {ic:'📣',n:'Centro de Comunicaciones SSNet',d:'Agenda con teléfonos y correos de todos los compis, y envío de emails directos al equipo docente, al ciclo o a todo el claustro.'},
+    {ic:'📸',n:'Subir fotos al Drive',d:'Sube las fotos de tu clase o de un evento directamente a la carpeta de tu clase, proyecto o evento.'},
+    {ic:'🖼️',n:'Galería',d:'Ve las fotos que subimos todos a las carpetas de cada clase, evento o proyecto.'},
+    {ic:'🎥',n:'Salas de Meet',d:'Todos los enlaces para cualquier reunión del curso, siempre listos, sin que nadie tenga que hacer nada.'},
+    {ic:'📻',n:'Radio Bastián',d:'Todos los programas de radio del centro. Recomendable escucharlos con el alumnado.'},
+    {ic:'🎬',n:'Cartelera Bastián',d:'Todos los vídeos y pelis del cole, fáciles de encontrar y ver en las pizarras digitales.'},
+    {ic:'🚌',n:'Salidas y excursiones',d:'Formulario para gestionar las salidas y excursiones.'},
+    {ic:'🔑',n:'Reservas',d:'Reserva los espacios del centro antes de usarlos.'},
+    {ic:'🤖',n:'Profes.tv',d:'Herramienta de César Poyatos, muy útil para usar bien la IA con recursos docentes.'}
+  ];
+  var PASOS=[
+    {tab:'aldia',target:null,t:'¡Bienvenidos/as al claustro! 👋',d:'Bienvenidas/os, estimadas/os compis, a <b>Claritanet</b>: la app con la que trataremos de que tengáis a mano toda la información importante del centro y de facilitaros el trabajo y la coordinación del claustro. Si tenéis cualquier problema o incidencia, estaremos encantados de ayudaros. Somos un equipo y estamos aquí para lo que necesitéis.'},
+    {tab:'aldia',target:'nb-aldia',t:'📅 Al Día',d:'Cada mañana, antes de entrar al cole: el <b>tablón de anuncios</b>, tu <b>horario del día</b> y el de tu grupo, y si tienes módulo de <b>Luciérnaga/Refuerzo/PT</b>. Puedes consultar el horario de cualquier compi por si necesitas localizarlo. También se publica el <b>cuadrante de sustituciones</b> del día, los eventos, reuniones y proyectos, y los <b>turnos de recreo</b> (tuyo y de tu grupo).'},
+    {tab:'agenda',target:'nb-agenda',t:'🗓️ Agenda',d:'Un <b>calendario del mes en curso</b> para ver cualquier evento programado y, debajo, los <b>eventos y reuniones de la semana</b>.'},
+    {tab:'cuadernos',target:'nb-cuadernos',t:'📒 Cuaderno Docente',intro:'Tu espacio de trabajo. Aquí tienes los documentos y actas del centro y todos tus cuadernos:',items:CUAD},
+    {tab:'proyectos',target:'nb-proyectos',t:'🌱 Proyectos',d:'Un <b>calendario con los eventos de cada proyecto</b> y una sección donde se alojan los proyectos y la información que comparten sus coordinadores.'},
+    {tab:'util',target:'nb-util',t:'🧰 Utilidades',intro:'Recursos de interés para todo el profesorado:',items:UTIL},
+    {tab:'util',target:null,t:'¡Todo listo! 🎉',d:'Ya conocéis Claritanet. Podréis <b>volver a ver este tour cuando queráis</b> desde <b>Utilidades → Ver tour de bienvenida</b>. ¡Gracias por vuestro trabajo y a disfrutarlo, juntos!'}
+  ];
+  function visible(el){ return el && el.offsetParent!==null; }
+  function catalogo(lista){
+    var h='<div style="max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -4px 12px;padding:2px 4px">';
+    lista.forEach(function(it){
+      h+='<div style="display:flex;gap:10px;align-items:flex-start;background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:10px 12px;margin-bottom:8px">'+
+         '<div style="font-size:1.35rem;flex:0 0 auto;line-height:1">'+it.ic+'</div>'+
+         '<div><div style="font-weight:800;color:#0B132B;font-size:.9rem">'+it.n+'</div>'+
+         '<div style="font-size:.79rem;color:#475569;line-height:1.45;margin-top:2px">'+it.d+'</div></div></div>';
+    });
+    return h+'</div>';
+  }
+  function lanzarTour(){
+    if(document.getElementById('ssnet-tour')) return;
+    if(!document.getElementById('ssnet-tour-css')){
+      var st=document.createElement('style'); st.id='ssnet-tour-css';
+      st.textContent='@keyframes ssnetDot{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}#tour-ring{animation:ssnetGlow 1.4s infinite}@keyframes ssnetGlow{0%,100%{box-shadow:0 0 0 4px rgba(124,58,237,.5),0 0 22px 6px rgba(124,58,237,.55)}50%{box-shadow:0 0 0 6px rgba(124,58,237,.7),0 0 30px 10px rgba(124,58,237,.75)}}';
+      document.head.appendChild(st);
+    }
+    var i=0;
+    var ov=document.createElement('div'); ov.id='ssnet-tour';
+    ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(11,19,43,.72)';
+    ov.innerHTML=
+      '<div id="tour-ring" style="position:absolute;border-radius:16px;border:3px solid #FCD34D;pointer-events:none;display:none;transition:all .3s ease"></div>'+
+      '<div id="tour-dot" style="position:absolute;font-size:26px;display:none;pointer-events:none;animation:ssnetDot 1s infinite">👆</div>'+
+      '<div id="tour-card" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border-radius:20px;max-width:440px;width:calc(100% - 28px);padding:20px 20px 16px;box-shadow:0 16px 50px rgba(0,0,0,.45)"></div>';
+    document.body.appendChild(ov);
+    function cerrar(){ window.removeEventListener('resize',recolocar); ov.remove(); }
+    function recolocar(){
+      var p=PASOS[i], ring=document.getElementById('tour-ring'), dot=document.getElementById('tour-dot'), card=document.getElementById('tour-card');
+      if(!ring) return;
+      var el=(!p.items && p.target)?document.getElementById(p.target):null;
+      if(el){
+        var r=el.getBoundingClientRect();
+        ring.style.display='block'; ring.style.left=(r.left-6)+'px'; ring.style.top=(r.top-6)+'px'; ring.style.width=(r.width+12)+'px'; ring.style.height=(r.height+12)+'px';
+        dot.style.display='block'; dot.style.left=(r.left+r.width/2-13)+'px'; dot.style.top=(r.top-36)+'px';
+        card.style.top=(r.top>window.innerHeight/2)?'32%':'68%';
+      } else { ring.style.display='none'; dot.style.display='none'; card.style.top='50%'; }
+    }
+    function pintar(){
+      var p=PASOS[i];
+      if(p.tab){ try{ if(typeof goTab==='function') goTab(p.tab, document.getElementById('nb-'+p.tab)); }catch(e){} }
+      var card=document.getElementById('tour-card');
+      card.style.maxWidth=p.items?'510px':'440px';
+      var cuerpo=p.items
+        ? (p.intro?'<div style="font-size:.85rem;color:#475569;line-height:1.5;margin-bottom:10px">'+p.intro+'</div>':'')+catalogo(p.items)
+        : '<div style="font-size:.9rem;color:#475569;line-height:1.55;margin-bottom:16px">'+p.d+'</div>';
+      var puntos=''; for(var k=0;k<PASOS.length;k++){ puntos+='<span style="width:7px;height:7px;border-radius:50%;background:'+(k===i?'#7C3AED':'#e2e8f0')+';display:inline-block;margin:0 3px"></span>'; }
+      card.innerHTML=
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+          '<div style="font-size:.7rem;font-weight:800;color:#94a3b8">'+(i+1)+' / '+PASOS.length+'</div>'+
+          '<button onclick="__tourSkip()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer">✕</button>'+
+        '</div>'+
+        '<div style="font-size:1.2rem;font-weight:800;color:#0B132B;margin-bottom:8px">'+p.t+'</div>'+
+        cuerpo+
+        '<div style="text-align:center;margin:2px 0 14px">'+puntos+'</div>'+
+        '<div style="display:flex;gap:8px">'+
+          (i>0?'<button onclick="__tourBack()" style="background:#f1f5f9;border:none;color:#0B132B;font-weight:700;border-radius:12px;padding:12px 16px;cursor:pointer">Atrás</button>':'')+
+          '<button onclick="__tourNext()" style="flex:1;background:linear-gradient(135deg,#0B132B,#7C3AED);border:none;color:#fff;font-weight:800;border-radius:12px;padding:12px 16px;cursor:pointer">'+(i===PASOS.length-1?'¡Empezar!':'Siguiente ›')+'</button>'+
+        '</div>';
+      setTimeout(recolocar,70);
+    }
+    window.__tourNext=function(){ if(i>=PASOS.length-1){cerrar();} else {i++;pintar();} };
+    window.__tourBack=function(){ if(i>0){i--;pintar();} };
+    window.__tourSkip=function(){ cerrar(); };
+    window.addEventListener('resize',recolocar);
+    pintar();
+  }
+  window.verTourBienvenida=lanzarTour;
+  function inyectarBoton(){
+    var grid=document.querySelector('#v-util .util-grid')||document.querySelector('.util-grid');
+    if(!grid){ return setTimeout(inyectarBoton,900); }
+    if(document.getElementById('btn-ver-tour')) return;
+    var b=document.createElement('button'); b.id='btn-ver-tour'; b.className='util-btn'; b.setAttribute('onclick','verTourBienvenida()');
+    b.innerHTML='<div class="util-ico" style="font-size:30px;line-height:1">🧭</div><span>Ver tour de bienvenida</span>';
+    var res=Array.prototype.slice.call(grid.children).filter(function(c){return /Reservas/i.test(c.textContent||'');})[0];
+    if(res && res.nextSibling) grid.insertBefore(b,res.nextSibling); else grid.appendChild(b);
+  }
+  function autoTour(){
+    var n=0; try{ n=parseInt(localStorage.getItem('ssnet_tour_count')||'0',10)||0; }catch(e){}
+    if(visible(document.getElementById('login-screen')) || !document.getElementById('nb-cuadernos')){ return setTimeout(autoTour,900); }
+    inyectarBoton();
+    if(n>=5) return;
+    try{ localStorage.setItem('ssnet_tour_count',(n+1)+''); }catch(e){}
+    lanzarTour();
+  }
+  autoTour(); (function(){function idDe(u){var m=String(u||'').match(/[-\w]{25,}/);return m?m[0]:'';}function tools(){var rb=document.getElementById('res-bar');if(!rb)return null;var t=document.getElementById('doc-tools');if(!t){t=document.createElement('div');t.id='doc-tools';t.style.cssText='display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;align-items:center';rb.appendChild(t);}return t;}function btn(txt,href,bg){return '<a href="'+href+'" target="_blank" rel="noopener" style="text-decoration:none;background:'+bg+';color:#fff;font-weight:700;font-size:.72rem;border-radius:8px;padding:6px 10px;white-space:nowrap">'+txt+'</a>';}function show(url,ctx){var t=tools();if(!t)return;var id=idDe(url);if(ctx||!id){t.style.display='none';t.innerHTML='';return;}t.innerHTML=btn('🖨️ Imprimir','https://drive.google.com/file/d/'+id+'/view','#0B132B')+btn('📄 Guardar en mi Drive','https://docs.google.com/document/d/'+id+'/copy','#4E2680')+btn('📥 Descargar','https://drive.google.com/uc?export=download&id='+id,'#0E7A32');t.style.display='flex';}function ocultar(){var t=document.getElementById('doc-tools');if(t){t.style.display='none';t.innerHTML='';}}function hook(){if(typeof window.openEmbed!=='function'){return setTimeout(hook,400);}if(window.__docToolsHooked)return;window.__docToolsHooked=true;var _oe=window.openEmbed;window.openEmbed=function(url,ctx){_oe.apply(this,arguments);try{show(url,ctx);}catch(e){}};if(typeof window.closeIframe==='function'){var _ci=window.closeIframe;window.closeIframe=function(){_ci.apply(this,arguments);ocultar();};}}hook();})();
+})();
+</script>
+<script>
+/* ── FORMULARIO DE SALIDA · Actividades Extraescolares y Complementarias · Claritanet ── */
+(function(){
+  var CURSOS=['Infantil 3 años A','Infantil 4 años A','Infantil 4 años B','Infantil 5 años A','1º A','2º A','3º A','3º B','4º A','4º B','5º A','5º B','6º A','6º B','Aula de las Estrellas'];
+  function horas(){ var a=[]; for(var h=7;h<=20;h++){ ['00','15','30','45'].forEach(function(m){ a.push((h<10?'0'+h:h)+':'+m); }); } return a; }
+  function optsHora(){ return '<option value="">— elegir —</option>'+horas().map(function(x){return '<option>'+x+'</option>';}).join(''); }
+  function estilo(){
+    if(document.getElementById('salida-css'))return;
+    var st=document.createElement('style'); st.id='salida-css';
+    st.textContent='.sf-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}.sf-lbl{display:block;font-weight:800;color:#0B132B;font-size:.9rem;margin-bottom:6px}.sf-in{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:.9rem;font-family:inherit;color:#0f172a}.sf-in:focus{outline:none;border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.15)}textarea.sf-in{min-height:70px;resize:vertical}.sf-chk{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:9px 10px;font-size:.82rem;font-weight:700;color:#334155;cursor:pointer}.sf-chk input{width:17px;height:17px;accent-color:#0d9488}';
+    document.head.appendChild(st);
+  }
+  function cerrar(){ var o=document.getElementById('salida-ov'); if(o)o.remove(); }
+  function abrir(){
+    if(document.getElementById('salida-ov'))return; estilo();
+    var o=document.createElement('div'); o.id='salida-ov';
+    o.style.cssText='position:fixed;inset:0;z-index:99992;background:#f1f5f9;overflow-y:auto;-webkit-overflow-scrolling:touch';
+    var chips=CURSOS.map(function(c){ return '<label class="sf-chk"><input type="checkbox" class="sf-curso" value="'+c+'">'+c+'</label>'; }).join('');
+    var vals=''; for(var i=1;i<=10;i++){ vals+='<span class="sf-star" data-v="'+i+'" onclick="__salVal('+i+')" style="font-size:1.8rem;cursor:pointer;color:#cbd5e1;line-height:1">★</span>'; }
+    o.innerHTML=
+      '<div style="position:sticky;top:0;z-index:2;background:#0d9488;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px">'+
+        '<button onclick="__salCerrar()" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px;cursor:pointer">&#8592; Cerrar</button>'+
+        '<div style="font-size:1.05rem;font-weight:800">🚌 Nueva salida / excursión</div></div>'+
+      '<div style="padding:14px;max-width:680px;margin:0 auto">'+
+        '<div style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;border-radius:16px;padding:16px;margin-bottom:14px"><div style="font-weight:800;font-size:1.1rem">Actividades Extraescolares y Complementarias</div><div style="font-size:.8rem;opacity:.9;margin-top:2px">CEIP Clara Campoamor · rellena y guarda la salida</div></div>'+
+        '<div class="sf-card"><label class="sf-lbl">📍 Destino de la salida</label><input class="sf-in" id="sf-destino" placeholder="¿A dónde vais? (lugar / actividad)"></div>'+
+        '<div class="sf-card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+
+          '<div><label class="sf-lbl">🕒 Hora de salida</label><select class="sf-in" id="sf-hsal">'+optsHora()+'</select></div>'+
+          '<div><label class="sf-lbl">🕓 Hora de llegada</label><select class="sf-in" id="sf-hlleg">'+optsHora()+'</select></div>'+
+        '</div></div>'+
+        '<div class="sf-card"><label class="sf-lbl">🎒 Cursos que van de excursión</label><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+chips+'</div></div>'+
+        '<div class="sf-card"><label class="sf-lbl">🏫 Alumnado que se queda en el Colegio</label><textarea class="sf-in" id="sf-quedan" placeholder="Nombre y curso (uno por línea)"></textarea></div>'+
+        '<div class="sf-card"><label class="sf-lbl">🚫 Alumnado que no ha venido al Centro</label><textarea class="sf-in" id="sf-novino" placeholder="Nombre y curso (uno por línea)"></textarea></div>'+
+        '<div class="sf-card"><label class="sf-lbl">👩‍🏫 Profesorado que acompaña</label><textarea class="sf-in" id="sf-profes" placeholder="Nombre (uno por línea)"></textarea></div>'+
+        '<div class="sf-card"><label class="sf-lbl">📝 Descripción de la actividad · Lugar y desplazamiento · Teléfonos y datos de interés</label><textarea class="sf-in" id="sf-desc" style="min-height:110px"></textarea></div>'+
+        '<div class="sf-card"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+
+          '<div><label class="sf-lbl">💶 Coste de la actividad (€)</label><input class="sf-in" type="number" min="0" step="0.01" id="sf-costeact" placeholder="0,00"></div>'+
+          '<div><label class="sf-lbl">🚍 Coste del transporte (€)</label><input class="sf-in" type="number" min="0" step="0.01" id="sf-costetrans" oninput="__salCalc()" placeholder="0,00"></div>'+
+        '</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">'+
+          '<div><label class="sf-lbl">👥 Nº de alumnos que van</label><input class="sf-in" type="number" min="0" step="1" id="sf-nalum" oninput="__salCalc()" placeholder="0"></div>'+
+          '<div><label class="sf-lbl">➗ Transporte por alumno</label><input class="sf-in" id="sf-porualum" readonly style="background:#f1f5f9;font-weight:800" value="—"></div>'+
+        '</div></div>'+
+        '<div class="sf-card"><label class="sf-lbl">⭐ Valoración de la actividad (1-10)</label><div id="sf-valwrap" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">'+vals+'<span id="sf-valnum" style="margin-left:8px;font-weight:800;color:#0d9488">—</span></div><input type="hidden" id="sf-val"></div>'+
+        '<div class="sf-card"><label class="sf-lbl">💡 Propuesta de mejora</label><textarea class="sf-in" id="sf-mejora" style="min-height:90px"></textarea></div>'+
+        '<button id="sf-guardar" onclick="__salGuardar()" style="width:100%;background:#0d9488;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:1rem;cursor:pointer;box-shadow:0 4px 14px rgba(13,148,136,.35);margin-bottom:40px">💾 Guardar salida</button>'+
+      '</div>';
+    document.body.appendChild(o); o.scrollTop=0;
+  }
+  window.__salCerrar=cerrar;
+  window.__salVal=function(n){
+    var stars=document.querySelectorAll('#sf-valwrap .sf-star');
+    for(var i=0;i<stars.length;i++){ stars[i].style.color=(i<n)?'#f59e0b':'#cbd5e1'; }
+    document.getElementById('sf-val').value=n;
+    document.getElementById('sf-valnum').textContent=n+'/10';
+  };
+  window.__salCalc=function(){
+    var t=parseFloat(document.getElementById('sf-costetrans').value)||0;
+    var n=parseInt(document.getElementById('sf-nalum').value,10)||0;
+    document.getElementById('sf-porualum').value=(t>0&&n>0)?((t/n).toFixed(2).replace('.',',')+' €'):'—';
+  };
+  window.__salGuardar=function(){
+    var cursos=[]; document.querySelectorAll('.sf-curso:checked').forEach(function(c){ cursos.push(c.value); });
+    var t=parseFloat(document.getElementById('sf-costetrans').value)||0;
+    var n=parseInt(document.getElementById('sf-nalum').value,10)||0;
+    var datos={ destino:document.getElementById('sf-destino').value, horaSalida:document.getElementById('sf-hsal').value,horaLlegada:document.getElementById('sf-hlleg').value,
+      cursos:cursos.join(', '), alumnadoQueda:document.getElementById('sf-quedan').value, alumnadoNoVino:document.getElementById('sf-novino').value,
+      profesorado:document.getElementById('sf-profes').value, descripcion:document.getElementById('sf-desc').value,
+      costeActividad:document.getElementById('sf-costeact').value, costeTransporte:document.getElementById('sf-costetrans').value,
+      numAlumnos:n, transportePorAlumno:(t>0&&n>0)?(t/n).toFixed(2):'',
+      valoracion:document.getElementById('sf-val').value, propuestaMejora:document.getElementById('sf-mejora').value };
+    if(!datos.horaSalida||!cursos.length){ alert('Indica al menos la hora de salida y marca los cursos que van.'); return; }
+    var btn=document.getElementById('sf-guardar'); btn.disabled=true; btn.textContent='Guardando…';
+    google.script.run
+      .withSuccessHandler(function(r){ alert('✅ Salida guardada correctamente en la hoja.'); cerrar(); })
+      .withFailureHandler(function(e){ btn.disabled=false; btn.textContent='💾 Guardar salida'; alert('No se pudo guardar: '+(e&&e.message?e.message:e)); })
+      .guardarSalidaExtraescolar(datos);
+  };
+  window.abrirFormularioSalida=abrir;
+  function nuevoTile(grid, id, emoji, label){
+    var base=null, ch=grid.children;
+    for(var i=0;i<ch.length;i++){ if(ch[i].id!=='btn-salida' && ch[i].id!=='btn-ver-tour'){ base=ch[i]; break; } }
+    if(!base) return null;
+    var t=base.cloneNode(true); t.id=id;
+    t.removeAttribute('href'); t.removeAttribute('onclick');
+    var ico=t.querySelector('.util-ico')||t.firstElementChild;
+    if(ico){ while(ico.firstChild) ico.removeChild(ico.firstChild); ico.textContent=emoji; }
+    var kids=t.querySelectorAll('*'), lbl=null;
+    for(var j=0;j<kids.length;j++){ var el=kids[j]; if(ico&&(el===ico||ico.contains(el)))continue; if(el.children.length===0 && (el.textContent||'').trim()){ lbl=el; break; } }
+    if(lbl) lbl.textContent=label; else t.appendChild(document.createTextNode(label));
+    return t;
+  }
+  function inyectarBoton(){
+    var grid=document.querySelector('#v-util .util-grid')||document.querySelector('.util-grid');
+    if(!grid || document.getElementById('btn-salida')) return;
+    var t=nuevoTile(grid,'btn-salida','🚌','Nueva salida / excursión');
+    if(!t) return;
+    t.onclick=function(){ abrirFormularioSalida(); };
+    grid.appendChild(t);
+  }
+  setInterval(inyectarBoton, 1000);
+  inyectarBoton();
+})();
+</script>
+<script>
+/* ── RESERVAS DE ESPACIOS (profesorado) ── */
+(function(){
+  var GRUPOS=['Infantil 3 años A','Infantil 4 años A','Infantil 4 años B','Infantil 5 años A','1º A','2º A','3º A','3º B','4º A','4º B','5º A','5º B','6º A','6º B','Aula de las Estrellas'];
+  var PAL=[['#fef9c3','#a16207'],['#fee2e2','#b91c1c'],['#dbeafe','#1e40af'],['#dcfce7','#15803d'],['#ede9fe','#6d28d9'],['#fce7f3','#be185d'],['#ffedd5','#c2410c'],['#cffafe','#0e7490'],['#e0e7ff','#3730a3'],['#d1fae5','#047857'],['#fef3c7','#92400e'],['#e5e7eb','#334155'],['#f5d0fe','#a21caf'],['#bbf7d0','#166534'],['#bae6fd','#0369a1']];
+  var COLG={}; GRUPOS.forEach(function(g,i){ COLG[g]=PAL[i%PAL.length]; });
+  function colCurso(c){ return COLG[c]||['#cffafe','#0e7490']; }
+  var MESc=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var st={cfg:null, espId:null, lunes:null};
+
+  function lunesDe(date){ var d=new Date(date); var wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); d.setHours(0,0,0,0); return d; }
+  function fmtL(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  function rango(d){ var f=new Date(d); f.setDate(f.getDate()+4); return d.getDate()+' '+MESc[d.getMonth()]+' – '+f.getDate()+' '+MESc[f.getMonth()]; }
+
+  function ov(){ return document.getElementById('resv-ov'); }
+  function cerrar(){ var o=ov(); if(o)o.remove(); }
+  function body(){ return document.getElementById('resv-body'); }
+
+  function abrir(){
+    if(ov()) return;
+    var o=document.createElement('div'); o.id='resv-ov';
+    o.style.cssText='position:fixed;inset:0;z-index:99991;background:#f1f5f9;overflow-y:auto;-webkit-overflow-scrolling:touch';
+    o.innerHTML='<div id="resv-bar" style="position:sticky;top:0;z-index:2;background:#0d9488;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px"></div><div id="resv-body" style="padding:14px;max-width:720px;margin:0 auto"></div>';
+    document.body.appendChild(o);
+    bar('🔑 Reservas de espacios', null);
+    body().innerHTML='<div style="padding:24px;text-align:center;color:#64748b">Cargando espacios…</div>';
+    google.script.run.withSuccessHandler(pintaEspacios).withFailureHandler(function(){ body().innerHTML='<div class="rcard">No se pudieron cargar los espacios.</div>'; }).getReservasConfig();
+  }
+  function bar(titulo, volverFn){
+    var b=document.getElementById('resv-bar');
+    b.innerHTML='<button id="resv-back" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px;cursor:pointer">&#8592; '+(volverFn?'Volver':'Cerrar')+'</button><div style="font-size:1.05rem;font-weight:800">'+titulo+'</div>';
+    document.getElementById('resv-back').onclick=volverFn||cerrar;
+  }
+  function estilo(){
+    if(document.getElementById('resv-css'))return;
+    var st2=document.createElement('style'); st2.id='resv-css';
+    st2.textContent='.rcard{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.05)}';
+    document.head.appendChild(st2);
+  }
+
+  function pintaEspacios(cfg){
+    estilo(); st.cfg=cfg;
+    bar('🔑 Reservas de espacios', null);
+    var esp=(cfg&&cfg.espacios)||[];
+    if(!esp.length){ body().innerHTML='<div class="rcard">Aún no hay espacios configurados. El equipo directivo los define y exporta desde la App de gestión.</div>'; return; }
+    var h='<div style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;border-radius:16px;padding:16px;margin-bottom:14px"><div style="font-weight:800;font-size:1.1rem">Reserva un espacio</div><div style="font-size:.8rem;opacity:.9;margin-top:2px">Elige un espacio y la semana. Los tramos de Luciérnaga están bloqueados.</div></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">';
+    esp.forEach(function(e){ h+='<div onclick="__resvEsp('+JSON.stringify(e.id).replace(/"/g,'&quot;')+')" style="cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.05)"><div style="font-size:1.9rem">🔑</div><div style="font-weight:800;color:#0B132B;font-size:.86rem;margin-top:6px">'+(e.nombre||'Espacio')+'</div></div>'; });
+    h+='</div>'; body().innerHTML=h;
+  }
+
+  function abrirEspacio(id){ st.espId=id; st.lunes=lunesDe(new Date()); cargar(); }
+  function cambiarSemana(delta){
+    var hoyL=lunesDe(new Date());
+    var nueva=new Date(st.lunes); nueva.setDate(nueva.getDate()+delta*7);
+    if(nueva.getTime()<hoyL.getTime()) return;
+    st.lunes=nueva; cargar();
+  }
+  function cargar(){
+    var esp=null; (st.cfg.espacios||[]).forEach(function(e){ if(e.id===st.espId)esp=e; });
+    bar('🔑 '+(esp?esp.nombre:'Espacio'), function(){ pintaEspacios(st.cfg); });
+    body().innerHTML='<div style="padding:24px;text-align:center;color:#64748b">Cargando semana…</div>';
+    google.script.run.withSuccessHandler(pintaGrid).withFailureHandler(function(){ body().innerHTML='<div class="rcard">No se pudo cargar la semana.</div>'; }).getReservas(st.espId, fmtL(st.lunes));
+  }
+
+  function pintaGrid(r){
+    if(!r||!r.ok){ body().innerHTML='<div class="rcard">Error al cargar.</div>'; return; }
+    var dias=r.dias||['Lunes','Martes','Miercoles','Jueves','Viernes'];
+    var tramos=r.tramos||[];
+    var hoyL=lunesDe(new Date()), prevDis=(st.lunes.getTime()<=hoyL.getTime());
+    var h='<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px 10px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)">'+
+      '<button onclick="__resvSem(-1)" '+(prevDis?'disabled':'')+' style="background:'+(prevDis?'#f1f5f9':'#0d9488')+';color:'+(prevDis?'#cbd5e1':'#fff')+';border:none;border-radius:10px;padding:8px 12px;font-weight:800;cursor:'+(prevDis?'default':'pointer')+'">◄</button>'+
+      '<div style="text-align:center"><div style="font-weight:800;color:#0B132B;font-size:.9rem">Semana del '+rango(st.lunes)+'</div>'+(prevDis?'<div style="font-size:.66rem;color:#0d9488;font-weight:700">semana actual</div>':'')+'</div>'+
+      '<button onclick="__resvSem(1)" style="background:#0d9488;color:#fff;border:none;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer">►</button></div>';
+    if(!tramos.length){ h+='<div class="rcard">Este espacio no tiene tramos configurados todavía.</div>'; body().innerHTML=h; return; }
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:360px"><tr style="background:#0B132B;color:#fff"><th style="padding:6px 6px;text-align:left">Hora</th>';
+    dias.forEach(function(d){ h+='<th style="padding:6px 4px">'+d.slice(0,3)+'</th>'; });
+    h+='</tr>';
+    tramos.forEach(function(t,ti){
+      h+='<tr><td style="padding:5px 6px;font-weight:700;color:#64748b;white-space:nowrap;border-top:1px solid #eef2f7">'+t+'</td>';
+      dias.forEach(function(d,di){
+        var key=di+'_'+ti, cell;
+        if(r.luc && r.luc[key]){
+          cell='<div style="background:#fef9c3;color:#a16207;border-radius:6px;padding:6px 3px;font-weight:800;font-size:.62rem;line-height:1.1">Luciérnaga</div>';
+        } else if(r.reservas && r.reservas[key]){
+          var rv=r.reservas[key], cc=colCurso(rv.curso);
+          cell='<div onclick="__resvLib('+di+','+ti+')" title="Pulsa para liberar (si la reservaste tú)" style="cursor:pointer;background:'+cc[0]+';color:'+cc[1]+';border-radius:6px;padding:6px 3px;font-weight:800;font-size:.64rem;line-height:1.15">'+(rv.curso||'Ocupado')+'</div>';
+        } else {
+          cell='<button onclick="__resvPide('+di+','+ti+')" style="width:100%;background:#f0fdf4;border:1px dashed #86efac;color:#16a34a;border-radius:6px;padding:6px 3px;font-weight:800;font-size:.66rem;cursor:pointer">Libre +</button>';
+        }
+        h+='<td style="padding:2px;border-top:1px solid #eef2f7;border-left:1px solid #f1f5f9">'+cell+'</td>';
+      });
+      h+='</tr>';
+    });
+    h+='</table></div><div style="font-size:.7rem;color:#94a3b8;margin-top:10px">Pulsa un hueco <b>Libre</b> para reservarlo con tu curso. Amarillo = Luciérnaga (fijo). Color = ya reservado (cada grupo tiene su color).</div>';
+    body().innerHTML=h;
+  }
+
+  function pedirCurso(di,ti){
+    var o=document.createElement('div'); o.id='resv-pick';
+    o.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(11,19,43,.55);display:flex;align-items:flex-end;justify-content:center;padding:0 12px 18px';
+    var btns=GRUPOS.map(function(g){ return '<button onclick="__resvSel('+di+','+ti+','+JSON.stringify(g).replace(/"/g,'&quot;')+')" style="background:#f0fdfa;border:1px solid #99f6e4;color:#0f766e;border-radius:10px;padding:10px 8px;font-weight:800;font-size:.78rem;cursor:pointer">'+g+'</button>'; }).join('');
+    o.innerHTML='<div style="background:#fff;border-radius:18px;max-width:440px;width:100%;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,.4)"><div style="font-weight:800;color:#0B132B;margin-bottom:10px">¿Qué curso ocupa este hueco?</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;max-height:52vh;overflow-y:auto">'+btns+'</div><button onclick="document.getElementById(\'resv-pick\').remove()" style="width:100%;margin-top:12px;background:#f1f5f9;border:none;border-radius:10px;padding:11px;font-weight:800;color:#0B132B;cursor:pointer">Cancelar</button></div>';
+    document.body.appendChild(o);
+  }
+  function seleccionarCurso(di,ti,curso){
+    var p=document.getElementById('resv-pick'); if(p)p.remove();
+    google.script.run.withSuccessHandler(function(res){
+      if(res&&res.ok){ cargar(); } else { alert((res&&res.error)||'No se pudo reservar.'); cargar(); }
+    }).withFailureHandler(function(e){ alert('No se pudo reservar: '+(e&&e.message?e.message:e)); }).guardarReserva({espacioId:st.espId, semanaLunes:fmtL(st.lunes), di:di, ti:ti, curso:curso});
+  }
+  function liberar(di,ti){
+    if(!confirm('¿Liberar este hueco?')) return;
+    google.script.run.withSuccessHandler(function(res){
+      if(res&&res.ok){ cargar(); } else { alert((res&&res.error)||'No se pudo liberar.'); }
+    }).withFailureHandler(function(e){ alert('No se pudo liberar: '+(e&&e.message?e.message:e)); }).liberarReserva({espacioId:st.espId, semanaLunes:fmtL(st.lunes), di:di, ti:ti});
+  }
+
+  window.abrirReservasEspacios=abrir;
+  window.__resvEsp=abrirEspacio;
+  window.__resvSem=cambiarSemana;
+  window.__resvPide=pedirCurso;
+  window.__resvSel=seleccionarCurso;
+  window.__resvLib=liberar;
+})();
+</script>
+<!-- ▼▼ RECORDAR USUARIO Y CONTRASEÑA (v3, resistente) ▼▼ -->
+<script>
+(function(){
+  var KEY='ssnet_cred_v1';
+  function $(id){ return document.getElementById(id); }
+  function leer(){ try{ return JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ return null; } }
+  function guardar(e,p){ try{ localStorage.setItem(KEY, JSON.stringify({e:e,p:p})); }catch(_){} }
+  function borrar(){ try{ localStorage.removeItem(KEY); }catch(_){} }
+  window.olvidarDispositivo=borrar;
+
+  function ponerCasilla(){
+    if($('inp-recordar')) return true;
+    var pass=$('inp-pass'); if(!pass) return false;
+    var lbl=document.createElement('label');
+    lbl.style.cssText='display:flex;align-items:center;gap:8px;font-size:.9rem;color:#475569;margin:8px 2px 12px;cursor:pointer';
+    lbl.innerHTML='<input type="checkbox" id="inp-recordar" checked style="width:20px;height:20px;cursor:pointer"> Recordarme en este dispositivo';
+    var btn=$('btn-login');
+    if(btn && btn.parentNode){ btn.parentNode.insertBefore(lbl, btn); }
+    else if(pass.parentNode){ pass.parentNode.insertBefore(lbl, pass.nextSibling); }
+    return true;
+  }
+
+  function hookForm(){
+    var f=$('login-form');
+    if(f && !f.__recHook){
+      f.__recHook=1;
+      f.addEventListener('submit', function(){
+        var rec=$('inp-recordar');
+        var e=(($('inp-email')&&$('inp-email').value)||'').trim();
+        var p=(($('inp-pass')&&$('inp-pass').value)||'');
+        if(rec && rec.checked && e && p){ guardar(e,p); } else { borrar(); }
+      }, true);
+    }
+  }
+
+  var _prefillHecho=false;
+  function prefill(){
+    if(_prefillHecho) return; _prefillHecho=true;
+    var c=leer();
+    if(c && c.e && c.p){
+      if($('inp-email')) $('inp-email').value=c.e;
+      if($('inp-pass'))  $('inp-pass').value=c.p;
+      if($('inp-recordar')) $('inp-recordar').checked=true;
+      setTimeout(function(){
+        if(window.USER) return;
+        if(typeof doLogin==='function') doLogin();
+      }, 1500);
+    }
+  }
+
+  var tries=0;
+  var iv=setInterval(function(){
+    tries++;
+    var listo=ponerCasilla();
+    hookForm();
+    if((listo && $('inp-email')) || tries>=60){
+      clearInterval(iv);
+      prefill();
+    }
+  }, 200);
+  ponerCasilla(); hookForm();
+})();
+</script>
+<!-- ▲▲ FIN RECORDAR USUARIO Y CONTRASEÑA ▲▲ -->
+<!-- ▼▼ CONTROL DE LIBROS (v2) — pegar al final, antes de </body> ▼▼ -->
+<script>
+(function(){
+  var COL={ '':['#f1f5f9','#94a3b8'], 'Nuevo':['#dcfce7','#15803d'], 'Buen estado':['#dbeafe','#1e40af'], 'Deteriorado':['#fef3c7','#b45309'], 'Inutilizable':['#fee2e2','#b91c1c'] };
+  var st={grupo:null, nombre:'', year:'', anios:[], estados:['Nuevo','Buen estado','Deteriorado','Inutilizable'], alById:{}};
+  function ov(){ return document.getElementById('lib-ov'); }
+  function cerrar(){ var o=ov(); if(o)o.remove(); }
+  function body(){ return document.getElementById('lib-body'); }
+  function bar(titulo, volverFn){
+    var b=document.getElementById('lib-bar');
+    b.innerHTML='<button id="lib-back" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px;cursor:pointer">&#8592; '+(volverFn?'Volver':'Cerrar')+'</button><div style="font-size:1.05rem;font-weight:800;flex:1">'+titulo+'</div>';
+    document.getElementById('lib-back').onclick=volverFn||cerrar;
+  }
+  function estilo(){
+    if(document.getElementById('lib-css'))return;
+    var s=document.createElement('style'); s.id='lib-css';
+    s.textContent='.lcard{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.05)}.lib-sel{border:none;border-radius:7px;padding:6px 3px;font-weight:800;font-size:.7rem;width:100%;cursor:pointer;-webkit-appearance:none;-moz-appearance:none;appearance:none;text-align:center}.lib-her{outline:2px dashed #c4b5fd;outline-offset:-2px}';
+    document.head.appendChild(s);
+  }
+  function abrir(){
+    if(ov()) return; estilo();
+    var o=document.createElement('div'); o.id='lib-ov';
+    o.style.cssText='position:fixed;inset:0;z-index:99991;background:#f1f5f9;overflow:auto;-webkit-overflow-scrolling:touch';
+    o.innerHTML='<div id="lib-bar" style="position:sticky;top:0;z-index:5;background:#7C3AED;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px"></div><div id="lib-body" style="padding:14px;max-width:1100px;margin:0 auto"></div>';
+    document.body.appendChild(o); verGrupos();
+  }
+  function verGrupos(){
+    bar('📚 Control de libros', null);
+    body().innerHTML='<div style="padding:24px;text-align:center;color:#64748b">Cargando clases…</div>';
+    google.script.run.withSuccessHandler(pintaGrupos).withFailureHandler(function(e){ body().innerHTML='<div class="lcard">No se pudieron cargar las clases.<br><small style="color:#94a3b8">'+(e&&e.message?e.message:'')+'</small></div>'; }).getLibrosGrupos();
+  }
+  function selectorAnios(){
+    if(!st.anios||!st.anios.length) return '';
+    var h='<select id="lib-anio" onchange="__libAnio(this.value)" style="border:none;border-radius:9px;padding:8px 10px;font-weight:800;color:#5B21B6;background:#fff">';
+    st.anios.forEach(function(y){ h+='<option value="'+y+'"'+(y===st.year?' selected':'')+'>Curso '+y+'</option>'; });
+    return h+'</select>';
+  }
+  function pintaGrupos(res){
+    bar('📚 Control de libros', null);
+    var g=(res&&res.grupos)||[];
+    if(res&&res.estados) st.estados=res.estados;
+    if(res&&res.year&&!st.year) st.year=res.year;
+    if(res&&res.anios) st.anios=res.anios;
+    if(!g.length){ body().innerHTML='<div class="lcard">Aún no hay alumnado de 3º a 6º en el portal.</div>'; return; }
+    var mine=(window.USER&&USER.group)?String(USER.group):'';
+    g.sort(function(a,b){ if(a.grupo===mine)return -1; if(b.grupo===mine)return 1; return a.grupo.localeCompare(b.grupo); });
+    var h='<div style="background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;border-radius:16px;padding:16px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">';
+    h+='<div style="flex:1;min-width:180px"><div style="font-weight:800;font-size:1.1rem">Elige una clase</div><div style="font-size:.8rem;opacity:.9;margin-top:2px">Marca el estado de cada libro en septiembre (entrega) y junio (devolución).</div></div>';
+    h+=selectorAnios()+'</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">';
+    g.forEach(function(x){
+      var tuya=(x.grupo===mine);
+      h+='<div onclick="__libGrupo('+JSON.stringify(x.grupo).replace(/"/g,'&quot;')+','+JSON.stringify(x.nombre||x.grupo).replace(/"/g,'&quot;')+')" style="cursor:pointer;position:relative;background:#fff;border:'+(tuya?'2px solid #7C3AED':'1px solid #e2e8f0')+';border-radius:14px;padding:18px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.05)">';
+      if(tuya) h+='<div style="position:absolute;top:8px;right:8px;background:#7C3AED;color:#fff;font-size:.6rem;font-weight:800;border-radius:20px;padding:2px 8px">TU CLASE</div>';
+      h+='<div style="font-size:1.7rem">📚</div><div style="font-weight:800;color:#0B132B;margin-top:6px">'+(x.nombre||x.grupo)+'</div><div style="font-size:.72rem;color:#94a3b8">'+x.n+' alumnos/as</div></div>';
+    });
+    h+='</div>'; body().innerHTML=h;
+  }
+  function abrirGrupo(grupo, nombre){ st.grupo=grupo; st.nombre=nombre||grupo; cargar(); }
+  function cambiarAnio(y){ st.year=y; if(st.grupo) cargar(); else verGrupos(); }
+  function cargar(){
+    bar('📚 '+(st.nombre||st.grupo)+' · '+st.year, verGrupos);
+    body().innerHTML='<div style="padding:24px;text-align:center;color:#64748b">Cargando lista…</div>';
+    google.script.run.withSuccessHandler(pintaTabla).withFailureHandler(function(e){ body().innerHTML='<div class="lcard">No se pudo cargar la lista.<br><small style="color:#94a3b8">'+(e&&e.message?e.message:'')+'</small></div>'; }).getLibros(st.grupo, st.year);
+  }
+  function selHtml(alumnoId, materia, periodo, valor, heredado){
+    var c=COL[valor]||COL[''];
+    var opts='<option value="">—</option>';
+    st.estados.forEach(function(e){ opts+='<option value="'+e+'"'+(e===valor?' selected':'')+'>'+e+'</option>'; });
+    var key=alumnoId+'~~'+materia+'~~'+periodo;
+    var her=(heredado&&periodo==='sep')?' lib-her" title="Heredado de junio del curso anterior':'';
+    return '<select class="lib-sel'+her+'" style="background:'+c[0]+';color:'+c[1]+'" onchange="__libSet(this,'+JSON.stringify(key).replace(/"/g,'&quot;')+')">'+opts+'</select>';
+  }
+  function pintaTabla(r){
+    if(!r||!r.ok){ body().innerHTML='<div class="lcard">Error al cargar.</div>'; return; }
+    if(r.estados) st.estados=r.estados;
+    if(r.year) st.year=r.year;
+    var mat=r.materias||[], al=r.alumnos||[], datos=r.datos||{};
+    st.alById={}; al.forEach(function(a){ st.alById[a.id]=a.nombre; });
+    if(!al.length){ body().innerHTML='<div class="lcard">Esta clase no tiene alumnado en el portal.</div>'; return; }
+    var leg='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center">';
+    st.estados.forEach(function(e){ var c=COL[e]||COL['']; leg+='<span style="background:'+c[0]+';color:'+c[1]+';border-radius:8px;padding:4px 10px;font-weight:800;font-size:.72rem">'+e+'</span>'; });
+    leg+='<span style="font-size:.7rem;color:#7C3AED"><span class="lib-her" style="display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle"></span> Heredado de junio</span></div>';
+    var h=leg+'<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:12px"><table style="border-collapse:separate;border-spacing:0;font-size:.72rem;background:#fff">';
+    h+='<tr><th rowspan="2" style="position:sticky;left:0;z-index:2;background:#0B132B;color:#fff;padding:8px 10px;text-align:left;min-width:148px">Alumno/a</th>';
+    mat.forEach(function(m){ h+='<th colspan="2" style="background:#0B132B;color:#fff;padding:6px 6px;border-left:2px solid #334155;white-space:nowrap">'+m+'</th>'; });
+    h+='</tr><tr>';
+    mat.forEach(function(){ h+='<th style="background:#1e293b;color:#cbd5e1;padding:4px 6px;font-size:.64rem;border-left:2px solid #334155">Sep</th><th style="background:#1e293b;color:#cbd5e1;padding:4px 6px;font-size:.64rem">Jun</th>'; });
+    h+='</tr>';
+    al.forEach(function(a,idx){
+      var bg=(idx%2)?'#f8fafc':'#fff';
+      h+='<tr><td style="position:sticky;left:0;z-index:1;background:'+bg+';padding:6px 10px;font-weight:700;color:#0B132B;white-space:nowrap;border-top:1px solid #eef2f7;min-width:148px">'+a.nombre+'</td>';
+      mat.forEach(function(m){
+        var d=datos[a.id+'|'+m]||{};
+        h+='<td style="padding:3px;border-top:1px solid #eef2f7;border-left:2px solid #eef2f7;min-width:80px">'+selHtml(a.id,m,'sep',d.sep||'',d.heredado)+'</td>';
+        h+='<td style="padding:3px;border-top:1px solid #eef2f7;min-width:80px">'+selHtml(a.id,m,'jun',d.jun||'',false)+'</td>';
+      });
+      h+='</tr>';
+    });
+    h+='</table></div><div style="font-size:.7rem;color:#94a3b8;margin-top:10px">Se guarda solo al marcar cada casilla. <b>Sep</b> = estado al entregar en septiembre · <b>Jun</b> = estado al devolver en junio.</div>';
+    body().innerHTML=h;
+  }
+  function setEstado(sel, key){
+    var p=key.split('~~'), alumnoId=p[0], materia=p[1], periodo=p[2];
+    var val=sel.value, c=COL[val]||COL[''];
+    sel.style.background=c[0]; sel.style.color=c[1]; sel.className='lib-sel';
+    google.script.run.withFailureHandler(function(e){ alert('No se pudo guardar: '+(e&&e.message?e.message:e)); })
+      .guardarLibro({year:st.year, grupo:st.grupo, alumnoId:alumnoId, alumno:st.alById[alumnoId]||'', materia:materia, periodo:periodo, estado:val});
+  }
+  window.abrirControlLibros=abrir;
+  window.generarListadoLibros=abrir;
+  window.openLibrosDetail=abrir;
+  window.__libGrupo=abrirGrupo;
+  window.__libAnio=cambiarAnio;
+  window.__libSet=setEstado;
+})();
+</script>
+<!-- ▲▲ FIN CONTROL DE LIBROS ▲▲ -->
+<!-- ▼▼ AJUSTE PANTALLA iPhone (DEFINITIVO) ▼▼ -->
+<style>
+/* Cabecera: sumar el hueco de la cámara a la altura, para que el nombre se lea entero */
+.hdr{
+  height: calc(62px + env(safe-area-inset-top, 0px)) !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
+}
+/* Barras superiores de las ventanas (Libros, Reservas, Salidas, Guía, Horarios):
+   bajarlas bajo la cámara para poder tocar "Volver" */
+#lib-bar, #resv-bar, #guia-bar,
+#salida-ov > div:first-child,
+#ov-horarios > div:first-child{
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important;
+}
+/* Barra inferior: siempre visible por encima de las ventanas para cambiar de sección */
+.nav{ position: relative; z-index: 99996 !important; }
+/* Que el contenido de las ventanas no quede tapado por la barra inferior */
+#lib-ov, #resv-ov, #salida-ov, #guia-ov, #ov-horarios{
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+}
+</style>
+<script>
+(function(){
+  function cerrar(){ ['lib-ov','resv-ov','salida-ov','guia-ov','ov-horarios'].forEach(function(id){var o=document.getElementById(id); if(o)o.remove();}); }
+  function eng(){ var b=document.querySelectorAll('.nav .nbtn'); if(!b.length) return setTimeout(eng,800);
+    Array.prototype.forEach.call(b,function(x){ if(x.__h)return; x.__h=1; x.addEventListener('click',cerrar,true); }); }
+  eng();
+})();
+</script>
+<!-- ▲▲ FIN AJUSTE PANTALLA iPhone (DEFINITIVO) ▲▲ -->
+<!-- ▼▼ AGENDA: semana desde HOY, saltando findes (Antonio) ▼▼ -->
+<script>
+window.renderWeek=function(){
+  var box=document.getElementById('week-box');
+  if(!box) return;
+  var dayNames=['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+  var now=new Date();
+  var hoyStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  var cursor=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  var h='', count=0;
+  while(count<5){
+    var wd=cursor.getDay();
+    if(wd===0||wd===6){ cursor.setDate(cursor.getDate()+1); continue; }
+    var day=new Date(cursor);
+    var ds=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
+    var dayEvs=EVENTS.filter(function(e){return e.fecha===ds;});
+    var isToday=(ds===hoyStr);
+    var dots='';
+    CALS.forEach(function(c){if(dayEvs.some(function(e){return e.calendarId===c.id;}))dots+='<span class="dot" style="background:'+c.color+'"></span>';});
+    h+='<div class="day-group">';
+    h+='<div class="day-group-hdr" data-body="dg-'+count+'" onclick="togDayGroup(this)">';
+    h+='<span style="'+(isToday?'color:#2563eb;font-weight:800':'')+'">'+dayNames[wd]+' '+day.getDate()+(isToday?' (Hoy)':'')+'</span>';
+    h+='<div style="display:flex;align-items:center;gap:8px"><div class="day-dots">'+dots+'</div><span class="day-toggle" id="dtog-'+count+'">&#9660;</span></div>';
+    h+='</div>';
+    h+='<div class="day-group-body'+(count===0?' open':'')+'" id="dg-'+count+'">';
+    if(!dayEvs.length){h+='<div class="no-ev">Sin eventos este dia.</div>';}
+    else{
+      CALS.forEach(function(c){
+        var evs=dayEvs.filter(function(e){return e.calendarId===c.id;});
+        if(!evs.length)return;
+        h+='<div class="cbt" style="color:'+c.color+';font-size:.65rem">'+c.name+'</div>';
+        evs.forEach(function(e,idx){
+          var uid='wev-'+count+'-'+c.id+'-'+idx;
+          if(c.id==='sustituciones'&&e.tablaFilas&&e.tablaFilas.length>=2){h+=renderSustCard(e);}
+          else if(c.id==='recreo'){h+=renderRecreoCard(e);}
+          else{
+            var hasDetail=e.descripcion&&e.descripcion.length>3&&!e.descripcion.startsWith('[[');
+            var barCol=(c.id==='proyectos'&&e.proyecto)?_proyColor(e):c.color;
+            h+='<div class="ev-item" style="border-left-color:'+barCol+'">';
+            h+='<div class="ev-header" '+(hasDetail?'data-uid="'+uid+'" onclick="toggleEv(this.dataset.uid)"':'')+'>';
+            h+='<div style="flex:1"><div class="ev-title">'+iconoProyectoDelante(e)+e.titulo+'</div>';
+            if(e.horaInicio)h+='<div class="ev-hora">'+e.horaInicio+(e.horaFin?' - '+e.horaFin:'')+'</div>';
+            h+=etiquetaProyecto(e);
+            h+='</div>';
+            if(hasDetail)h+='<span class="ev-toggle" id="tog-'+uid+'">&#9660;</span>';
+            h+='</div>';
+            if(hasDetail)h+='<div class="ev-body" id="'+uid+'">'+e.descripcion.replace(/\n/g,'<br>')+'</div>';
+            h+='</div>';
+          }
+        });
+      });
+    }
+    h+='</div></div>';
+    cursor.setDate(cursor.getDate()+1);
+    count++;
+  }
+  box.innerHTML=h;
+  var t0=document.getElementById('dtog-0'); if(t0)t0.classList.add('open');
+};
+</script>
+<!-- ▲▲ FIN AGENDA semana desde HOY ▲▲ -->
+<!-- ▼▼ BAJAR CONTENIDO CABECERA hasta la línea ▼▼ -->
+<style>
+.hdr{
+  height: calc(62px + env(safe-area-inset-top, 0px) + 16px) !important;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 16px) !important;
+}
+</style>
+<!-- ▲▲ FIN ▲▲ -->
+<!-- ▼▼ RED DE SEGURIDAD: los botones de abajo cierran todo y vuelven al menú ▼▼ -->
+<style>
+/* Cabecera de Cartelera y Galería (pantalla completa) bajo la cámara */
+#p-cartelera .util-panel-hdr, #p-galeria .util-panel-hdr{
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important;
+}
+</style>
+<script>
+(function(){
+  function escapar(){
+    ['lib-ov','resv-ov','salida-ov','guia-ov','ov-horarios'].forEach(function(id){
+      var o=document.getElementById(id); if(o) o.remove();
+    });
+    document.querySelectorAll('.util-panel').forEach(function(p){
+      p.style.display='none';
+      ['position','inset','zIndex','background','overflow','padding','margin','borderRadius'].forEach(function(k){ p.style[k]=''; });
+    });
+    ['closeListadoDetail','closeLibrosDetail','closeReligionDetail','closeSalasDetail','closeProyDetail','closeIframe'].forEach(function(fn){
+      if(typeof window[fn]==='function'){ try{ window[fn](); }catch(e){} }
+    });
+  }
+  function eng(){
+    var b=document.querySelectorAll('.nav .nbtn');
+    if(!b.length) return setTimeout(eng,800);
+    Array.prototype.forEach.call(b,function(x){ if(x.__esc)return; x.__esc=1; x.addEventListener('click',escapar,true); });
+  }
+  eng();
+})();
+</script>
+<!-- ▲▲ FIN RED DE SEGURIDAD ▲▲ -->
+<script>
+/* ── P27 · Días de libre disposición (Instrucción 10/2025) ── */
+(function(){
+  var MES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var MESc=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var DIAc=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  var st={d:null, ver:new Date(), pass:null, sel:null};
+  function fmtDia(fs){ var dt=new Date(fs+'T12:00:00'); return DIAc[dt.getDay()]+' '+dt.getDate()+' '+MESc[dt.getMonth()]; }
+
+  function ov(){ return document.getElementById('p27-ov'); }
+  function cerrar(){ var o=ov(); if(o)o.remove(); }
+  function body(){ return document.getElementById('p27-body'); }
+  function userEmail(){ return ((window.USER&&USER.email)||'').toLowerCase(); }
+  function userName(){ return (window.USER&&USER.name)||''; }
+
+  function estilo(){
+    if(document.getElementById('p27-css'))return;
+    var s=document.createElement('style'); s.id='p27-css';
+    s.textContent='.p27card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.05);margin-bottom:12px}.p27chip{border-radius:999px;padding:3px 10px;font-weight:800;font-size:.72rem;display:inline-block}';
+    document.head.appendChild(s);
+  }
+  function bar(titulo, volver){
+    var b=document.getElementById('p27-bar');
+    b.innerHTML='<button id="p27-back" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px;cursor:pointer">&#8592; '+(volver?'Volver':'Cerrar')+'</button><div style="font-size:1.05rem;font-weight:800;flex:1">'+titulo+'</div>';
+    document.getElementById('p27-back').onclick=volver||cerrar;
+  }
+  function abrir(){
+    if(ov())return; estilo();
+    var o=document.createElement('div'); o.id='p27-ov';
+    o.style.cssText='position:fixed;inset:0;z-index:99991;background:#f1f5f9;overflow:auto;-webkit-overflow-scrolling:touch';
+    o.innerHTML='<div id="p27-bar" style="position:sticky;top:0;z-index:5;background:#0d9488;color:#fff;padding:calc(12px + env(safe-area-inset-top,0px)) 14px 12px;display:flex;align-items:center;gap:10px"></div><div id="p27-body" style="padding:14px;padding-bottom:calc(120px + env(safe-area-inset-bottom,0px));max-width:760px;margin:0 auto"></div>';
+    document.body.appendChild(o);
+    bar('🗓️ Días de libre disposición', null);
+    body().innerHTML='<div style="padding:24px;text-align:center;color:#64748b">Cargando…</div>';
+    google.script.run.withSuccessHandler(pintaInicial).withFailureHandler(function(){ body().innerHTML='<div class="p27card">No se pudo cargar. Inténtalo de nuevo.</div>'; }).p27Data(userEmail());
+  }
+
+  function fs2(y,m,dd){ return y+'-'+('0'+(m+1)).slice(-2)+'-'+('0'+dd).slice(-2); }
+  function esLectivo(fs){
+    var d=st.d; if(!d) return false;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(fs)) return false;
+    if(fs<d.inicio||fs>d.fin) return false;
+    var dt=new Date(fs+'T12:00:00'), wd=dt.getDay();
+    if(wd===0||wd===6) return false;
+    if((d.festivos||[]).indexOf(fs)>=0) return false;
+    return true;
+  }
+  function habiles(fs){
+    var d=st.d; var hoy=new Date(); hoy.setHours(0,0,0,0);
+    var target=new Date(fs+'T00:00:00'); target.setHours(0,0,0,0);
+    var n=0, c=new Date(hoy); c.setDate(c.getDate()+1);
+    while(c<target){ var wd=c.getDay(); var ds=fs2(c.getFullYear(),c.getMonth(),c.getDate());
+      if(wd!==0&&wd!==6&&(d.festivos||[]).indexOf(ds)<0) n++; c.setDate(c.getDate()+1); }
+    return n;
+  }
+  function acepDe(fs){ return ((st.d.porDia&&st.d.porDia[fs])||[]).filter(function(x){return x.estado==='ACEPTADA';}).length; }
+
+  function pintaInicial(d){
+    if(!d||!d.ok){ body().innerHTML='<div class="p27card">Error al cargar.</div>'; return; }
+    st.d=d;
+    // seleccionar por defecto el maestro que ha accedido
+    var yo=null;
+    (d.maestros||[]).forEach(function(m){ if(m.email===userEmail()) yo=m; });
+    if(!yo && userName()) yo={nombre:userName(), email:userEmail()};
+    if(!yo && d.maestros && d.maestros.length) yo=d.maestros[0];
+    st.sel=yo||{nombre:'', email:userEmail()};
+    var ini=new Date(d.inicio+'T12:00:00'), hoy=new Date();
+    if(st.ver<ini) st.ver=new Date(hoy.getFullYear(),hoy.getMonth(),1);
+    render();
+  }
+  function recargar(){ google.script.run.withSuccessHandler(function(d){ st.d=d; render(); }).p27Data(st.sel?st.sel.email:userEmail()); }
+
+  function render(){
+    var d=st.d;
+    bar('🗓️ Días de libre disposición', null);
+    var h='<div style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;border-radius:16px;padding:16px;margin-bottom:14px">'+
+      '<div style="font-weight:800;font-size:1.1rem">Días de libre disposición · lectivos</div>'+
+      '<div style="font-size:.8rem;opacity:.9;margin-top:2px">Instrucción 10/2025 · reparto del centro (paso previo a Séneca)</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+
+        '<span class="p27chip" style="background:rgba(255,255,255,.18)">Le quedan <b>'+d.restantes+'</b> de '+d.diasPorMaestro+'</span>'+
+        '<span class="p27chip" style="background:rgba(255,255,255,.18)">Letra sorteo: <b>'+d.letra+'</b></span>'+
+        '<span class="p27chip" style="background:rgba(255,255,255,.18)">Cupo/día: <b>'+d.plazas+'</b></span>'+
+        '<span class="p27chip" style="background:rgba(255,255,255,.18)">Antelación: <b>'+d.antelacion+'</b> hábiles</span>'+
+      '</div></div>';
+
+    // botón de ayuda (siempre visible)
+    h+='<button onclick="__p27Ayuda()" style="width:100%;background:#ecfeff;border:1px solid #a5f3fc;color:#0e7490;border-radius:12px;padding:11px;font-weight:800;cursor:pointer;margin-bottom:12px">🧭 Cómo funciona · orden de prioridad (normativa)</button>';
+
+    // identidad: cada maestro solo actúa con SU usuario
+    if(userEmail()){
+      var ini=((st.sel&&st.sel.nombre)||userName()||'?').charAt(0).toUpperCase();
+      h+='<div class="p27card" style="display:flex;align-items:center;gap:10px">'+
+         '<div style="width:40px;height:40px;border-radius:50%;background:#0d9488;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:0 0 auto">'+ini+'</div>'+
+         '<div><div style="font-weight:800;color:#0B132B">'+((st.sel&&st.sel.nombre)||userName())+'</div>'+
+         '<div style="font-size:.7rem;color:#94a3b8">Pides con tu propio usuario. Toca en el calendario los días que quieras.</div></div></div>';
+    } else {
+      // (respaldo) si no se detecta el usuario, desplegable de nombres
+      h+='<div class="p27card"><label style="font-size:.75rem;font-weight:800;color:#0d9488">SOY</label>'+
+         '<select id="p27-soy" onchange="__p27Soy(this.value)" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:11px;font-weight:700;margin-top:4px">';
+      (d.maestros||[]).forEach(function(m){ h+='<option value="'+m.email+'"'+((st.sel&&m.email===st.sel.email)?' selected':'')+'>'+m.nombre+'</option>'; });
+      h+='</select><div style="font-size:.7rem;color:#94a3b8;margin-top:6px">Elige tu nombre y toca los días que quieras pedir.</div></div>';
+    }
+
+    // leyenda
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;font-size:.68rem">'+
+      '<span class="p27chip" style="background:#dcfce7;color:#15803d">Libre</span>'+
+      '<span class="p27chip" style="background:#fef9c3;color:#a16207">Queda 1</span>'+
+      '<span class="p27chip" style="background:#fee2e2;color:#b91c1c">Completo</span>'+
+      '<span class="p27chip" style="background:#eef2f7;color:#94a3b8">No lectivo / fuera de plazo</span></div>';
+
+    // calendario
+    var y=st.ver.getFullYear(), m=st.ver.getMonth();
+    h+='<div class="p27card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
+      '<button onclick="__p27Mes(-1)" style="border:none;background:#f1f5f9;border-radius:8px;width:36px;height:36px;font-weight:800;cursor:pointer">◄</button>'+
+      '<div style="font-weight:800;color:#0B132B">'+MES[m]+' '+y+'</div>'+
+      '<button onclick="__p27Mes(1)" style="border:none;background:#f1f5f9;border-radius:8px;width:36px;height:36px;font-weight:800;cursor:pointer">►</button></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:.72rem;text-align:center">';
+    ['L','M','X','J','V','S','D'].forEach(function(x){ h+='<div style="font-weight:800;color:#94a3b8">'+x+'</div>'; });
+    var first=(new Date(y,m,1).getDay()+6)%7, ndays=new Date(y,m+1,0).getDate();
+    for(var i=0;i<first;i++) h+='<div></div>';
+    for(var dd=1;dd<=ndays;dd++){
+      var fs=fs2(y,m,dd);
+      var lect=esLectivo(fs), enPlazo=lect&&(habiles(fs)>=d.antelacion);
+      var lista=(d.porDia&&d.porDia[fs])||[];
+      var acep=lista.filter(function(x){return x.estado==='ACEPTADA';}).length;
+      var bg='#eef2f7', fg='#94a3b8', click='', badge='';
+      if(lect&&enPlazo){
+        if(acep>=d.plazas){ bg='#fee2e2'; fg='#b91c1c'; }
+        else if(acep>0){ bg='#fef9c3'; fg='#a16207'; }
+        else { bg='#dcfce7'; fg='#15803d'; }
+        if(lista.length) badge='<div style="font-size:.56rem;font-weight:800;line-height:1">'+acep+'/'+d.plazas+'</div>';
+        click=' onclick="__p27Dia(\''+fs+'\')" style="cursor:pointer;';
+      } else { click=' style="'; }
+      h+='<div'+click+'padding:6px 0;border-radius:8px;background:'+bg+';color:'+fg+';font-weight:'+(lect?'800':'500')+'">'+dd+badge+'</div>';
+    }
+    h+='</div><div style="font-size:.68rem;color:#94a3b8;margin-top:8px">Toca un día para ver quién lo ha pedido y solicitarlo. El número es plazas ocupadas / total. Usa ◄ ► para recorrer todo el curso.</div></div>';
+
+    // resumen del curso por mes (todas las peticiones, ordenadas por fecha)
+    var fechas=Object.keys(d.porDia||{}).filter(function(fs){ return (d.porDia[fs]||[]).length; }).sort();
+    h+='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:8px">Resumen del curso · peticiones por mes</div>';
+    if(!fechas.length){ h+='<div style="font-size:.82rem;color:#94a3b8">Todavía no hay peticiones este curso.</div>'; }
+    else {
+      var curMes='';
+      fechas.forEach(function(fs){
+        var dt=new Date(fs+'T12:00:00'), mk=MES[dt.getMonth()]+' '+dt.getFullYear();
+        if(mk!==curMes){ curMes=mk; h+='<div style="font-weight:800;color:#0d9488;font-size:.8rem;margin:12px 0 2px">'+mk+'</div>'; }
+        (d.porDia[fs]||[]).forEach(function(x){
+          var col=_p27estadoCol(x.estado);
+          h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #f5f7fa">'+
+            '<span style="font-weight:700;color:#0B132B;min-width:92px;font-size:.76rem">'+fmtDia(fs)+'</span>'+
+            '<span style="flex:1;font-size:.8rem;color:#334155">'+x.nombre+'</span>'+
+            '<span class="p27chip" style="background:'+col[0]+';color:'+col[1]+'">'+_p27estadoTxt(x.estado)+'</span></div>';
+        });
+      });
+    }
+    h+='</div>';
+
+    // solicitudes del maestro seleccionado
+    h+='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:8px">Solicitudes de '+((st.sel&&st.sel.nombre)||'…')+'</div>';
+    if(!d.mias.length){ h+='<div style="font-size:.82rem;color:#94a3b8">Sin solicitudes.</div>'; }
+    else {
+      d.mias.forEach(function(x){
+        var col=_p27estadoCol(x.estado);
+        h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #f1f5f9">'+
+          '<span class="p27chip" style="background:'+col[0]+';color:'+col[1]+'">'+_p27estadoTxt(x.estado)+'</span>'+
+          '<span style="font-weight:700;color:#0B132B">'+x.fecha+'</span>';
+        if(['ACEPTADA','PENDIENTE','ESPERA'].indexOf(x.estado)>=0)
+          h+='<button onclick="__p27Cancelar(\''+x.fecha+'\')" style="margin-left:auto;background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 10px;font-weight:800;font-size:.72rem;cursor:pointer">Borrar</button>';
+        h+='</div>';
+      });
+    }
+    h+='</div>';
+
+    h+='<div style="text-align:center;margin:6px 0 30px"><button onclick="__p27Admin()" style="background:none;border:none;color:#0d9488;font-weight:800;font-size:.8rem;text-decoration:underline;cursor:pointer">🔒 Acceso dirección</button></div>';
+    body().innerHTML=h; ov().scrollTop=0;
+  }
+  function _p27estadoCol(e){
+    return {ACEPTADA:['#dcfce7','#15803d'],PENDIENTE:['#dbeafe','#1e40af'],ESPERA:['#fef9c3','#a16207'],
+            RECHAZADA:['#fee2e2','#b91c1c'],CANCELADA:['#eef2f7','#64748b']}[e]||['#eef2f7','#64748b'];
+  }
+  function _p27estadoTxt(e){
+    return {ACEPTADA:'Reservado',PENDIENTE:'Pendiente',ESPERA:'Lista de espera',RECHAZADA:'Denegado',CANCELADA:'Cancelado'}[e]||e;
+  }
+
+  /* ── DETALLE DE DÍA (transparencia + solicitar) ── */
+  function cerrarDia(){ var w=document.getElementById('p27-dia'); if(w)w.remove(); }
+  function dia(fs){
+    var d=st.d;
+    var lista=(d.porDia&&d.porDia[fs])||[];
+    var acep=lista.filter(function(x){return x.estado==='ACEPTADA';}).length;
+    var enPlazo=esLectivo(fs)&&(habiles(fs)>=d.antelacion);
+    var mio=(d.mias||[]).some(function(mm){ return mm.fecha===fs && ['ACEPTADA','PENDIENTE','ESPERA'].indexOf(mm.estado)>=0; });
+    var full=acep>=d.plazas;
+    var h='<div style="background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:82vh;overflow:auto;padding:18px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))">';
+    h+='<div style="font-weight:800;font-size:1.05rem;color:#0B132B">'+fs+'</div>';
+    h+='<div style="font-size:.78rem;color:#64748b;margin-bottom:10px">Ocupadas: '+acep+' / '+d.plazas+'</div>';
+    if(!lista.length){ h+='<div style="font-size:.85rem;color:#94a3b8">Nadie lo ha solicitado todavía.</div>'; }
+    else {
+      h+='<div style="font-size:.72rem;color:#64748b;margin-bottom:2px">Orden por prioridad · entran los '+d.plazas+' primeros:</div>';
+      lista.forEach(function(x){
+        var c=_p27estadoCol(x.estado);
+        h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #f1f5f9">'+
+          '<span style="font-weight:800;min-width:22px;color:'+(x.dentro?'#15803d':'#b91c1c')+'">'+x.pos+'º</span>'+
+          '<span style="flex:1;font-weight:700;color:#0B132B">'+x.nombre+'</span>'+
+          '<span class="p27chip" style="background:'+c[0]+';color:'+c[1]+'">'+(x.dentro?'Entra':_p27estadoTxt(x.estado))+'</span></div>';
+      });
+    }
+    if(!enPlazo){ h+='<div style="background:#fef2f2;color:#b91c1c;border-radius:10px;padding:10px;font-size:.8rem;margin-top:12px">Fuera de plazo: hay que pedirlo con al menos '+d.antelacion+' días hábiles de antelación.</div>'; }
+    else if(mio){ h+='<div style="background:#f0fdf4;color:#15803d;border-radius:10px;padding:10px;font-size:.8rem;margin-top:12px">'+((st.sel&&st.sel.nombre)||'Ya')+' ya tiene una solicitud para este día.</div>'; }
+    else if(d.restantes<=0){ h+='<div style="background:#fef9c3;color:#a16207;border-radius:10px;padding:10px;font-size:.8rem;margin-top:12px">'+((st.sel&&st.sel.nombre)||'Este maestro')+' ya ha usado/solicitado sus '+d.diasPorMaestro+' días.</div>'; }
+    else {
+      h+='<div style="margin-top:12px"><label style="font-size:.75rem;font-weight:700;color:#64748b">Motivo (opcional)</label>'+
+         '<input id="p27-motivo" placeholder="(opcional)" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px;margin-top:4px"></div>';
+      h+='<button onclick="__p27Pedir(\''+fs+'\')" style="width:100%;margin-top:12px;background:'+(full?'#a16207':'#0d9488')+';color:#fff;border:none;border-radius:12px;padding:13px;font-weight:800;cursor:pointer">'+
+         (full?'Entrar en lista de espera':'Pedir este día')+' · '+((st.sel&&st.sel.nombre)||'')+'</button>';
+    }
+    h+='<button onclick="__p27CerrarDia()" style="width:100%;margin-top:8px;background:#f1f5f9;color:#0B132B;border:none;border-radius:12px;padding:12px;font-weight:800;cursor:pointer">Cerrar</button></div>';
+    var w=document.createElement('div'); w.id='p27-dia';
+    w.style.cssText='position:fixed;inset:0;background:rgba(11,19,43,.55);z-index:100000;display:flex;align-items:flex-end;justify-content:center';
+    w.onclick=function(e){ if(e.target===w) cerrarDia(); };
+    w.innerHTML=h; document.body.appendChild(w);
+  }
+  function pedir(fs){
+    if(!st.sel||!st.sel.email){ alert('Elige tu nombre en el desplegable "Soy".'); return; }
+    var mot=(document.getElementById('p27-motivo')||{}).value||'';
+    cerrarDia();
+    body().innerHTML='<div style="padding:24px;text-align:center;color:#64748b">Enviando…</div>';
+    google.script.run.withSuccessHandler(function(r){
+      if(r&&r.ok){
+        var m={ACEPTADA:'✅ Día reservado. Recuerda formalizarlo en Séneca.',ESPERA:'📋 Cupo completo: en lista de espera por prioridad.',PENDIENTE:'🕒 Solicitud enviada; la dirección la revisará.'}[r.estado]||'Solicitud registrada.';
+        alert(m);
+      } else { alert('No se pudo: '+((r&&r.error)||'error')); }
+      recargar();
+    }).withFailureHandler(function(e){ alert('Error: '+(e&&e.message?e.message:e)); recargar(); })
+      .p27Solicitar({fecha:fs, motivo:mot, email:st.sel.email, nombre:st.sel.nombre});
+  }
+  function cancelar(fs){
+    if(!st.sel||!st.sel.email) return;
+    if(!confirm('¿Borrar la solicitud de '+st.sel.nombre+' del '+fs+'?\n(se elimina y los demás se recolocan por prioridad)')) return;
+    google.script.run.withSuccessHandler(recargar).withFailureHandler(recargar).p27Cancelar({fecha:fs, email:st.sel.email});
+  }
+
+  /* ── DIRECCIÓN ── */
+  function abrirAdmin(){
+    var p=prompt('Contraseña de dirección\n(si es la primera vez, escribe la que quieras y quedará fijada):','');
+    if(p===null) return;
+    st.pass=p;
+    google.script.run.withSuccessHandler(function(r){
+      if(r&&r.ok){ adminPanel(r); } else alert('Contraseña incorrecta.');
+    }).withFailureHandler(function(e){ alert('Error: '+(e&&e.message?e.message:e)); }).p27Admin(p);
+  }
+  function adminPanel(r){
+    bar('🔒 Dirección · P27', render);
+    var c=r.cfg||{};
+    var h='';
+    if(r.primeraVez){
+      h+='<div class="p27card" style="border-color:#fca5a5"><div style="font-weight:800;color:#b91c1c;margin-bottom:6px">Primera vez</div>'+
+        '<div style="font-size:.82rem;color:#334155;margin-bottom:8px">Aún no hay contraseña de dirección. Escribe una para protegerlo:</div>'+
+        '<input id="p27-newpass" type="text" placeholder="Nueva contraseña" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px"></div>';
+    }
+    h+='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:10px">Configuración</div>'+
+      '<label style="font-size:.75rem;font-weight:700;color:#64748b">Letra del sorteo</label>'+
+      '<input id="p27-cf-letra" maxlength="1" value="'+(c.letra||'A')+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px;text-transform:uppercase;margin:4px 0 10px">'+
+      '<label style="font-size:.75rem;font-weight:700;color:#64748b">Plazas por día (≤20→1 · 21-40→2 · 41-60→3…)</label>'+
+      '<input id="p27-cf-plazas" type="number" min="1" value="'+(c.plazas||2)+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px;margin:4px 0 10px">'+
+      '<label style="font-size:.75rem;font-weight:700;color:#64748b">Antelación mínima (días hábiles · Séneca pide 15)</label>'+
+      '<input id="p27-cf-ant" type="number" min="0" value="'+(c.antelacion!=null?c.antelacion:18)+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px;margin:4px 0 10px">'+
+      '<label style="font-size:.75rem;font-weight:700;color:#64748b">Modo de validación</label>'+
+      '<select id="p27-cf-modo" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px;margin:4px 0 10px">'+
+        '<option value="hibrido"'+(c.modo==='hibrido'?' selected':'')+'>Híbrido (auto si hay hueco; tú resuelves empates)</option>'+
+        '<option value="auto"'+(c.modo==='auto'?' selected':'')+'>Automático (todo por reglas)</option>'+
+        '<option value="manual"'+(c.modo==='manual'?' selected':'')+'>Manual (validas cada una)</option>'+
+      '</select>'+
+      '<label style="font-size:.75rem;font-weight:700;color:#64748b">Emails del equipo directivo (avisos), separados por coma</label>'+
+      '<input id="p27-cf-dir" value="'+(c.directivo||'')+'" placeholder="tu@…, paula@…, antonio@…" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px;margin:4px 0 10px">'+
+      '<button onclick="__p27Guardar()" style="width:100%;background:#0d9488;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;cursor:pointer">Guardar configuración</button></div>';
+
+    h+='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:10px">Solicitudes ('+r.solicitudes.length+')</div>';
+    if(!r.solicitudes.length){ h+='<div style="font-size:.82rem;color:#94a3b8">Sin solicitudes.</div>'; }
+    else {
+      r.solicitudes.forEach(function(s){
+        var col=_p27estadoCol(s.estado);
+        h+='<div style="border-top:1px solid #f1f5f9;padding:8px 0">'+
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+            '<span class="p27chip" style="background:'+col[0]+';color:'+col[1]+'">'+_p27estadoTxt(s.estado)+'</span>'+
+            '<b style="color:#0B132B">'+s.fecha+'</b>'+
+            '<span style="font-size:.8rem;color:#475569">'+s.nombre+'</span>'+
+            '<span style="font-size:.7rem;color:#94a3b8">('+s.usados+' usados)</span>'+
+          '</div>';
+        if(s.estado!=='CANCELADA'){
+          h+='<div style="display:flex;gap:6px;margin-top:6px">';
+          if(s.estado!=='ACEPTADA') h+='<button onclick="__p27Res('+s.row+',\'aceptar\')" style="background:#dcfce7;color:#15803d;border:none;border-radius:8px;padding:6px 10px;font-weight:800;font-size:.72rem;cursor:pointer">Aceptar</button>';
+          if(s.estado!=='RECHAZADA') h+='<button onclick="__p27Res('+s.row+',\'rechazar\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 10px;font-weight:800;font-size:.72rem;cursor:pointer">Denegar</button>';
+          h+='</div>';
+        }
+        h+='</div>';
+      });
+    }
+    h+='</div>';
+    h+='<button onclick="__p27Registro()" style="width:100%;background:#0B132B;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;cursor:pointer;margin-bottom:12px">📜 Ver registro de auditoría</button>';
+    h+='<div style="height:30px"></div>';
+    body().innerHTML=h; ov().scrollTop=0;
+  }
+  function verRegistro(){
+    body().innerHTML='<div style="padding:24px;text-align:center;color:#64748b">Cargando registro…</div>';
+    google.script.run.withSuccessHandler(function(r){
+      bar('📜 Registro de auditoría', function(){ google.script.run.withSuccessHandler(adminPanel).p27Admin(st.pass); });
+      var h='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:8px">Últimos movimientos</div>';
+      if(!r||!r.ok){ h+='<div style="color:#b91c1c">'+((r&&r.error)||'Error')+'</div>'; }
+      else if(!r.registro.length){ h+='<div style="font-size:.82rem;color:#94a3b8">Sin movimientos todavía.</div>'; }
+      else {
+        r.registro.forEach(function(x){
+          var f=new Date(x.ts), fh=('0'+f.getDate()).slice(-2)+'/'+('0'+(f.getMonth()+1)).slice(-2)+' '+('0'+f.getHours()).slice(-2)+':'+('0'+f.getMinutes()).slice(-2);
+          h+='<div style="border-top:1px solid #f1f5f9;padding:7px 0;font-size:.8rem"><b style="color:#0B132B">'+x.accion+'</b> · '+x.nombre+' · '+(x.fecha||'')+
+             '<div style="font-size:.7rem;color:#94a3b8">'+fh+(x.detalle?(' · '+x.detalle):'')+'</div></div>';
+        });
+      }
+      h+='</div><div style="height:30px"></div>';
+      body().innerHTML=h; ov().scrollTop=0;
+    }).withFailureHandler(function(e){ alert('Error: '+(e&&e.message?e.message:e)); }).p27Registro(st.pass);
+  }
+  function guardarConfig(){
+    var np=document.getElementById('p27-newpass');
+    var d={ pass:st.pass,
+      letra:document.getElementById('p27-cf-letra').value,
+      plazas:document.getElementById('p27-cf-plazas').value,
+      antelacion:document.getElementById('p27-cf-ant').value,
+      modo:document.getElementById('p27-cf-modo').value,
+      directivo:document.getElementById('p27-cf-dir').value };
+    if(np&&np.value){ d.nuevaPass=np.value; if(!st.pass) d.pass=np.value; }
+    google.script.run.withSuccessHandler(function(r){
+      if(r&&r.ok){ if(d.nuevaPass) st.pass=d.nuevaPass; alert('Configuración guardada.'); google.script.run.withSuccessHandler(adminPanel).p27Admin(st.pass); }
+      else alert('No se pudo: '+((r&&r.error)||'error'));
+    }).withFailureHandler(function(e){ alert('Error: '+(e&&e.message?e.message:e)); }).p27SetConfig(d);
+  }
+  function resolver(row, accion){
+    var motivo='';
+    if(accion==='rechazar'){ motivo=prompt('Motivo de la denegación (causas organizativas, según la norma):',''); if(motivo===null) return; }
+    google.script.run.withSuccessHandler(function(r){
+      if(r&&r.ok){ google.script.run.withSuccessHandler(adminPanel).p27Admin(st.pass); }
+      else alert('No se pudo: '+((r&&r.error)||'error'));
+    }).withFailureHandler(function(e){ alert('Error: '+(e&&e.message?e.message:e)); }).p27Resolver({pass:st.pass, row:row, accion:accion, motivo:motivo});
+  }
+
+  /* ── AYUDA / normativa ── */
+  function ayuda(){
+    var d=st.d||{};
+    function sec(ic,tit,txt){ return '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="font-size:1.3rem;flex:0 0 auto;line-height:1">'+ic+'</div><div><div style="font-weight:800;color:#0B132B;font-size:.9rem">'+tit+'</div><div style="font-size:.83rem;color:#475569;line-height:1.5;margin-top:2px">'+txt+'</div></div></div>'; }
+    var h='<div style="background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:20px;padding-bottom:calc(26px + env(safe-area-inset-bottom,0px))">';
+    h+='<div style="font-weight:900;font-size:1.15rem;color:#0B132B">Cómo funcionan los días de libre disposición</div>';
+    h+='<div style="font-size:.75rem;color:#64748b;margin-bottom:14px">Instrucción 10/2025 · permisos por asuntos particulares</div>';
+    h+=sec('🗓️','Cuántos días','Tienes <b>'+(d.diasPorMaestro||2)+' días lectivos</b> de libre disposición por curso (sin contar los no lectivos), a disfrutar durante el curso <b>excepto en agosto</b>.');
+    h+=sec('👥','Cuántos a la vez','Cada día solo pueden ausentarse <b>'+(d.plazas||2)+'</b> maestro(s), según el tamaño del claustro. Si lo piden más, entran los de mayor prioridad y el resto queda en lista de espera.');
+    h+=sec('🥇','Orden de prioridad','<b>1º</b> tiene preferencia quien <b>aún no ha gastado</b> sus días.<br><b>2º</b> (empate): orden <b>alfabético</b> empezando por la <b>letra del sorteo</b> de la Junta (este curso: <b>'+(d.letra||'—')+'</b>) y siguiendo el abecedario.<br>Por eso quien pide primero sale 1º, pero si luego pide alguien con más prioridad, se recoloca y <b>todos ven el nuevo orden</b>.');
+    h+=sec('👀','Transparencia','Al tocar un día ves <b>quién lo ha pedido y en qué orden</b> (1º, 2º…), quién <b>entra</b> y quién queda <b>fuera</b>. Abajo tienes el resumen del curso por meses.');
+    h+=sec('⏰','Plazos','En la app se pide con <b>'+(d.antelacion||18)+' días hábiles</b> de antelación, para dejar margen. La solicitud oficial va por <b>Séneca</b> con al menos <b>15 días hábiles</b>; la dirección resuelve en un máximo de 10 días hábiles.');
+    h+=sec('✅','Cómo se decide','Si cabéis en el cupo, se <b>reserva automáticamente</b> y te llega un email para formalizarlo en Séneca. Si hay más solicitudes que plazas, manda la prioridad; la dirección solo puede denegar por causas organizativas justificadas.');
+    h+=sec('✏️','Si te equivocas','Puedes <b>borrar</b> tu propia solicitud cuando quieras: el hueco se libera y los demás se recolocan por prioridad.');
+    h+=sec('📌','Importante','Esta herramienta <b>organiza el reparto del centro</b>; no sustituye a Séneca. Un permiso concedido en Séneca no se revoca ni se puede renunciar a él.');
+    h+='<button onclick="__p27CerrarAyuda()" style="width:100%;margin-top:6px;background:#0d9488;color:#fff;border:none;border-radius:12px;padding:13px;font-weight:800;cursor:pointer">Entendido 👍</button></div>';
+    var w=document.createElement('div'); w.id='p27-ayuda';
+    w.style.cssText='position:fixed;inset:0;background:rgba(11,19,43,.55);z-index:100001;display:flex;align-items:flex-end;justify-content:center';
+    w.onclick=function(e){ if(e.target===w) w.remove(); };
+    w.innerHTML=h; document.body.appendChild(w);
+  }
+  window.__p27Ayuda=ayuda;
+  window.__p27CerrarAyuda=function(){ var w=document.getElementById('p27-ayuda'); if(w)w.remove(); };
+
+  window.abrirP27=abrir;
+  window.__p27Soy=function(em){ (st.d.maestros||[]).forEach(function(m){ if(m.email===em) st.sel=m; }); recargar(); };
+  window.__p27Mes=function(k){ st.ver=new Date(st.ver.getFullYear(), st.ver.getMonth()+k, 1); render(); };
+  window.__p27Dia=dia;
+  window.__p27Pedir=pedir;
+  window.__p27CerrarDia=cerrarDia;
+  window.__p27Cancelar=cancelar;
+  window.__p27Admin=abrirAdmin;
+  window.__p27Guardar=guardarConfig;
+  window.__p27Res=resolver;
+  window.__p27Registro=verRegistro;
+
+  function inyectar(){
+    var grid=document.querySelector('#v-util .util-grid')||document.querySelector('.util-grid');
+    if(!grid || document.getElementById('btn-p27')) return;
+    var b=document.createElement('button'); b.id='btn-p27'; b.className='util-btn'; b.setAttribute('onclick','abrirP27()');
+    b.innerHTML='<div class="util-ico" style="font-size:30px;line-height:1">🗓️</div><span>P27 · Libre disposición</span>';
+    grid.appendChild(b);
+  }
+  setInterval(inyectar,1000); inyectar();
+})();
+</script>
+<script>
+(function(){
+  var TXT='';
+  var COPY='';
+  function credito(){
+    var d=document.createElement('div');
+    d.style.cssText='text-align:center;color:#94a3b8;font-size:.66rem;padding:12px 14px;line-height:1.6';
+    d.innerHTML=TXT+'<br><span style="opacity:.8">'+COPY+'</span>';
+    return d;
+  }
+  function poner(){
+    var lq=document.getElementById('login-quote');
+    if(lq && lq.parentNode && !document.getElementById('cred-login')){ var c=credito(); c.id='cred-login'; c.style.marginTop='16px'; lq.parentNode.appendChild(c); }
+    var av=document.getElementById('v-aldia');
+    if(av && !document.getElementById('cred-aldia')){ var c2=credito(); c2.id='cred-aldia'; c2.style.marginTop='6px'; av.appendChild(c2); }
+  }
+  var n=0, iv=setInterval(function(){ n++; poner(); if(n>40) clearInterval(iv); }, 500);
+  poner();
+})();
+</script>
+<script>
+(function(){
+  var KEY='ssnet_cumple_'+new Date().toISOString().slice(0,10);
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+  function miNombre(){var e=document.getElementById('hdr-name');return e?(e.textContent||'').trim():'';}
+  function css(){
+    if(document.getElementById('cumple-css'))return;
+    var st=document.createElement('style');st.id='cumple-css';
+    st.textContent='@keyframes cmpPop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}@keyframes cmpFall{0%{transform:translateY(-12vh) rotate(0);opacity:1}100%{transform:translateY(112vh) rotate(720deg);opacity:.9}}@keyframes cmpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}#cumple-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,19,43,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);padding:18px}#cumple-card{position:relative;max-width:420px;width:100%;border-radius:26px;padding:30px 24px 24px;text-align:center;background:linear-gradient(160deg,#ffe0f0 0%,#fff6e6 55%,#e9e0ff 100%);box-shadow:0 24px 70px rgba(0,0,0,.4);animation:cmpPop .5s cubic-bezier(.2,.9,.3,1.4);overflow:hidden}#cumple-card .cake{font-size:74px;line-height:1;animation:cmpFloat 2.6s ease-in-out infinite}#cumple-card h2{margin:8px 0 2px;font-family:"Amatic SC",cursive;font-weight:700;font-size:2.7rem;color:#be185d;line-height:1}#cumple-card .nom{font-family:"Bitter",serif;font-weight:700;font-size:1.45rem;color:#0B132B;margin:2px 0 12px}#cumple-card .msg{font-size:1rem;color:#5b2b4a;line-height:1.5;margin:0 2px 18px;background:rgba(255,255,255,.6);border-radius:14px;padding:12px 14px}#cumple-card .cbtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}#cumple-card .cbtns a,#cumple-card .cbtns button{border:0;cursor:pointer;text-decoration:none;font-weight:800;font-size:.95rem;border-radius:12px;padding:12px 18px}.cmp-conf{position:absolute;top:-12vh;width:11px;height:16px;border-radius:2px;animation:cmpFall linear forwards;pointer-events:none}';
+    document.head.appendChild(st);
+  }
+  function confetti(host){
+    var cols=['#ff5fa2','#ffd23f','#7c3aed','#38bdf8','#34d399','#fb7185'];
+    for(var i=0;i<60;i++){var c=document.createElement('div');c.className='cmp-conf';c.style.left=(Math.random()*100)+'%';c.style.background=cols[i%cols.length];c.style.animationDuration=(2.6+Math.random()*2.4)+'s';c.style.animationDelay=(Math.random()*1.3)+'s';host.appendChild(c);}
+  }
+  function cerrar(){var o=document.getElementById('cumple-ov');if(o)o.remove();}
+  function popup(lista){
+    if(document.getElementById('cumple-ov'))return;
+    css();
+    var yo=norm(miNombre()),mio=null;
+    lista.forEach(function(c){var n=norm(c.nombre);if(n && (n===yo || (yo && (yo.indexOf(n)>=0 || n.indexOf(yo)>=0))))mio=c;});
+    var esMio=!!mio,uno=lista[0];
+    var nombres=lista.map(function(c){return c.nombre;}).join(' y ');
+    var titulo=esMio?'¡Feliz cumpleaños!':'¡Hoy hay cumple!';
+    var quien=esMio?miNombre():nombres;
+    var msg=esMio?((mio.mensaje||'').trim()||'Que tengas un día maravilloso. ¡Feliz cumpleaños! 🎉'):((uno.mensaje||'').trim()||('Hoy es el cumpleaños de '+nombres+'. ¡Pásate a felicitarle! 🥳'));
+    var link=esMio?'':((uno.link||'').trim());
+    var ov=document.createElement('div');ov.id='cumple-ov';
+    var felic=esMio?'':('<a id="cmp-fel" href="'+(link?esc(link):'#')+'"'+(link?' target="_blank" rel="noopener"':'')+' style="background:linear-gradient(135deg,#ec4899,#7c3aed);color:#fff">🎉 Felicitar</a>');
+    ov.innerHTML='<div id="cumple-card"><div class="cake">🎂</div><h2>'+esc(titulo)+'</h2><div class="nom">'+esc(quien)+'</div><div class="msg">'+esc(msg)+'</div><div class="cbtns">'+felic+'<button id="cmp-cerrar" style="background:#0B132B;color:#fff">Cerrar</button></div></div>';
+    document.body.appendChild(ov);
+    confetti(ov.firstChild);
+    document.getElementById('cmp-cerrar').onclick=cerrar;
+    if(!link){var fb=document.getElementById('cmp-fel');if(fb)fb.onclick=function(e){e.preventDefault();cerrar();};}
+    ov.addEventListener('click',function(e){if(e.target===ov)cerrar();});
+  }
+  function tablonHTML(lista){
+    var nombres=lista.map(function(c){return c.nombre;}).join(' y ');
+    var link=(lista[0].link||'').trim();
+    var fel=link?(' · <a href="'+esc(link)+'" target="_blank" rel="noopener" style="color:#be185d;font-weight:800">Felicitar</a>'):'';
+    return '<div id="cumple-tablon" style="background:#fce7f3;border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px">'
+      +'<span style="font-size:1.25rem;flex-shrink:0">🎂</span>'
+      +'<div style="flex:1"><div style="font-weight:800;color:#be185d;font-size:.9rem">¡Hoy es el cumpleaños de '+esc(nombres)+'!</div>'
+      +'<div style="color:#9d174d;font-size:.82rem;margin-top:3px">¡Felicítale y hazle el día! 🥳'+fel+'</div></div></div>';
+  }
+  function ensureTablon(lista){
+    var box=document.getElementById('tablon-items-box');
+    if(!box)return;
+    if(document.getElementById('cumple-tablon'))return;
+    box.insertAdjacentHTML('afterbegin', tablonHTML(lista));
+  }
+  function ready(){
+    var ls=document.getElementById('login-screen');
+    if((ls&&ls.offsetParent!==null)||!document.getElementById('hdr-name')||!(window.google&&google.script&&google.script.run)){return setTimeout(ready,700);}
+    google.script.run.withSuccessHandler(function(r){
+      var lista=(r&&r.cumples)?r.cumples:[];
+      if(!lista.length)return;
+      ensureTablon(lista);
+      setInterval(function(){ensureTablon(lista);},3000);
+      var seen=false;try{seen=localStorage.getItem(KEY)==='1';}catch(e){}
+      if(seen)return;
+      try{localStorage.setItem(KEY,'1');}catch(e){}
+      popup(lista);
+    }).getCumplesHoy();
+  }
+  ready();
+})();
+</script>
+</body>
+</html>
