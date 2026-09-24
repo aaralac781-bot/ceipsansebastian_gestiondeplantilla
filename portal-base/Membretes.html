@@ -1,0 +1,24 @@
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   MEMBRETES · BASE NEUTRA
+   ─────────────────────────────────────────────────────────────────────────
+   Cabecera y pie que se estampan en los documentos generados (listados,
+   control de libros, etc.). En la base van VACÍOS (placeholder): cada cole
+   pega aquí sus dos imágenes oficiales en base64.
+
+   Cómo poner el membrete de un cole:
+     1) Exporta la cabecera y el pie como PNG.
+     2) Conviértelos a data:image/png;base64,... (base64 de la imagen).
+     3) Pega cada cadena en CAB_SUPERIOR / CAB_INFERIOR.
+
+   Si se dejan vacíos, los documentos se generan sin membrete (no fallan).
+   NO contiene ninguna imagen de SSNet ni de ningún otro centro.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+var CAB_SUPERIOR = "";   // p.ej. "data:image/png;base64,iVBORw0KG..."
+var CAB_INFERIOR = "";   // p.ej. "data:image/png;base64,iVBORw0KG..."
+
+/* Devuelve una etiqueta <img> del membrete, o "" si no hay imagen. */
+function membreteSuperiorHTML(){ return CAB_SUPERIOR ? '<img src="'+CAB_SUPERIOR+'" style="width:100%">' : ''; }
+function membreteInferiorHTML(){ return CAB_INFERIOR ? '<img src="'+CAB_INFERIOR+'" style="width:100%">' : ''; }
+</script>

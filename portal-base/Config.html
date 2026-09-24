@@ -1,0 +1,63 @@
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   CONFIG DEL CENTRO · CLIENTE  ·  BASE NEUTRA DEL PORTAL
+   ─────────────────────────────────────────────────────────────────────────
+   Marca visual + enlaces del centro. Se edita SOLO este archivo (y Config.gs
+   en el servidor) al crear el portal de un cole nuevo. El resto del código
+   (Scripts.html) lee siempre de CFG.
+
+   NADA de esto contiene datos de personas: son enlaces, nombres de grupos y
+   la identidad del centro. Vacío ("") = la función correspondiente se oculta.
+   ══════════════════════════════════════════════════════════════════════════ */
+var CFG = {
+
+  // ── Identidad ─────────────────────────────────────────────────────────────
+  CENTRO:   'CEIP ___',            // nombre visible del centro
+  LOCALIDAD:'',                    // localidad (aparece bajo el nombre)
+  CODIGO:   '',                    // código de centro
+  AUTOR:    '',                    // crédito del pie ("Nombre · cargo")
+  TITULO:   'PortalNet',           // título del login y de la web
+
+  // ── Iconos (PWA / login) ─────────────────────────────────────────────────
+  ICON_180: '',                    // apple-touch-icon 180×180
+  ICON_192: '',                    // icono 192×192
+
+  // ── Salas Meet (enlaces fijos). "" oculta la sala ────────────────────────
+  MEET: {
+    ETCP:        '',
+    CLAUSTRO:    '',
+    CONSEJO:     '',
+    INFANTIL:    '',
+    CICLO1:      '',
+    CICLO2:      '',
+    CICLO3:      '',
+    ORIENTACION: ''
+  },
+
+  // ── Cuadernos externos (URLs .../exec). "" oculta el cuaderno ─────────────
+  CUADERNOS: {
+    progSem:       '',
+    criterios:     '',
+    portalActas:   '',
+    sustituciones: '',
+    incidencias:   '',
+    enfermedades:  ''
+  },
+
+  // ── Carpetas de Drive del centro. "" oculta la sección ────────────────────
+  DRIVE: {
+    documentos:  '',
+    actas:       '',
+    driveCentro: ''
+  },
+
+  // ── Grupos / cursos del centro ────────────────────────────────────────────
+  //  Las CLAVES son internas (sin espacios ni tildes); las etiquetas, visibles.
+  GRUPOS: [],                      // p.ej. ['3anosA','1oA','6oB']
+  GRUPOS_LABELS: {},               // p.ej. { '3anosA':'3 años A', '6oB':'6º B' }
+
+  // ── Enlaces extra opcionales ──────────────────────────────────────────────
+  RADIO:      '',                  // SoundCloud / podcast del centro
+  RECURSOS_IA:''                   // recurso externo (p.ej. profes.tv)
+};
+</script>

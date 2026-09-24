@@ -1,0 +1,299 @@
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   TEMA DEL PORTAL · BASE NEUTRA
+   ─────────────────────────────────────────────────────────────────────────
+   Todo el color y la marca visual viven en las VARIABLES de :root.
+   Para re-vestir un cole nuevo se cambian SOLO esas variables (o se
+   sobreescriben en un bloque aparte); las reglas de más abajo no se tocan.
+
+   Skin por defecto: CLARITA — homenaje a Clara Campoamor.
+   Ciencia · igualdad · respeto. Paleta vino / ciruela / lila / rosa / cobre.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* ——— Paleta de marca (lo único que cambia por cole) ——— */
+  --vino:#7A1B39;        /* primario oscuro   */
+  --ciruela:#5B2A5F;     /* secundario oscuro */
+  --cobre:#BE5A2C;       /* acento cálido     */
+  --ciencia:#2E7D64;     /* verde ciencia     */
+  --lila:#7E4E97;        /* medio             */
+  --lila-soft:#ECDAF5;   /* fondo suave lila  */
+  --rosa:#B84E86;        /* acento vivo       */
+  --rosa-soft:#F7DBEA;   /* fondo suave rosa  */
+
+  /* ——— Roles (derivados de la paleta; el resto del CSS usa ESTO) ——— */
+  --bg:#F7F1F0;                 /* fondo de la app        */
+  --surface:#FFFFFF;            /* tarjetas / paneles     */
+  --surface-2:#FBF5F8;          /* superficie alterna     */
+  --ink:#2A1622;                /* texto principal        */
+  --ink-soft:#6E5560;           /* texto secundario       */
+  --ink-faint:#A991A0;          /* texto tenue            */
+  --line:#EAD9E2;               /* bordes / separadores   */
+  --brand:var(--vino);          /* color de marca         */
+  --brand-2:var(--ciruela);
+  --accent:var(--rosa);         /* acento de navegación   */
+  --ok:var(--ciencia);
+  --warn:var(--cobre);
+  --danger:#C0392B;
+  --grad-a:var(--vino);         /* degradado de cabecera  */
+  --grad-b:var(--ciruela);
+
+  /* ——— Tipografía ——— */
+  --font-logo:'Parisienne',cursive;
+  --font-head:'Fraunces','Georgia',serif;
+  --font-body:'Mulish','Segoe UI',system-ui,sans-serif;
+
+  /* ——— Formas ——— */
+  --r-sm:10px; --r:14px; --r-lg:18px; --r-xl:24px;
+  --shadow:0 4px 16px rgba(90,25,60,.10);
+  --shadow-lg:0 12px 34px rgba(90,25,60,.22);
+}
+
+/* ——— Modo oscuro ——— */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1B1017; --surface:#271722; --surface-2:#301B29;
+    --ink:#F5E8EF; --ink-soft:#C9A9BC; --ink-faint:#8C6C7E;
+    --line:#3E2536; --lila-soft:#39234A; --rosa-soft:#4A2338;
+    --shadow:0 4px 16px rgba(0,0,0,.4); --shadow-lg:0 12px 34px rgba(0,0,0,.55);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1B1017; --surface:#271722; --surface-2:#301B29;
+  --ink:#F5E8EF; --ink-soft:#C9A9BC; --ink-faint:#8C6C7E;
+  --line:#3E2536; --lila-soft:#39234A; --rosa-soft:#4A2338;
+  --shadow:0 4px 16px rgba(0,0,0,.4); --shadow-lg:0 12px 34px rgba(0,0,0,.55);
+  color-scheme:dark;
+}
+
+/* ═══════════════════ BASE ═══════════════════ */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.5;
+}
+h1,h2,h3,h4{font-family:var(--font-head);font-weight:600;line-height:1.2;text-wrap:balance}
+a{color:var(--brand);text-decoration:none}
+button{font-family:inherit}
+
+/* ═══════════════════ LOGIN ═══════════════════ */
+#login-screen{
+  position:fixed;inset:0;z-index:50;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  background:linear-gradient(150deg,var(--grad-a) 0%,var(--grad-b) 60%,#3A1830 130%);
+}
+.login-sheet{
+  width:100%;max-width:400px;background:var(--surface);
+  border-radius:var(--r-xl);padding:30px 26px;box-shadow:var(--shadow-lg);
+}
+.login-logo-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.login-logo{height:52px;width:52px;border-radius:14px;object-fit:cover}
+.login-school-name{font-family:var(--font-logo);font-size:1.9rem;color:var(--brand);line-height:1}
+.login-school-sub{font-size:.78rem;color:var(--ink-soft);margin-top:2px}
+#login-greeting{font-family:var(--font-head);font-size:1.5rem;color:var(--ink);margin:6px 0 2px}
+#login-quote{font-size:.85rem;color:var(--ink-soft);margin:0 0 16px}
+.inp{
+  width:100%;padding:12px 14px;margin-bottom:12px;
+  border:1.5px solid var(--line);border-radius:var(--r);
+  font-size:.95rem;background:var(--surface-2);color:var(--ink);
+}
+.inp:focus{outline:none;border-color:var(--rosa);box-shadow:0 0 0 3px var(--rosa-soft)}
+.btn-primary{
+  width:100%;padding:13px;border:none;border-radius:var(--r);cursor:pointer;
+  font-weight:800;font-size:.95rem;color:#fff;
+  background:linear-gradient(135deg,var(--vino),var(--rosa));
+}
+.btn-primary:active{transform:translateY(1px)}
+#login-err{color:var(--danger);font-size:.82rem;margin-top:8px;min-height:1em}
+
+/* ═══════════════════ CABECERA ═══════════════════ */
+.hdr{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 16px;color:#fff;
+  background:linear-gradient(120deg,var(--grad-a),var(--grad-b));
+}
+/* Decoración de ciencia: órbita atómica (reemplaza los ladrillos de SSNet) */
+.hdr::before{
+  content:"";position:absolute;right:-30px;top:-30px;width:130px;height:130px;
+  border-radius:50%;
+  background:
+    radial-gradient(circle at center, rgba(255,255,255,.16) 6px, transparent 7px),
+    repeating-conic-gradient(from 0deg, transparent 0 12deg, rgba(255,255,255,.05) 12deg 13deg);
+  border:2px solid rgba(255,255,255,.12);
+  transform:rotate(-18deg);pointer-events:none;
+}
+/* Doble hélice tenue en la esquina inferior izquierda */
+.hdr::after{
+  content:"";position:absolute;left:-8px;bottom:-14px;width:70px;height:70px;
+  background:
+    radial-gradient(circle at 20% 20%, var(--rosa) 3px, transparent 4px),
+    radial-gradient(circle at 80% 50%, var(--cobre) 3px, transparent 4px),
+    radial-gradient(circle at 30% 80%, var(--lila-soft) 3px, transparent 4px);
+  opacity:.5;pointer-events:none;
+}
+.hdr-left,.hdr-right{display:flex;align-items:center;gap:10px;position:relative;z-index:1}
+.hdr-avatar{
+  width:40px;height:40px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;background:rgba(255,255,255,.22);
+}
+#hdr-name{font-weight:800;font-size:.95rem;line-height:1.1}
+#hdr-sub{font-size:.7rem;opacity:.85}
+.hdr button{background:rgba(255,255,255,.18);border:none;border-radius:10px;padding:8px;cursor:pointer;color:#fff}
+
+/* ═══════════════════ NAVEGACIÓN INFERIOR ═══════════════════ */
+.nav{
+  position:sticky;bottom:0;z-index:20;
+  display:flex;background:var(--surface);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.nbtn{
+  flex:1;border:none;background:none;cursor:pointer;
+  padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;
+  color:var(--ink-faint);font-size:.66rem;font-weight:700;position:relative;
+}
+.nbtn svg *{transition:fill .2s}
+.nbtn.on{color:var(--accent)}
+.nbtn.on::before{
+  content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:3px;
+  background:var(--accent);
+}
+
+/* ═══════════════════ CONTENIDO ═══════════════════ */
+.main{padding:16px;min-height:60vh}
+.welcome{
+  border-radius:var(--r-lg);padding:18px 20px;margin-bottom:16px;color:#fff;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--ciruela),var(--vino) 70%,var(--rosa) 140%);
+}
+/* Molécula decorativa en la tarjeta de bienvenida (reemplaza el "🏫") */
+.welcome::before{
+  content:"";position:absolute;right:14px;bottom:-10px;width:80px;height:80px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255,255,255,.9) 5px, transparent 6px),
+    radial-gradient(circle at 20% 75%, rgba(255,255,255,.7) 5px, transparent 6px),
+    radial-gradient(circle at 80% 75%, rgba(255,255,255,.7) 5px, transparent 6px);
+  opacity:.35;pointer-events:none;
+}
+.welcome-name{font-family:var(--font-head);font-size:1.35rem;position:relative;z-index:1}
+.welcome-quote{font-size:.85rem;opacity:.92;margin-top:4px;position:relative;z-index:1}
+
+.sec-title{
+  font-family:var(--font-head);font-size:1.05rem;color:var(--brand);
+  margin:20px 0 10px;display:flex;align-items:center;gap:8px;
+}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 16px;box-shadow:var(--shadow);
+}
+.no-ev{color:var(--ink-faint);font-size:.85rem;padding:8px 0;text-align:center}
+.form-sel{
+  width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:var(--r);
+  background:var(--surface);color:var(--ink);font-weight:600;margin-bottom:12px;
+}
+
+/* ═══════════════════ TARJETAS DE CUADERNO (rediseño) ═══════════════════ */
+/* Riel de color a la izquierda + tinte suave; cada familia su color de marca */
+.cuad-card{
+  position:relative;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);padding:14px 16px 14px 20px;margin-bottom:10px;
+  box-shadow:var(--shadow);cursor:pointer;overflow:hidden;
+  display:flex;align-items:center;gap:12px;
+}
+.cuad-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--lila)}
+.cuad-card .cc-ico{
+  width:42px;height:42px;flex:0 0 auto;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;
+  background:var(--lila-soft);color:var(--lila);
+}
+.cuad-card .cc-t{font-weight:800;color:var(--ink);font-size:.95rem}
+.cuad-card .cc-s{font-size:.76rem;color:var(--ink-soft);margin-top:2px}
+/* Variantes de familia — misma estructura, distinto color */
+.cc-ciencia::before{background:var(--ciencia)}   .cc-ciencia .cc-ico{background:#DDEEE7;color:var(--ciencia)}
+.cc-rosa::before{background:var(--rosa)}          .cc-rosa .cc-ico{background:var(--rosa-soft);color:var(--rosa)}
+.cc-cobre::before{background:var(--cobre)}        .cc-cobre .cc-ico{background:#F7E3D4;color:var(--cobre)}
+.cc-vino::before{background:var(--vino)}          .cc-vino .cc-ico{background:#F3D9E1;color:var(--vino)}
+.cc-ciruela::before{background:var(--ciruela)}    .cc-ciruela .cc-ico{background:var(--lila-soft);color:var(--ciruela)}
+
+/* ═══════════════════ UTILIDADES ═══════════════════ */
+.util-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px}
+.util-btn{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px 8px;cursor:pointer;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;
+  font-size:.72rem;font-weight:700;color:var(--ink);
+}
+.util-btn:active{transform:scale(.97)}
+.util-ico{width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+.util-panel{display:none;position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.util-panel-hdr{
+  position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;
+  padding:calc(14px + env(safe-area-inset-top,0px)) 16px 14px;
+  background:linear-gradient(120deg,var(--grad-a),var(--grad-b));color:#fff;font-weight:800;
+}
+.util-panel-body{padding:16px}
+.btn-back{background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px;cursor:pointer}
+
+/* ═══════════════════ SUSTITUCIONES / RECREO / SEMANA ═══════════════════ */
+.sust-card{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--danger);
+  border-radius:var(--r);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow)}
+.recreo-box,.day-group{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  margin-bottom:8px;box-shadow:var(--shadow);overflow:hidden}
+.day-group-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:11px 14px;cursor:pointer;font-weight:700;color:var(--ink)}
+.day-dots .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:3px}
+.day-group-body{display:none;padding:0 14px 12px}
+.day-group-body.open{display:block}
+
+/* ═══════════════════ CALENDARIO ═══════════════════ */
+.cal-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px;box-shadow:var(--shadow);margin-bottom:16px}
+.cal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-nav{border:none;background:var(--surface-2);border-radius:10px;width:36px;height:36px;
+  cursor:pointer;color:var(--brand);font-weight:800}
+#cal-title,#pcal-title{font-family:var(--font-head);font-weight:600;color:var(--brand)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center;font-size:.78rem}
+
+/* ═══════════════════ MODALES GENÉRICOS (Salas, Listados, Libros, Lightbox) ═══════════════════ */
+.salas-detail,.listado-detail{display:none;position:fixed;inset:0;z-index:70;
+  background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.salas-detail-hdr,.listado-hdr{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:10px;
+  padding:calc(12px + env(safe-area-inset-top,0px)) 14px 12px;
+  background:linear-gradient(120deg,var(--grad-a),var(--grad-b));color:#fff}
+.salas-back,.listado-back{background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:800;
+  border-radius:10px;padding:8px 12px;cursor:pointer}
+.salas-detail-body,.listado-body{padding:16px;max-width:760px;margin:0 auto}
+.sala-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);cursor:pointer}
+.sala-ico{width:50px;height:50px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.sala-nombre{font-weight:800;color:var(--ink)}
+.sala-desc{font-size:.72rem;color:var(--ink-soft);margin-top:2px}
+.sala-btn{border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer}
+.listado-print-btn{background:var(--brand);color:#fff;border:none;border-radius:10px;
+  padding:8px 12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px}
+
+.lightbox{display:none;position:fixed;inset:0;z-index:100;background:rgba(20,8,16,.92);
+  align-items:center;justify-content:center}
+.lightbox img{max-width:92%;max-height:82%;border-radius:var(--r)}
+.lightbox-close,.lightbox-prev,.lightbox-next{position:absolute;border:none;background:rgba(255,255,255,.15);
+  color:#fff;font-size:1.6rem;cursor:pointer;border-radius:12px;padding:8px 14px}
+.lightbox-close{top:16px;right:16px}
+.lightbox-prev{left:12px}.lightbox-next{right:12px}
+
+/* ═══════════════════ IMPRESIÓN ═══════════════════ */
+@media print{
+  .nav,.hdr,.util-panel-hdr{display:none!important}
+  body{background:#fff;color:#000}
+  .card,.cuad-card{box-shadow:none;border:1px solid #ccc}
+}
+
+/* ═══════════════════ UTILITARIOS ═══════════════════ */
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.iframe-wrap{display:none}
+.embed-frame{width:100%;height:80vh;border:none;border-radius:var(--r)}
+</style>
