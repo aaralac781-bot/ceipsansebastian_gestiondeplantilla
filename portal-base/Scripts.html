@@ -1,0 +1,349 @@
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   PORTAL · CLIENTE  ·  BASE NEUTRA
+   ─────────────────────────────────────────────────────────────────────────
+   Lee toda la identidad y los enlaces de CFG (Config.html) y pinta los datos
+   que devuelve el servidor (Codigo.gs). No contiene datos de ningún centro.
+   Estados vacíos siempre visibles: si el servidor no devuelve nada, la vista
+   no se rompe.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+var USER = null;          // { name, email, group } tras el login
+var _CAL = new Date();    // mes visible en Agenda
+var _PCAL = new Date();   // mes visible en Proyectos
+var _EVENTS = [];         // eventos cacheados
+
+/* ——— utilidades ——— */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function run(){ return google.script.run; }   // atajo
+
+/* ═══════════════════ ARRANQUE ═══════════════════ */
+(function boot(){
+  // Marca del centro desde CFG
+  var titulo = CFG.TITULO || 'Portal';
+  try{ document.title = titulo; }catch(e){}
+  var t = $('doc-title'); if(t) t.textContent = titulo;
+  $('login-title').textContent = titulo;
+  var sub = [CFG.CENTRO, CFG.LOCALIDAD].filter(Boolean).join(' · ');
+  $('login-sub').textContent = sub;
+  $('hdr-sub').textContent = CFG.CENTRO || '';
+  if(CFG.ICON_180){ var lg=$('login-logo'); lg.src=CFG.ICON_180; lg.style.display='block'; }
+  // Crédito del pie (autor + centro), solo si se ha rellenado
+  var cred = [];
+  if(CFG.AUTOR)  cred.push('App de '+esc(CFG.AUTOR));
+  if(CFG.CENTRO) cred.push(esc(CFG.CENTRO));
+  if(CFG.CODIGO) cred.push('Código '+esc(CFG.CODIGO));
+  if(cred.length) $('credito').innerHTML = cred.join(' · ');
+
+  buildUtils();
+  tryAutoLogin();
+})();
+
+/* ═══════════════════ LOGIN ═══════════════════ */
+function tryAutoLogin(){
+  if(!(window.google && google.script && google.script.run)){ return; }
+  run().withSuccessHandler(function(r){ if(r && r.ok) onLogin(r); })
+       .withFailureHandler(function(){})
+       .autoLoginGoogle();
+}
+function doLogin(){
+  var email = ($('inp-email').value||'').trim();
+  var pass  = $('inp-pass').value||'';
+  $('login-err').textContent = '';
+  if(!email || !pass){ $('login-err').textContent = 'Introduce tu correo y tu contraseña.'; return; }
+  $('login-spin').style.display = 'block';
+  run().withSuccessHandler(function(r){
+        $('login-spin').style.display='none';
+        if(r && r.ok){ onLogin(r); }
+        else { $('login-err').textContent = (r && r.error) || 'No se pudo acceder.'; }
+      })
+      .withFailureHandler(function(e){
+        $('login-spin').style.display='none';
+        $('login-err').textContent = 'Error de conexión. Inténtalo de nuevo.';
+      })
+      .loginWithCredentials(email, pass);
+}
+function onLogin(r){
+  USER = { name:r.name||'Docente', email:(r.email||'').toLowerCase(), group:r.group||'' };
+  $('login-screen').style.display = 'none';
+  $('app').style.display = 'block';
+  $('hdr-name').textContent = USER.name;
+  $('hdr-avatar').textContent = (USER.name.charAt(0)||'·').toUpperCase();
+  $('welcome-name').textContent = 'Hola, ' + USER.name.split(' ')[0];
+  if(r.frase) $('welcome-quote').textContent = r.frase;
+  loadAldia();
+}
+
+/* ═══════════════════ NAVEGACIÓN ═══════════════════ */
+function goTab(tab, btn){
+  ['aldia','agenda','cuadernos','proyectos','util'].forEach(function(t){
+    var v=$('v-'+t); if(v) v.style.display = (t===tab)?'block':'none';
+    var b=$('nb-'+t); if(b) b.classList.toggle('on', t===tab);
+  });
+  if(tab==='agenda')    loadAgenda();
+  if(tab==='cuadernos') loadCuadernos();
+  if(tab==='proyectos') loadProyectos();
+  closeIframe();
+}
+
+/* ═══════════════════ AL DÍA ═══════════════════ */
+function loadAldia(){
+  loadTablon();
+  loadSchedSel();
+  loadSust();
+  loadRecreo();
+  loadEventosHoy();
+  loadCumples();
+}
+function refreshManual(){ loadAldia(); if($('v-agenda').style.display!=='none') loadAgenda(); }
+
+function loadTablon(){
+  var box=$('tablon-items-box');
+  run().withSuccessHandler(function(items){
+    items = items || [];
+    if(!items.length){ box.innerHTML = '<div class="no-ev">Sin anuncios por ahora.</div>'; return; }
+    box.innerHTML = items.map(function(it){
+      return '<div class="card" style="margin-bottom:8px">'+
+        '<div style="font-weight:800;color:var(--brand)">'+esc(it.titulo)+'</div>'+
+        (it.texto?'<div style="font-size:.85rem;color:var(--ink-soft);margin-top:3px">'+esc(it.texto)+'</div>':'')+
+      '</div>';
+    }).join('');
+  }).withFailureHandler(function(){ box.innerHTML='<div class="no-ev">No se pudo cargar el tablón.</div>'; })
+    .getTablonItems();
+}
+
+function loadSchedSel(){
+  var sel=$('sched-sel');
+  run().withSuccessHandler(function(list){
+    list = list || [];
+    if(!list.length){ sel.innerHTML='<option value="">(sin plantilla de horarios)</option>'; return; }
+    var opts = '<option value="">Elige maestro/a…</option>';
+    list.forEach(function(n){ opts += '<option value="'+esc(n)+'"'+(USER&&n===USER.name?' selected':'')+'>'+esc(n)+'</option>'; });
+    sel.innerHTML = opts;
+    if(USER && list.indexOf(USER.name)>=0) fetchSchedule(USER.name);
+  }).withFailureHandler(function(){ sel.innerHTML='<option value="">(sin plantilla)</option>'; })
+    .getListaMaestros();
+}
+function fetchSchedule(name){
+  var box=$('sched-box'); if(!name){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="no-ev">Cargando horario…</div>';
+  run().withSuccessHandler(function(html){ box.innerHTML = html || '<div class="no-ev">Sin horario para hoy.</div>'; })
+       .withFailureHandler(function(){ box.innerHTML='<div class="no-ev">No se pudo cargar el horario.</div>'; })
+       .getDailySchedule(name);
+}
+function loadSust(){
+  var box=$('sust-box');
+  run().withSuccessHandler(function(list){
+    list=list||[];
+    if(!list.length){ box.innerHTML='<div class="no-ev">Sin sustituciones hoy.</div>'; return; }
+    box.innerHTML = list.map(function(s){
+      return '<div class="sust-card"><b>'+esc(s.titulo||'Sustitución')+'</b>'+
+        (s.detalle?'<div style="font-size:.83rem;color:var(--ink-soft);margin-top:3px">'+esc(s.detalle)+'</div>':'')+'</div>';
+    }).join('');
+  }).withFailureHandler(function(){ box.innerHTML='<div class="no-ev">Sin sustituciones hoy.</div>'; })
+    .getSustituciones();
+}
+function loadRecreo(){
+  var box=$('recreo-box');
+  run().withSuccessHandler(function(html){ box.innerHTML = html || '<div class="no-ev">Sin cuadrante publicado.</div>'; })
+       .withFailureHandler(function(){ box.innerHTML='<div class="no-ev">Sin cuadrante publicado.</div>'; })
+       .getRecreoHoy();
+}
+function loadEventosHoy(){
+  var box=$('aldia-box');
+  run().withSuccessHandler(function(evs){
+    _EVENTS = evs || [];
+    var hoy = _fecha(new Date());
+    var dia = _EVENTS.filter(function(e){ return e.fecha===hoy; });
+    if(!dia.length){ box.innerHTML='<div class="no-ev">Sin eventos hoy.</div>'; return; }
+    box.innerHTML = dia.map(_evHTML).join('');
+  }).withFailureHandler(function(){ box.innerHTML='<div class="no-ev">Sin eventos hoy.</div>'; })
+    .getAgendaEvents();
+}
+function _evHTML(e){
+  return '<div style="padding:8px 0;border-top:1px solid var(--line)">'+
+    '<div style="font-weight:700">'+esc(e.titulo)+'</div>'+
+    (e.horaInicio?'<div style="font-size:.78rem;color:var(--ink-soft)">'+esc(e.horaInicio)+(e.horaFin?' – '+esc(e.horaFin):'')+'</div>':'')+
+  '</div>';
+}
+function loadCumples(){
+  run().withSuccessHandler(function(r){
+    var lista=(r&&r.cumples)?r.cumples:[]; if(!lista.length) return;
+    var box=$('tablon-items-box'); if(!box || $('cumple-tablon')) return;
+    var nombres=lista.map(function(c){return esc(c.nombre);}).join(' y ');
+    box.insertAdjacentHTML('afterbegin',
+      '<div id="cumple-tablon" class="card" style="margin-bottom:8px;background:var(--rosa-soft);border-color:var(--rosa)">'+
+      '<div style="font-weight:800;color:var(--rosa)">🎂 ¡Hoy es el cumpleaños de '+nombres+'!</div></div>');
+  }).withFailureHandler(function(){}).getCumplesHoy();
+}
+
+/* ═══════════════════ AGENDA / CALENDARIO ═══════════════════ */
+function loadAgenda(){
+  if(!_EVENTS.length){
+    run().withSuccessHandler(function(evs){ _EVENTS=evs||[]; renderCal(); renderWeek(); })
+         .withFailureHandler(function(){ renderCal(); renderWeek(); }).getAgendaEvents();
+  } else { renderCal(); renderWeek(); }
+}
+function shiftMonth(d){ _CAL.setMonth(_CAL.getMonth()+d); renderCal(); }
+function renderCal(){
+  var grid=$('cal-grid'); if(!grid) return;
+  var y=_CAL.getFullYear(), m=_CAL.getMonth();
+  $('cal-title').textContent = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][m]+' '+y;
+  var first=(new Date(y,m,1).getDay()+6)%7, ndays=new Date(y,m+1,0).getDate();
+  var h = ['L','M','X','J','V','S','D'].map(function(d){ return '<div style="font-weight:800;color:var(--ink-faint)">'+d+'</div>'; }).join('');
+  for(var i=0;i<first;i++) h+='<div></div>';
+  for(var dd=1;dd<=ndays;dd++){
+    var fs=_fecha(new Date(y,m,dd));
+    var hay=_EVENTS.some(function(e){ return e.fecha===fs; });
+    h += '<div style="padding:6px 0;border-radius:8px;'+(hay?'background:var(--rosa-soft);color:var(--rosa);font-weight:800':'color:var(--ink-soft)')+'">'+dd+'</div>';
+  }
+  grid.innerHTML = h;
+}
+function shiftMonthProy(d){ _PCAL.setMonth(_PCAL.getMonth()+d); renderProyCal(); }
+function renderWeek(){
+  var box=$('week-box'); if(!box) return;
+  var days=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  var c=new Date(); c.setHours(0,0,0,0); var h=''; var n=0;
+  while(n<5){
+    var wd=c.getDay(); if(wd===0||wd===6){ c.setDate(c.getDate()+1); continue; }
+    var ds=_fecha(c);
+    var evs=_EVENTS.filter(function(e){ return e.fecha===ds; });
+    h += '<div class="day-group"><div class="day-group-hdr" onclick="this.nextElementSibling.classList.toggle(\'open\')">'+
+         '<span>'+days[wd]+' '+c.getDate()+'</span><span>▾</span></div>'+
+         '<div class="day-group-body'+(n===0?' open':'')+'">'+
+         (evs.length?evs.map(_evHTML).join(''):'<div class="no-ev">Sin eventos.</div>')+'</div></div>';
+    c.setDate(c.getDate()+1); n++;
+  }
+  box.innerHTML = h;
+}
+
+/* ═══════════════════ CUADERNOS ═══════════════════ */
+function loadCuadernos(){
+  // Control de libros (del servidor)
+  var lb=$('cuad-libros-box');
+  run().withSuccessHandler(function(res){
+    var g=(res&&res.grupos)||[];
+    if(!g.length){ lb.innerHTML='<div class="no-ev">Aún no hay grupos de control de libros.</div>'; return; }
+    lb.innerHTML = g.map(function(x){
+      return card('📚','cc-rosa', esc(x.nombre||x.grupo), (x.n||0)+' alumnos/as', "abrirControlLibros('"+esc(x.grupo)+"')");
+    }).join('');
+  }).withFailureHandler(function(){ lb.innerHTML='<div class="no-ev">Control de libros no disponible.</div>'; })
+    .getLibrosGrupos();
+
+  // Cuadernos externos desde CFG
+  var ext=$('cuad-externos-box'); var C=CFG.CUADERNOS||{};
+  var defs=[
+    ['progSem','🗒️','cc-ciruela','Programaciones semanales'],
+    ['criterios','✅','cc-ciencia','Criterios de evaluación'],
+    ['portalActas','📊','cc-vino','Portal de actas'],
+    ['sustituciones','🔄','cc-cobre','Cuaderno de sustituciones'],
+    ['incidencias','⚠️','cc-vino','Cuaderno de incidencias'],
+    ['enfermedades','❤️','cc-rosa','Enfermedades crónicas']
+  ];
+  var html = defs.filter(function(d){ return C[d[0]]; }).map(function(d){
+    return card(d[1], d[2], d[3], 'Abrir cuaderno', "openEmbed('"+esc(C[d[0]])+"')");
+  }).join('');
+  ext.innerHTML = html ? '<div class="sec-title">Cuadernos del centro</div>'+html : '';
+
+  // Drive del centro desde CFG
+  var dc=$('docs-centro-box'); var D=CFG.DRIVE||{};
+  var ddefs=[['documentos','📁','Documentos del centro'],['actas','📋','Actas del centro'],['driveCentro','💽','Drive del centro']];
+  var dhtml = ddefs.filter(function(d){ return D[d[0]]; }).map(function(d){
+    return card(d[1],'cc-ciruela', d[2], 'Abrir en Drive', "window.open('"+esc(D[d[0]])+"','_blank')");
+  }).join('');
+  dc.innerHTML = dhtml ? '<div class="sec-title">Documentos y Drive</div>'+dhtml : '';
+}
+function card(ico, cls, t, s, onclick){
+  return '<div class="cuad-card '+cls+'" onclick="'+onclick+'">'+
+    '<div class="cc-ico">'+ico+'</div><div><div class="cc-t">'+t+'</div><div class="cc-s">'+s+'</div></div></div>';
+}
+
+/* ═══════════════════ PROYECTOS ═══════════════════ */
+function loadProyectos(){
+  renderProyCal();
+  var box=$('proy-cards');
+  run().withSuccessHandler(function(list){
+    list=list||[];
+    if(!list.length){ box.innerHTML='<div class="no-ev">Aún no hay proyectos publicados.</div>'; return; }
+    box.innerHTML = list.map(function(p){
+      return card('🌱','cc-ciencia', esc(p.nombre), esc(p.coordinador||''), p.carpeta?"window.open('"+esc(p.carpeta)+"','_blank')":"void 0");
+    }).join('');
+  }).withFailureHandler(function(){ box.innerHTML='<div class="no-ev">No se pudieron cargar los proyectos.</div>'; })
+    .getProyectos();
+  var pb=$('proy-box'); pb.innerHTML='<div class="no-ev">Sin eventos próximos.</div>';
+}
+function renderProyCal(){
+  var grid=$('pcal-grid'); if(!grid) return;
+  var y=_PCAL.getFullYear(), m=_PCAL.getMonth();
+  $('pcal-title').textContent = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][m]+' '+y;
+  var first=(new Date(y,m,1).getDay()+6)%7, ndays=new Date(y,m+1,0).getDate();
+  var h=['L','M','X','J','V','S','D'].map(function(d){return '<div style="font-weight:800;color:var(--ink-faint)">'+d+'</div>';}).join('');
+  for(var i=0;i<first;i++) h+='<div></div>';
+  for(var dd=1;dd<=ndays;dd++) h+='<div style="padding:6px 0;color:var(--ink-soft)">'+dd+'</div>';
+  grid.innerHTML=h;
+}
+
+/* ═══════════════════ UTILIDADES (desde CFG) ═══════════════════ */
+function buildUtils(){
+  var grid=$('util-grid'); if(!grid) return;
+  var M=CFG.MEET||{}, items=[];
+  var meets=[['ETCP','🧭','ETCP'],['CLAUSTRO','👥','Claustro'],['CONSEJO','🏛️','Consejo'],
+             ['INFANTIL','🧸','Infantil'],['CICLO1','1️⃣','Primer ciclo'],
+             ['CICLO2','2️⃣','Segundo ciclo'],['CICLO3','3️⃣','Tercer ciclo'],['ORIENTACION','🧩','Orientación']];
+  var anyMeet = meets.some(function(m){ return M[m[0]]; });
+  if(anyMeet) items.push(util('🎥','Salas Meet','openSalas()'));
+  items.push(util('📸','Subir fotos','openPanel(\'fotos\')'));
+  items.push(util('🖼️','Galería','openPanel(\'galeria\')'));
+  if(CFG.RADIO) items.push(util('📻','Radio',"window.open('"+esc(CFG.RADIO)+"','_blank')"));
+  if(CFG.RECURSOS_IA) items.push(util('🤖','Recursos IA',"window.open('"+esc(CFG.RECURSOS_IA)+"','_blank')"));
+  items.push(util('🔑','Reservas','openReservas()'));
+  items.push(util('🚌','Salidas','openSalidas()'));
+  items.push(util('🗓️','P27',"openP27()"));
+  grid.innerHTML = items.join('');
+  // guardamos las salas para el panel
+  window.__MEETS = meets.filter(function(m){ return M[m[0]]; }).map(function(m){ return {url:M[m[0]], ico:m[1], nombre:m[2]}; });
+}
+function util(ico,label,onclick){
+  return '<button class="util-btn" onclick="'+onclick+'"><div class="util-ico">'+ico+'</div><span>'+label+'</span></button>';
+}
+function openSalas(){
+  var salas=window.__MEETS||[];
+  if(!salas.length){ alert('No hay salas configuradas.'); return; }
+  var html = salas.map(function(s){
+    return '<div class="sala-card" onclick="window.open(\''+esc(s.url)+'\',\'_blank\')">'+
+      '<div class="sala-ico" style="background:var(--lila-soft)">'+s.ico+'</div>'+
+      '<div class="sala-info" style="flex:1"><div class="sala-nombre">'+esc(s.nombre)+'</div>'+
+      '<div class="sala-desc">Enlace fijo</div></div>'+
+      '<button class="sala-btn" style="background:var(--brand)" onclick="event.stopPropagation();window.open(\''+esc(s.url)+'\',\'_blank\')">Entrar</button></div>';
+  }).join('');
+  overlay('Salas de reuniones', html);
+}
+function openPanel(){ overlay('Próximamente', '<div class="no-ev" style="padding:24px">Esta herramienta se activa al conectar la hoja del centro.</div>'); }
+function openReservas(){ openPanel(); }
+function openSalidas(){ openPanel(); }
+function openP27(){ openPanel(); }
+function abrirControlLibros(){ openPanel(); }
+
+/* overlay genérico reutilizable */
+function overlay(titulo, html){
+  var o=document.createElement('div'); o.className='util-panel'; o.style.display='block';
+  o.innerHTML='<div class="util-panel-hdr"><span>'+esc(titulo)+'</span>'+
+    '<button class="btn-back" onclick="this.closest(\'.util-panel\').remove()">✕</button></div>'+
+    '<div class="util-panel-body">'+html+'</div>';
+  document.body.appendChild(o);
+}
+
+/* ═══════════════════ EMBED / IFRAME ═══════════════════ */
+function openEmbed(url){
+  if(!url) return;
+  var w=$('iframe-wrap'); w.style.display='block';
+  $('app-frame').src = url;
+  w.scrollIntoView({behavior:'smooth'});
+}
+function closeIframe(){ var w=$('iframe-wrap'); if(w){ w.style.display='none'; $('app-frame').src=''; } }
+
+/* ═══════════════════ helpers de fecha ═══════════════════ */
+function _fecha(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+</script>

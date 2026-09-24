@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title id="doc-title">Portal</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#7A1B39">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Mulish:wght@400;600;700;800&display=swap" rel="stylesheet">
+<?!= include("Config"); ?>
+<?!= include("Styles"); ?>
+</head>
+<body>
+
+<!-- ═══════ LOGIN ═══════ -->
+<div id="login-screen">
+  <div class="login-sheet">
+    <div class="login-logo-row">
+      <img class="login-logo" id="login-logo" src="" alt="" style="display:none">
+      <div>
+        <div class="login-school-name" id="login-title">Portal</div>
+        <div class="login-school-sub" id="login-sub"></div>
+      </div>
+    </div>
+    <h1 id="login-greeting">¡Bienvenido/a!</h1>
+    <p id="login-quote">Accede con tu cuenta del centro</p>
+    <form id="login-form" onsubmit="doLogin();return false;" autocomplete="on">
+      <input type="email" id="inp-email" name="username" class="inp" placeholder="correo@…" autocomplete="username"
+             onkeydown="if(event.key==='Enter')document.getElementById('inp-pass').focus()">
+      <input type="password" id="inp-pass" name="password" class="inp" placeholder="Contraseña de la app" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn-primary" id="btn-login" type="submit">Acceder</button>
+    </form>
+    <div id="login-err"></div>
+    <div id="login-spin" style="display:none;text-align:center;margin-top:10px;color:var(--ink-soft)">…</div>
+  </div>
+</div>
+
+<!-- ═══════ APP ═══════ -->
+<div id="app" style="display:none">
+  <header class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-avatar" id="hdr-avatar">·</div>
+      <div>
+        <div id="hdr-name">Docente</div>
+        <div id="hdr-sub"></div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <button id="btn-refresh" onclick="refreshManual()" aria-label="Actualizar">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="toast" style="display:none"></div>
+
+  <main class="main" id="main">
+    <div id="iframe-wrap" class="iframe-wrap">
+      <button class="btn-back" onclick="closeIframe()">← Cerrar</button>
+      <iframe class="embed-frame" id="app-frame" src="" allowfullscreen></iframe>
+    </div>
+
+    <!-- ═══ AL DÍA ═══ -->
+    <section id="v-aldia" class="view">
+      <div class="welcome">
+        <div class="welcome-name" id="welcome-name">Cargando…</div>
+        <div class="welcome-quote" id="welcome-quote"></div>
+      </div>
+
+      <div id="tablon-section">
+        <div class="sec-title">📌 Tablón de anuncios</div>
+        <div id="tablon-items-box"><div class="no-ev">Cargando…</div></div>
+      </div>
+
+      <div class="sec-title">Horario de hoy</div>
+      <select id="sched-sel" class="form-sel" onchange="fetchSchedule(this.value)">
+        <option value="">Cargando plantilla…</option>
+      </select>
+      <div id="sched-box"></div>
+
+      <div class="sec-title" style="color:var(--danger)">Sustituciones</div>
+      <div id="sust-box"><div class="no-ev">Sin sustituciones hoy.</div></div>
+
+      <div class="sec-title" style="color:var(--ok)">Recreo de hoy</div>
+      <div id="recreo-box"><div class="no-ev">Sin cuadrante publicado.</div></div>
+
+      <div class="sec-title">Eventos del día</div>
+      <div id="aldia-box" class="card"><div class="no-ev">Cargando…</div></div>
+
+      <div id="credito" style="text-align:center;color:var(--ink-faint);font-size:.68rem;padding:16px 8px;line-height:1.6"></div>
+    </section>
+
+    <!-- ═══ AGENDA ═══ -->
+    <section id="v-agenda" class="view" style="display:none">
+      <div class="cal-wrap">
+        <div class="cal-top">
+          <button class="cal-nav" onclick="shiftMonth(-1)">◀</button>
+          <span id="cal-title">…</span>
+          <button class="cal-nav" onclick="shiftMonth(1)">▶</button>
+        </div>
+        <div id="cal-grid" class="cal-grid"></div>
+      </div>
+      <div class="sec-title">Semana en curso</div>
+      <div id="week-box"></div>
+    </section>
+
+    <!-- ═══ CUADERNOS ═══ -->
+    <section id="v-cuadernos" class="view" style="display:none">
+      <div class="sec-title">Mis cuadernos</div>
+      <div id="cuad-libros-box"><div class="no-ev">Cargando…</div></div>
+      <div id="cuad-externos-box"></div>
+      <div id="docs-centro-box"></div>
+    </section>
+
+    <!-- ═══ PROYECTOS ═══ -->
+    <section id="v-proyectos" class="view" style="display:none">
+      <div class="sec-title">Calendario de proyectos</div>
+      <div class="card">
+        <div class="cal-top">
+          <button class="cal-nav" onclick="shiftMonthProy(-1)">◀</button>
+          <div id="pcal-title"></div>
+          <button class="cal-nav" onclick="shiftMonthProy(1)">▶</button>
+        </div>
+        <div id="pcal-grid" class="cal-grid"></div>
+      </div>
+      <div class="sec-title">Próximos eventos</div>
+      <div id="proy-box"><div class="no-ev">Cargando…</div></div>
+      <div class="sec-title">Proyectos del centro</div>
+      <div id="proy-cards"><div class="no-ev">Cargando…</div></div>
+    </section>
+
+    <!-- ═══ UTILIDADES ═══ -->
+    <section id="v-util" class="view" style="display:none">
+      <div class="sec-title">Herramientas</div>
+      <div class="util-grid" id="util-grid"><!-- se rellena desde Scripts según CFG --></div>
+    </section>
+  </main>
+
+  <!-- ═══ NAV ═══ -->
+  <nav class="nav">
+    <button class="nbtn on" id="nb-aldia" onclick="goTab('aldia',this)">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+      <span>Al día</span>
+    </button>
+    <button class="nbtn" id="nb-agenda" onclick="goTab('agenda',this)">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+      <span>Agenda</span>
+    </button>
+    <button class="nbtn" id="nb-cuadernos" onclick="goTab('cuadernos',this)">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 012-2h12v18H6a2 2 0 00-2 2z"/><path d="M18 2v18M8 7h6M8 11h6"/></svg>
+      <span>Cuadernos</span>
+    </button>
+    <button class="nbtn" id="nb-proyectos" onclick="goTab('proyectos',this)">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="2.5"/><path d="M12 8.5V13M12 13l-4 3M12 13l4 3"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>
+      <span>Proyectos</span>
+    </button>
+    <button class="nbtn" id="nb-util" onclick="goTab('util',this)">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 013 3l3 1 1 3-2 3 2 3-1 3-3 1a3 3 0 01-6 0l-3-1-1-3 2-3-2-3 1-3 3-1a3 3 0 013-3z"/><circle cx="12" cy="12" r="2.5"/></svg>
+      <span>Utilidades</span>
+    </button>
+  </nav>
+</div>
+
+<?!= include("Membretes"); ?>
+<?!= include("Scripts"); ?>
+</body>
+</html>
