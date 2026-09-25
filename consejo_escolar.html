@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Consejo Escolar · Generador de actas y comunicaciones</title>
+<style>
+:root{--tinta:#0B132B;--acc:#1d4ed8;--linea:#e2e8f0;--suave:#f8fafc;--muted:#64748b}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1e293b;background:#eef2f7}
+header.top{background:var(--tinta);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header.top h1{font-size:1.05rem;margin:0;font-weight:800}
+header.top .sub{font-size:.78rem;opacity:.8}
+.wrap{display:flex;min-height:calc(100vh - 52px)}
+.side{width:340px;flex-shrink:0;background:#fff;border-right:1px solid var(--linea);padding:14px;overflow-y:auto;max-height:calc(100vh - 52px)}
+.main{flex:1;padding:20px;overflow-y:auto;max-height:calc(100vh - 52px)}
+.sec-t{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 0 8px}
+label{display:block;font-size:.72rem;font-weight:700;color:#475569;margin:8px 0 2px}
+input,select{width:100%;padding:7px 9px;border:1.5px solid var(--linea);border-radius:8px;font-size:.85rem;font-family:inherit}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fase{margin-bottom:6px;border:1px solid var(--linea);border-radius:10px;overflow:hidden}
+.fase>summary{cursor:pointer;padding:10px 12px;font-weight:800;font-size:.85rem;background:var(--suave);list-style:none}
+.fase>summary::-webkit-details-marker{display:none}
+.fase>summary .n{color:var(--acc)}
+.doc-btn{display:block;width:100%;text-align:left;border:none;background:#fff;padding:9px 12px;border-top:1px solid var(--linea);cursor:pointer;font-size:.82rem;color:#334155}
+.doc-btn:hover{background:#eff6ff}
+.doc-btn.on{background:#dbeafe;font-weight:700;color:var(--tinta)}
+.doc-btn small{display:block;color:var(--muted);font-size:.68rem;font-weight:400}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.btn{border:none;border-radius:8px;padding:9px 14px;font-weight:700;font-size:.83rem;cursor:pointer}
+.btn-print{background:var(--acc);color:#fff}
+.btn-reset{background:#f1f5f9;color:#475569;border:1px solid var(--linea)}
+.btn-cfg{background:#fef3c7;color:#92400e}
+.aviso{font-size:.78rem;color:var(--muted);background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin-bottom:12px}
+/* hoja A4 */
+.hoja{background:#fff;max-width:820px;margin:0 auto;padding:48px 56px;box-shadow:0 4px 20px rgba(0,0,0,.08);border-radius:4px;min-height:1000px;line-height:1.55;font-size:15px;color:#111}
+.hoja:focus{outline:2px solid #bfdbfe}
+.membrete{display:flex;align-items:center;gap:14px;border-bottom:3px solid var(--tinta);padding-bottom:10px;margin-bottom:22px}
+.membrete .esc{width:52px;height:52px;border-radius:10px;background:var(--tinta);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.7rem;text-align:center;flex-shrink:0}
+.membrete .c1{font-weight:800;font-size:1rem;color:var(--tinta)}
+.membrete .c2{font-size:.8rem;color:var(--muted)}
+.hoja h2.tt{font-size:1.05rem;text-align:center;text-transform:uppercase;margin:6px 0 20px;color:var(--tinta);letter-spacing:.02em}
+.hoja p{margin:10px 0;text-align:justify}
+.hoja .firma{margin-top:40px;text-align:center;font-weight:700}
+.hoja ul,.hoja ol{margin:10px 0;padding-left:22px}
+.hoja li{margin:5px 0}
+.bl{color:#1d4ed8;font-weight:600}
+@media print{
+  body{background:#fff}
+  header.top,.side,.toolbar,.aviso{display:none!important}
+  .main{padding:0;max-height:none;overflow:visible}
+  .hoja{box-shadow:none;max-width:100%;margin:0;padding:18mm 20mm;min-height:auto;border-radius:0}
+  @page{size:A4;margin:0}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="esc" style="width:34px;height:34px;border-radius:8px;background:#fff;color:#0B132B;display:flex;align-items:center;justify-content:center;font-weight:900">CE</div>
+  <div>
+    <h1>Consejo Escolar · Generador de actas y comunicaciones</h1>
+    <div class="sub" id="sub-centro">Elecciones 2026/2027 · rellena los datos y elige un documento</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside class="side">
+    <details class="fase" id="cfg-box" open>
+      <summary>⚙️ Datos del centro <span class="n">(rellénalos una vez)</span></summary>
+      <div style="padding:10px 12px">
+        <label>Centro</label><input id="c_centro" placeholder="CEIP San Sebastián">
+        <div class="row2"><div><label>Código</label><input id="c_codigo" placeholder="41003522"></div><div><label>Localidad</label><input id="c_loc" placeholder="La Puebla del Río"></div></div>
+        <label>Curso</label><input id="c_curso" value="2026/2027">
+        <label>Director/a (Presidente/a Junta Electoral)</label><input id="c_dir" placeholder="Nombre y apellidos">
+        <label>Secretario/a de la Junta / Mesa</label><input id="c_sec" placeholder="Nombre y apellidos">
+        <div class="sec-t" style="margin-top:14px">Fechas del proceso</div>
+        <div class="row2"><div><label>Sorteo Junta (fecha)</label><input id="c_fSorteoJunta" type="date"></div><div><label>hora</label><input id="c_hSorteoJunta" placeholder="12:00"></div></div>
+        <div class="row2"><div><label>Constitución Junta (fecha)</label><input id="c_fConstJunta" type="date"></div><div><label>hora</label><input id="c_hConstJunta" placeholder="12:30"></div></div>
+        <div class="row2"><div><label>Reclamaciones censo: desde</label><input id="c_recIni" type="date"></div><div><label>hasta</label><input id="c_recFin" type="date"></div></div>
+        <div class="row2"><div><label>Votaciones familias</label><input id="c_fVotFam" type="date"></div><div><label>hora</label><input id="c_hVotFam" placeholder="14:00-18:00"></div></div>
+        <div class="row2"><div><label>Votaciones alumnado</label><input id="c_fVotAlu" type="date"></div><div><label>hora</label><input id="c_hVotAlu" placeholder="12:00"></div></div>
+        <button class="btn btn-print" style="width:100%;margin-top:12px" onclick="guardarCfg()">💾 Guardar datos</button>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:8px">Se guardan en este navegador. Fechas fijas de la Resolución (candidaturas 14–27 oct, lista provisional 28 oct, definitiva 30 oct 2026) ya van puestas en los documentos.</div>
+      </div>
+    </details>
+    <div id="lista-docs"></div>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar">
+      <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+      <button class="btn btn-reset" onclick="render(ACT)">↺ Regenerar (perder ediciones)</button>
+      <button class="btn btn-cfg" onclick="document.getElementById('cfg-box').open=true;document.getElementById('c_centro').focus()">⚙️ Editar datos</button>
+    </div>
+    <div class="aviso" id="aviso">Elige un documento en el panel izquierdo. El texto sale <b>rellenado con los datos del centro</b> y es <b>editable</b>: haz clic y corrige lo que necesites antes de imprimir. Los huecos con <span class="bl">____</span> son para completar a mano.</div>
+    <div class="hoja" id="hoja" contenteditable="false"></div>
+  </main>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+var CK='consejo_escolar_ss_v1';
+var CFG={centro:'',codigo:'',loc:'',curso:'2026/2027',dir:'',sec:'',
+  fSorteoJunta:'',hSorteoJunta:'',fConstJunta:'',hConstJunta:'',recIni:'',recFin:'',fVotFam:'',hVotFam:'',fVotAlu:'',hVotAlu:''};
+function cargarCfg(){try{var s=JSON.parse(localStorage.getItem(CK)||'{}');Object.keys(CFG).forEach(function(k){if(s[k]!=null)CFG[k]=s[k];});}catch(e){}
+  Object.keys(CFG).forEach(function(k){var el=document.getElementById('c_'+k);if(el)el.value=CFG[k];});
+  pintaSub();}
+function guardarCfg(){Object.keys(CFG).forEach(function(k){var el=document.getElementById('c_'+k);if(el)CFG[k]=el.value.trim();});
+  try{localStorage.setItem(CK,JSON.stringify(CFG));}catch(e){}
+  pintaSub();if(ACT)render(ACT);
+  var b=document.getElementById('cfg-box');if(b)b.open=false;}
+function pintaSub(){document.getElementById('sub-centro').textContent=(CFG.centro||'Centro sin definir')+' · Elecciones '+(CFG.curso||'2026/2027');}
+
+/* Helpers de fecha/texto */
+var MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fLarga(iso){if(!iso)return null;var p=iso.split('-');if(p.length!==3)return null;return {d:parseInt(p[2],10),m:MES[parseInt(p[1],10)-1],y:p[0]};}
+function fTxt(iso){var f=fLarga(iso);return f?(f.d+' de '+f.m+' de '+f.y):BL(14);}
+function anioCurso(){return (CFG.curso||'2026/2027').split('/')[0]||'2026';}
+function BL(n){return '<span class="bl">'+Array((n||10)+1).join('_')+'</span>';}
+function V(x,n){return (x&&String(x).trim())?('<b>'+esc(x)+'</b>'):BL(n||18);}
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+function hoyTxt(){var d=new Date();return (CFG.loc?('<b>'+esc(CFG.loc)+'</b>'):BL(12))+', a '+d.getDate()+' de '+MES[d.getMonth()]+' de '+d.getFullYear();}
+function lugarFecha(iso,hora){var f=fLarga(iso);return {lugar:(CFG.loc?('<b>'+esc(CFG.loc)+'</b>'):BL(12)), fecha:(f?('<b>'+f.d+' de '+f.m+' de '+f.y+'</b>'):BL(14)), hora:(hora?('<b>'+esc(hora)+'</b>'):BL(5))};}
+
+/* Bloques comunes */
+function firmaDir(){return '<p class="firma">'+hoyTxt()+'</p><p class="firma" style="margin-top:34px">EL/LA DIRECTOR/A</p>';}
+function firmaPresi(){return '<p class="firma">'+hoyTxt()+'</p><p class="firma" style="margin-top:34px">EL/LA PRESIDENTE/A DE LA JUNTA ELECTORAL</p>';}
+function escrutinioHTML(){return '<p>Se declara abierta la votación a las '+BL(5)+' horas. Finalizada la votación, se procede al escrutinio de votos, con el siguiente resultado:</p>'+
+  '<p>Votos válidos '+BL(8)+' &nbsp; Votos en blanco '+BL(8)+' &nbsp; Votos nulos '+BL(8)+'<br><b>TOTAL VOTOS EMITIDOS</b> '+BL(10)+'</p>'+
+  '<p>Los votos válidos son los siguientes:</p>'+lineasVotos(6);}
+function lineasVotos(n){var h='';for(var i=0;i<n;i++)h+='<p>D./D.ª '+BL(34)+' Nº de votos '+BL(6)+'</p>';return h;}
+function lineasNombres(n,suf){var h='';for(var i=0;i<n;i++)h+='<p>D./D.ª '+BL(40)+(suf||'')+'</p>';return h;}
+function cierreActa(){return '<p>Se hace constar que contra el acto electoral (SÍ/NO) se ha presentado reclamación escrita u oral.</p>'+
+  '<p>De acuerdo con la normativa vigente se enviará copia de la presente acta a la Junta Electoral, para que proceda a la proclamación de las candidaturas electas.</p>'+
+  '<p>Y sin más asuntos que tratar, se levanta la sesión a las '+BL(5)+' horas del día indicado, lo que como Secretario/a de la Mesa Electoral certifico, con el Vº.Bº. del Presidente/a de la misma.</p>'+
+  '<p class="firma" style="margin-top:34px">Vº.Bº. EL/LA PRESIDENTE/A &nbsp;&nbsp;&nbsp;&nbsp; EL/LA SECRETARIO/A DE LA MESA</p><p class="firma" style="margin-top:20px">DEMÁS COMPONENTES DE LA MESA</p>';}
+function precisiones(sector,papeleta){
+  return '<ol>'+
+   '<li>El <b>CENSO ELECTORAL</b> (Censo de Acceso Público) '+sector+' estará expuesto en los tablones de anuncios del Centro hasta finalizar el proceso electoral.</li>'+
+   '<li>Las <b>RECLAMACIONES</b> al censo se realizarán mediante escrito razonado dirigido a la Junta Electoral, hasta el día '+(CFG.recFin?('<b>'+fTxt(CFG.recFin)+'</b>'):BL(14))+' inclusive.</li>'+
+   '<li>La <b>RESOLUCIÓN</b> de las reclamaciones se publicará en los tablones de anuncios del Centro a partir del día '+BL(14)+'.</li>'+
+   '<li>Las <b>CANDIDATURAS</b> podrán presentarse por escrito dirigido a la Junta Electoral, desde el <b>14 de octubre</b> hasta el <b>27 de octubre de 2026</b>, ambos inclusive.</li>'+
+   '<li>Las <b>CANDIDATURAS</b> serán proclamadas y publicadas en los tablones de anuncios del Centro: lista provisional el <b>28 de octubre</b> y lista definitiva el <b>30 de octubre de 2026</b>.</li>'+
+   '<li>El <b>SORTEO</b> público de los miembros de la Mesa Electoral se realizará en el Centro el día '+BL(10)+' a las '+BL(5)+' horas.</li>'+
+   '<li>La <b>MESA ELECTORAL</b> será constituida inmediatamente antes del inicio de las votaciones.</li>'+
+   '<li>Las <b>VOTACIONES</b> se realizarán en el Centro el día '+BL(12)+' a las '+BL(8)+' horas.</li>'+
+   '<li>Cada persona electora hará constar en su papeleta '+papeleta+'.</li>'+
+   '</ol>'+
+   '<p>Finalizadas las votaciones, se procederá al escrutinio de los votos, que será público; se levantará acta que firmarán todas las personas componentes de la Mesa, en la que se harán constar las personas representantes elegidas por mayor número de votos y todas las demás que hayan obtenido votos. Dicha acta será enviada a la Junta Electoral, a efectos de proclamación. La Junta Electoral del Centro resolverá cualquier duda, consulta o reclamación que pudiera surgir.</p>';
+}
+function convocatoriaSector(tituloSector,sectorCenso,papeleta){
+  return '<p><b>CENTRO:</b> '+V(CFG.centro,40)+'</p>'+
+    '<p>D./D.ª '+V(CFG.dir,40)+', Director/a del Centro y Presidente/a de la Junta Electoral del mismo, en virtud de la normativa vigente,</p>'+
+    '<p><b>DISPONE</b>, en nombre de la Junta Electoral, la <b>CONVOCATORIA</b> de elecciones '+tituloSector+' al Consejo Escolar, de acuerdo con las siguientes precisiones:</p>'+
+    precisiones(sectorCenso,papeleta)+firmaPresi();
+}
+
+/* ================= DOCUMENTOS ================= */
+var DOCS=[
+{f:'A · Junta Electoral',n:1,t:'Convocatoria del sorteo público de la Junta Electoral',sub:'Modelo 1',
+ body:function(){return '<p><b>CENTRO:</b> '+V(CFG.centro,40)+'</p>'+
+  '<p>En cumplimiento de lo establecido en el artículo 4 de la Orden de 7 de octubre de 2010 y en la Resolución de 7 de septiembre de 2026 (calendario de elecciones a Consejos Escolares para el curso '+esc(CFG.curso||'2026/2027')+'), se convoca a todas las personas interesadas a asistir al <b>sorteo público</b> que se realizará en este Centro el día '+(CFG.fSorteoJunta?('<b>'+fTxt(CFG.fSorteoJunta)+'</b>'):BL(14))+' a las '+(CFG.hSorteoJunta?('<b>'+esc(CFG.hSorteoJunta)+'</b>'):BL(5))+' horas, para la designación de los miembros de la Junta Electoral.</p>'+
+  '<p>Las personas designadas, junto con la persona titular de la dirección del Centro, integrarán la Junta Electoral, encargada de organizar el procedimiento de elección de los miembros del Consejo Escolar.</p>'+
+  '<p>El resultado del sorteo será notificado personalmente a las personas elegidas; al mismo tiempo, se les convocará para el acto de constitución de la Junta Electoral.</p>'+firmaDir();}},
+
+{f:'A · Junta Electoral',n:2,t:'Convocatoria para la constitución de la Junta Electoral',sub:'Modelo 2',
+ body:function(){return '<p>D./D.ª '+BL(40)+',</p>'+
+  '<p>De acuerdo con el resultado del sorteo público efectuado el día '+(CFG.fSorteoJunta?('<b>'+fTxt(CFG.fSorteoJunta)+'</b>'):BL(14))+' para constituir la Junta Electoral que organizará la elección de los miembros del Consejo Escolar, le comunico que ha sido designado/a como representante por el sector de '+BL(24)+' en dicha Junta Electoral.</p>'+
+  '<p>Al mismo tiempo, se le convoca a la reunión que se celebrará en este Centro el día '+(CFG.fConstJunta?('<b>'+fTxt(CFG.fConstJunta)+'</b>'):BL(14))+' a las '+(CFG.hConstJunta?('<b>'+esc(CFG.hConstJunta)+'</b>'):BL(5))+' horas, con el siguiente Orden del día:</p>'+
+  '<ol><li>Constitución de la Junta Electoral.</li><li>Aprobación del censo electoral y publicación del Censo para Publicación de los distintos sectores.</li><li>Organización del proceso electoral, de acuerdo con la normativa que lo regula.</li></ol>'+
+  '<p>Lo que le comunico, rogando su asistencia a dicha reunión como componente de la Junta Electoral.</p>'+firmaDir();}},
+
+{f:'A · Junta Electoral',n:3,t:'Acta de constitución de la Junta Electoral',sub:'Modelo 3 · tras el sorteo',
+ body:function(){var lf=lugarFecha(CFG.fConstJunta,CFG.hConstJunta);
+  return '<p>En '+lf.lugar+', siendo las '+lf.hora+' horas del día '+lf.fecha+', se reúnen, bajo la presidencia del Sr./Sra. Director/a del Centro, las personas integrantes de la Junta Electoral:</p>'+
+  '<p>· D./D.ª '+V(CFG.sec,34)+', representante del profesorado, que actuará como Secretario/a de la Junta Electoral.</p>'+
+  '<p>· D./D.ª '+BL(34)+', representante de '+BL(16)+'.</p>'+
+  '<p>· D./D.ª '+BL(34)+', representante de '+BL(16)+'.</p>'+
+  '<p>· D./D.ª '+BL(34)+', representante de '+BL(16)+'.</p>'+
+  '<p>con el siguiente Orden del día:</p>'+
+  '<ol><li>Constitución de la Junta Electoral.</li><li>Aprobación del censo electoral y publicación del Censo de Acceso Público.</li><li>Organización del proceso electoral.</li></ol>'+
+  '<p>Se declara abierta la sesión y se procede a dar lectura a la normativa vigente y a la constitución de la Junta Electoral. A continuación se aprueban los censos electorales y se acuerda la publicación del Censo de Acceso Público.</p>'+
+  '<p>La organización del proceso electoral queda como sigue:</p>'+
+  '<ol><li>Plazo de reclamaciones contra el censo: del '+(CFG.recIni?('<b>'+fTxt(CFG.recIni)+'</b>'):BL(12))+' al '+(CFG.recFin?('<b>'+fTxt(CFG.recFin)+'</b>'):BL(12))+'.</li>'+
+  '<li>Plazo de admisión de candidaturas: del <b>14 al 27 de octubre de 2026</b>, ambos inclusive.</li>'+
+  '<li>Publicación de lista provisional de candidaturas: <b>28 de octubre de 2026</b>.</li>'+
+  '<li>Publicación de lista definitiva de candidaturas: <b>30 de octubre de 2026</b>.</li>'+
+  '<li>Sorteo de los miembros de las mesas electorales:<br>• Madres y padres del alumnado: día '+(CFG.fVotFam?('<b>'+fTxt(CFG.fVotFam)+'</b>'):BL(10))+', hora '+BL(5)+', lugar '+BL(16)+'.<br>• Alumnado: día '+(CFG.fVotAlu?('<b>'+fTxt(CFG.fVotAlu)+'</b>'):BL(10))+', hora '+BL(5)+', lugar '+BL(16)+'.</li></ol>'+
+  '<p>Y sin más asuntos que tratar, se levanta la sesión a las '+BL(5)+' horas del día indicado.</p>'+
+  '<p class="firma" style="margin-top:34px">Vº.Bº. EL/LA PRESIDENTE/A &nbsp;&nbsp;&nbsp;&nbsp; EL/LA SECRETARIO/A<br>DE LA JUNTA ELECTORAL &nbsp;&nbsp;&nbsp;&nbsp; DE LA JUNTA ELECTORAL</p>';}},
+
+{f:'A · Junta Electoral',n:4,t:'Credencial de componente de la Junta Electoral',sub:'Modelo 4',
+ body:function(){return '<p>En cumplimiento de lo establecido en el artículo 4 de la Orden de 7 de octubre de 2010,</p>'+
+  '<p>D./D.ª '+BL(40)+' ha sido designado/a como miembro de la Junta Electoral que dirigirá el proceso de elecciones al Consejo Escolar de este Centro, por el sector de '+BL(24)+'.</p>'+firmaPresi();}},
+
+{f:'B · Convocatorias de elecciones',n:5,t:'Convocatoria de Mesa Electoral · Profesorado',sub:'Modelo 5',
+ body:function(){return '<p>D./D.ª '+V(CFG.sec,40)+', Secretario/a del Centro '+V(CFG.centro,30)+', le convoca, por orden del Sr./Sra. Director/a y de acuerdo con la legislación vigente, a la Mesa Electoral que tendrá lugar en '+BL(16)+' de las '+BL(5)+' a las '+BL(5)+' horas del próximo día '+BL(8)+', para la elección y proclamación de representantes del profesorado en el Consejo Escolar.</p>'+
+  '<p class="firma" style="margin-top:30px">'+hoyTxt()+'</p><p class="firma" style="margin-top:20px">EL/LA SECRETARIO/A &nbsp;&nbsp;&nbsp; Vº.Bº. EL/LA DIRECTOR/A</p><p style="margin-top:26px">Recibí: D./D.ª '+BL(40)+'</p>';}},
+
+{f:'B · Convocatorias de elecciones',n:9,t:'Convocatoria de elecciones · Madres, padres y tutores legales',sub:'Modelo 9',
+ body:function(){return convocatoriaSector('de representantes de madres, padres y tutores legales del alumnado','de todas las madres y padres del alumnado','un máximo de '+BL(4)+' nombres');}},
+
+{f:'B · Convocatorias de elecciones',n:13,t:'Convocatoria de elecciones · Alumnado',sub:'Modelo 13',
+ body:function(){return convocatoriaSector('de representantes del alumnado','del alumnado','un máximo de '+BL(4)+' nombres');}},
+
+{f:'B · Convocatorias de elecciones',n:17,t:'Convocatoria de elecciones · Atención Educativa Complementaria (PAEC)',sub:'Modelo 17',
+ body:function(){return convocatoriaSector('del representante del personal de atención educativa complementaria','del Personal de Atención Educativa Complementaria','un solo nombre');}},
+
+{f:'B · Convocatorias de elecciones',n:19,t:'Convocatoria de elecciones · Administración y Servicios (PAS)',sub:'Modelo 19',
+ body:function(){return convocatoriaSector('del representante del personal de administración y servicios','del Personal de Administración y Servicios','un solo nombre');}},
+
+{f:'C · Supervisores/as',n:10,t:'Solicitud de supervisor/a · Votación de familias',sub:'Modelo 10',
+ body:function(){return '<p>D./D.ª '+BL(40)+', madre/padre/tutor-a legal de alumnado del Centro '+V(CFG.centro,26)+', en cumplimiento de la legislación vigente sobre supervisores en las mesas electorales,</p>'+
+  '<p><b>SOLICITA</b> actuar como supervisor/a de la votación de los representantes de madres y padres del alumnado de este Centro, siendo propuesto/a por la Asociación de Madres y Padres '+BL(20)+', o avalado/a por la firma de los diez electores que al dorso se relacionan.</p>'+
+  '<p class="firma" style="margin-top:30px">'+hoyTxt()+'</p><p class="firma" style="margin-top:20px">Fdo.:</p><p style="margin-top:30px">SR./A PRESIDENTE/A DE LA JUNTA ELECTORAL DEL CENTRO '+V(CFG.centro,20)+'</p>';}},
+
+{f:'C · Supervisores/as',n:11,t:'Credencial de supervisor/a · Familias',sub:'Modelo 11',
+ body:function(){return '<p>D./D.ª '+V(CFG.dir,40)+', Presidente/a de la Junta Electoral del Centro '+V(CFG.centro,26)+', en cumplimiento del artículo 13.4 de la Orden de 7 de octubre de 2010,</p>'+
+  '<p><b>Acredita</b> a D./D.ª '+BL(40)+' para actuar como supervisor/a de la votación de los representantes de madres y padres del alumnado en el Consejo Escolar de este Centro.</p>'+firmaPresi();}},
+
+{f:'C · Supervisores/as',n:14,t:'Solicitud de supervisor/a · Votación del alumnado',sub:'Modelo 14',
+ body:function(){return '<p>D./D.ª '+BL(40)+', alumno/a del Curso/Grupo '+BL(12)+' del Centro '+V(CFG.centro,24)+', en cumplimiento de la legislación vigente,</p>'+
+  '<p><b>SOLICITA</b> actuar como supervisor/a de la votación de los representantes del alumnado de este Centro, siendo propuesto/a por la Asociación del alumnado '+BL(18)+', o avalado/a por la firma de los diez electores/as que al dorso se relacionan.</p>'+
+  '<p class="firma" style="margin-top:30px">'+hoyTxt()+'</p><p class="firma" style="margin-top:20px">Fdo.:</p><p style="margin-top:30px">SR./A PRESIDENTE/A DE LA JUNTA ELECTORAL DEL CENTRO '+V(CFG.centro,20)+'</p>';}},
+
+{f:'C · Supervisores/as',n:15,t:'Credencial de supervisor/a · Alumnado',sub:'Modelo 15',
+ body:function(){return '<p>D./D.ª '+V(CFG.dir,40)+', Presidente/a de la Junta Electoral del Centro '+V(CFG.centro,26)+', en cumplimiento del artículo 14.5 de la Orden de 7 de octubre de 2010,</p>'+
+  '<p><b>Acredita</b> a D./D.ª '+BL(40)+', alumno/a de este Centro, para actuar como supervisor/a de la votación de los/las representantes del alumnado en el Consejo Escolar de este Centro.</p>'+firmaPresi();}},
+
+{f:'D · Actas de constitución de mesa y elección',n:6,t:'Acta de mesa y elección · Profesorado',sub:'Modelo 6 · tras la votación',
+ body:function(){var lf=lugarFecha(CFG.fConstJunta,'');
+  return '<p>En la localidad de '+(CFG.loc?('<b>'+esc(CFG.loc)+'</b>'):BL(12))+' y siendo las '+BL(4)+' horas del día '+BL(14)+', se constituye la Mesa Electoral, formada por:</p>'+
+  '<p>· D./D.ª '+V(CFG.dir,34)+', Director/a del Centro.<br>· D./D.ª '+BL(30)+', profesor/a de más antigüedad en el Centro.<br>· D./D.ª '+BL(30)+', profesor/a de menos antigüedad en el Centro.</p>'+
+  escrutinioHTML()+
+  '<p>En consecuencia, son elegidos/as como representantes del profesorado en el Consejo Escolar:</p>'+lineasNombres(5)+
+  cierreActa();}},
+
+{f:'D · Actas de constitución de mesa y elección',n:12,t:'Acta de mesa y elección · Madres y padres',sub:'Modelo 12 · tras la votación',
+ body:function(){return '<p>En el Centro '+V(CFG.centro,30)+' y siendo las '+BL(4)+' horas del día '+BL(14)+', se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+V(CFG.dir,30)+', las personas que abajo se relacionan (elegidas por sorteo público):</p>'+
+  lineasNombres(4)+
+  '<p>Procediéndose a constituir la Mesa Electoral y a dar lectura a las candidaturas presentadas:</p>'+
+  lineasNombres(6,' ('+BL(12)+' *)')+
+  '<p style="font-size:.85em">(*) Siglas o indicativo de la Asociación de Madres y Padres o Federación por la que, en su caso, se presentó.</p>'+
+  escrutinioHTML()+
+  '<p>En consecuencia, han sido elegidos/as como representantes de madres y padres del alumnado en el Consejo Escolar:</p>'+lineasNombres(5,' ('+BL(12)+' *)')+
+  cierreActa();}},
+
+{f:'D · Actas de constitución de mesa y elección',n:16,t:'Acta de mesa y elección · Alumnado',sub:'Modelo 16 · tras la votación',
+ body:function(){return '<p>En el Centro '+V(CFG.centro,30)+' y siendo las '+BL(4)+' horas del día '+BL(14)+', se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+V(CFG.dir,30)+', el alumnado que abajo se relaciona (elegido por sorteo público):</p>'+
+  lineasNombres(4)+
+  '<p>Procediéndose a constituir la Mesa Electoral y a dar lectura a las candidaturas presentadas:</p>'+
+  lineasNombres(6,' ('+BL(12)+' *)')+
+  '<p style="font-size:.85em">(*) Siglas o indicativo de la Asociación del Alumnado o Federación por la que, en su caso, se presentó.</p>'+
+  escrutinioHTML()+
+  '<p>En consecuencia, han sido elegidos/as como representantes del alumnado en el Consejo Escolar:</p>'+lineasNombres(5,' ('+BL(12)+' *)')+
+  cierreActa();}},
+
+{f:'D · Actas de constitución de mesa y elección',n:18,t:'Acta de mesa y elección · PAEC',sub:'Modelo 18 · tras la votación',
+ body:function(){return '<p>En el Centro '+V(CFG.centro,30)+' y siendo las '+BL(4)+' horas del día '+BL(14)+', se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+V(CFG.dir,30)+'; D./D.ª '+V(CFG.sec,26)+', Secretario/a del centro y de la Mesa; y D./D.ª '+BL(26)+', representante del personal de atención educativa complementaria elegido por sorteo público.</p>'+
+  '<p>Procediéndose a constituir la Mesa Electoral y a dar lectura a las candidaturas presentadas:</p>'+lineasNombres(3)+
+  escrutinioHTML()+
+  '<p>En consecuencia, es elegido/a como representante del Personal de Atención Educativa Complementaria:</p><p>D./D.ª '+BL(44)+'</p>'+
+  cierreActa();}},
+
+{f:'D · Actas de constitución de mesa y elección',n:20,t:'Acta de mesa y elección · PAS',sub:'Modelo 20 · tras la votación',
+ body:function(){return '<p>En el Centro '+V(CFG.centro,30)+' y siendo las '+BL(4)+' horas del día '+BL(14)+', se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+V(CFG.dir,30)+'; D./D.ª '+V(CFG.sec,26)+', Secretario/a del centro y de la Mesa; y D./D.ª '+BL(26)+', representante del personal de administración y servicios elegido por sorteo público.</p>'+
+  '<p>Procediéndose a constituir la Mesa Electoral y a dar lectura a las candidaturas presentadas:</p>'+lineasNombres(3)+
+  escrutinioHTML()+
+  '<p>En consecuencia, es elegido/a como representante del Personal de Administración y Servicios:</p><p>D./D.ª '+BL(44)+'</p>'+
+  cierreActa();}},
+
+{f:'E · Miembros de derecho',n:23,t:'Solicitud de designación · AMPA más representativa',sub:'Modelo 23',
+ body:function(){return '<p>D./D.ª '+V(CFG.dir,40)+', director/a del Centro '+V(CFG.centro,30)+' y presidente/a de la Junta Electoral,</p>'+
+  '<p>Le solicito, en cumplimiento de la normativa vigente, la designación del representante de esa Asociación de Madres y Padres del Alumnado en el Consejo Escolar de este Centro.</p>'+
+  '<p>Dicha designación debe comunicarse a la Junta Electoral antes de la finalización del plazo de presentación de candidaturas. Deberá presentarse fotocopia de la Resolución de inscripción en el Censo de Entidades Colaboradoras de la Enseñanza.</p>'+firmaPresi();}},
+
+{f:'E · Miembros de derecho',n:24,t:'Solicitud de designación · Representante del Ayuntamiento',sub:'Modelo 24',
+ body:function(){return '<p>D./D.ª '+V(CFG.dir,40)+', director/a del Centro '+V(CFG.centro,30)+' y presidente/a de la Junta Electoral,</p>'+
+  '<p>Le solicito, en cumplimiento de la normativa vigente, la designación del representante de ese Ayuntamiento para que forme parte, como miembro de derecho, del Consejo Escolar de este Centro.</p>'+
+  '<p>Dicha designación debe comunicarse a la Junta Electoral antes del día '+BL(14)+', a fin de poder constituir el referido Órgano Colegiado.</p>'+firmaPresi()+
+  '<p style="margin-top:26px">AYUNTAMIENTO '+BL(40)+'</p>';}},
+
+{f:'E · Miembros de derecho',n:25,t:'Solicitud de designación · Institución Sociolaboral',sub:'Modelo 25 (si procede)',
+ body:function(){return '<p>D./D.ª '+V(CFG.dir,40)+', director/a del Centro '+V(CFG.centro,30)+' y presidente/a de la Junta Electoral,</p>'+
+  '<p>Le solicito, en cumplimiento de la normativa vigente, la designación del representante de esa Institución Sociolaboral para que forme parte, como miembro de derecho, del Consejo Escolar de este Centro.</p>'+
+  '<p>Dicha designación debe comunicarse a la Junta Electoral antes del día '+BL(14)+', a fin de poder constituir el referido Órgano Colegiado.</p>'+firmaPresi()+
+  '<p style="margin-top:26px">INSTITUCIÓN SOCIOLABORAL '+BL(36)+'</p>';}}
+];
+
+/* ================= RENDER ================= */
+var ACT=null;
+function pintaLista(){
+  var cont=document.getElementById('lista-docs');var fases={};var orden=[];
+  DOCS.forEach(function(d){if(!fases[d.f]){fases[d.f]=[];orden.push(d.f);}fases[d.f].push(d);});
+  var h='';orden.forEach(function(f){
+    h+='<details class="fase" open><summary><span class="n">'+f.split(' · ')[0]+'</span> · '+f.split(' · ')[1]+'</summary>';
+    fases[f].forEach(function(d){h+='<button class="doc-btn" data-n="'+d.n+'" onclick="sel('+d.n+')">'+esc(d.t)+'<small>'+esc(d.sub)+'</small></button>';});
+    h+='</details>';
+  });
+  cont.innerHTML=h;
+}
+function sel(n){ACT=DOCS.filter(function(d){return d.n===n;})[0];
+  document.querySelectorAll('.doc-btn').forEach(function(b){b.classList.toggle('on',parseInt(b.dataset.n,10)===n);});
+  render(ACT);}
+function render(d){if(!d)return;
+  var esc2=CFG.codigo?(' · Cód. '+esc(CFG.codigo)):'';
+  var membrete='<div class="membrete"><div class="esc">CEIP</div><div><div class="c1">'+(esc(CFG.centro)||'CEIP __________')+'</div><div class="c2">'+(esc(CFG.loc)||'Localidad')+esc2+' · Curso '+esc(CFG.curso||'2026/2027')+'</div></div></div>';
+  document.getElementById('hoja').innerHTML=membrete+'<h2 class="tt">'+esc(d.t)+'</h2>'+d.body();
+  document.getElementById('hoja').setAttribute('contenteditable','true');
+  document.getElementById('aviso').style.display='none';
+  window.scrollTo(0,0);
+}
+cargarCfg();pintaLista();
+</script>
+</body>
+</html>
