@@ -3,16 +3,16 @@
 <head>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Bitter:ital,wght@0,400;0,600;0,700;1,400&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <meta charset="UTF-8">
-<title>Claritanet</title>
-<!-- Claritanet -->
+<title>ClaritaNet</title>
+<!-- ClaritaNet -->
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#7A1B39">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Claritanet">
-<!-- icono del centro 180px: pega aqui el <link rel="apple-touch-icon" href="..."> de Claritanet -->
-<!-- icono del centro 192px: pega aqui el <link rel="icon" ...> de Claritanet -->
+<meta name="apple-mobile-web-app-title" content="ClaritaNet">
+<!-- icono del centro 180px: pega aqui el <link rel="apple-touch-icon" href="..."> de ClaritaNet -->
+<!-- icono del centro 192px: pega aqui el <link rel="icon" ...> de ClaritaNet -->
 <?!= include("Styles"); ?>
 </head>
 <body>
@@ -21,9 +21,21 @@
 <div id="login-screen">
   <div class="login-sheet">
     <div class="login-logo-row">
-      <!-- logo del centro: pega aqui el <img class="login-logo" src="..." alt="Claritanet"> -->
+      <!-- Emblema ClaritaNet (ciencia + igualdad). Para usar TU dibujo, sustituye este bloque svg por una imagen:
+           img class="login-logo" src="URL-o-data-uri" alt="ClaritaNet" -->
+      <svg class="login-logo" viewBox="0 0 64 64" width="56" height="56" role="img" aria-label="ClaritaNet" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="clg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7A1B39"/><stop offset="1" stop-color="#5B2A5F"/></linearGradient></defs>
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#clg)"/>
+        <g fill="none" stroke-width="2.4" stroke-linecap="round" transform="translate(32,32)">
+          <ellipse rx="20" ry="8" stroke="#EFA9C8"/>
+          <ellipse rx="20" ry="8" stroke="#C99BE0" transform="rotate(60)"/>
+          <ellipse rx="20" ry="8" stroke="#E4A93C" transform="rotate(120)"/>
+        </g>
+        <g transform="translate(32,32)"><rect x="-8" y="-5.4" width="16" height="3.6" rx="1.8" fill="#FFF6F2"/><rect x="-8" y="1.8" width="16" height="3.6" rx="1.8" fill="#FFF6F2"/></g>
+        <circle cx="52" cy="32" r="2.6" fill="#E4A93C"/><circle cx="16" cy="16.6" r="2.2" fill="#EFA9C8"/><circle cx="16" cy="47.4" r="2.2" fill="#C99BE0"/>
+      </svg>
       <div>
-        <div class="login-school-name">Claritanet</div>
+        <div class="login-school-name">ClaritaNet</div>
         <div class="login-school-sub">CEIP Clara Campoamor</div>
       </div>
     </div>
@@ -55,7 +67,15 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
         <span id="badge-new"></span>
       </button>
-      <!-- logo cabecera: pega aqui el <img src="..." style="height:32px;border-radius:8px"> de Claritanet -->
+      <!-- Emblema cabecera ClaritaNet (sustituible por tu <img>) -->
+      <svg viewBox="0 0 64 64" width="34" height="34" style="border-radius:9px" role="img" aria-label="ClaritaNet" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="clgh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7A1B39"/><stop offset="1" stop-color="#5B2A5F"/></linearGradient></defs>
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#clgh)"/>
+        <g fill="none" stroke-width="2.6" stroke-linecap="round" transform="translate(32,32)">
+          <ellipse rx="20" ry="8" stroke="#EFA9C8"/><ellipse rx="20" ry="8" stroke="#C99BE0" transform="rotate(60)"/><ellipse rx="20" ry="8" stroke="#E4A93C" transform="rotate(120)"/>
+        </g>
+        <g transform="translate(32,32)"><rect x="-8" y="-5.4" width="16" height="3.6" rx="1.8" fill="#FFF6F2"/><rect x="-8" y="1.8" width="16" height="3.6" rx="1.8" fill="#FFF6F2"/></g>
+      </svg>
     </div>
   </header>
 
@@ -145,7 +165,7 @@ function cuadranteRecreoHTML(c){
 function renderCuadHorarios(r){
   var body=document.getElementById('cuad-hor-body'); if(!body) return;
   if(!r||!r.ok){ body.innerHTML='<div style="padding:14px;background:#fff;border-radius:14px">'+((r&&r.error)||'Error')+'</div>'; return; }
-  if(!r.tramos||!r.tramos.length){ body.innerHTML='<div style="padding:14px;background:#fff;border-radius:14px">Sin horario para <b>'+(r.teacher||'')+'</b>. Publícalo desde la App con <b>Exportar horarios a SSNet</b>.</div>'; return; }
+  if(!r.tramos||!r.tramos.length){ body.innerHTML='<div style="padding:14px;background:#fff;border-radius:14px">Sin horario para <b>'+(r.teacher||'')+'</b>. Publícalo desde la App con <b>Exportar horarios a ClaritaNet</b>.</div>'; return; }
   var D=['L','M','X','J','V'];
   function tabla(titulo,color,datos){
     var h='<div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px;overflow:hidden"><div style="background:'+color+';color:#fff;font-weight:800;padding:10px 14px">'+titulo+'</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:340px"><tr style="background:#7A1B39;color:#fff"><th style="padding:5px 6px;text-align:left">Hora</th>';
@@ -294,7 +314,7 @@ function renderCuadHorarios(r){
       <div class="sec-title">Herramientas</div>
       <div class="util-grid">
         <button class="util-btn" onclick="showPanel('p-cartelera')"><div class="util-ico">&#127916;</div><span>Cartelera</span></button>
-        <button class="util-btn" onclick="openEmbed('','')"><div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="43" rx="20" ry="4" fill="#15803d" opacity=".5"/><path d="M6 10h30a4 4 0 014 4v14a4 4 0 01-4 4H18l-8 7v-7H6a4 4 0 01-4-4V14a4 4 0 014-4z" fill="white" opacity=".97"/><path d="M6 10h30a4 4 0 014 4v3H2v-3a4 4 0 014-4z" fill="#22C55E" opacity=".85"/><circle cx="13" cy="24" r="2.3" fill="#22C55E"/><circle cx="21" cy="24" r="2.3" fill="#4ADE80"/><circle cx="29" cy="24" r="2.3" fill="#86EFAC"/><rect x="38" y="30" width="3" height="12" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="39.5" cy="26" rx="6" ry="6.5" fill="#166534" opacity=".8"/></svg></div><span>Centro de Comunicaciones SSNet</span></button>
+        <button class="util-btn" onclick="openEmbed('','')"><div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="43" rx="20" ry="4" fill="#15803d" opacity=".5"/><path d="M6 10h30a4 4 0 014 4v14a4 4 0 01-4 4H18l-8 7v-7H6a4 4 0 01-4-4V14a4 4 0 014-4z" fill="white" opacity=".97"/><path d="M6 10h30a4 4 0 014 4v3H2v-3a4 4 0 014-4z" fill="#22C55E" opacity=".85"/><circle cx="13" cy="24" r="2.3" fill="#22C55E"/><circle cx="21" cy="24" r="2.3" fill="#4ADE80"/><circle cx="29" cy="24" r="2.3" fill="#86EFAC"/><rect x="38" y="30" width="3" height="12" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="39.5" cy="26" rx="6" ry="6.5" fill="#166534" opacity=".8"/></svg></div><span>Centro de Comunicaciones ClaritaNet</span></button>
         <button class="util-btn" data-url="https%3A%2F%2Fprofes.tv%2Frecursos.html" onclick="openEmbedEnc(this)"><div class="util-ico" style="font-size:.62rem;font-weight:900;letter-spacing:-.5px">profes<span style="color:#b91c1c">.tv</span></div><span>profes.tv &middot; IA en el aula<br><small style="font-weight:400;opacity:.7">de C&eacute;sar Poyatos</small></span></button>
         <button class="util-btn" onclick="showPanel('p-fotos')"><div class="util-ico">&#128248;</div><span>Subir Fotos al Drive</span></button>
         <button class="util-btn" onclick="showPanel('p-galeria')">
@@ -668,7 +688,7 @@ function renderCuadHorarios(r){
       </div>
     </div>
 <script>
-/* ── TOUR DE BIENVENIDA SSNet v2 ── */
+/* ── TOUR DE BIENVENIDA ClaritaNet v2 ── */
 (function(){
   var CUAD=[
     {ic:'📁',n:'Documentos y actas del centro',d:'Acceso a los documentos y actas oficiales del centro.'},
@@ -683,7 +703,7 @@ function renderCuadHorarios(r){
     {ic:'❤️',n:'Cuaderno de enfermedades crónicas',d:'Cada tutor/a rellena los casos de su clase, con foto del niño/a y de la autorización firmada por la familia en caso de incidencia grave.'}
   ];
   var UTIL=[
-    {ic:'📣',n:'Centro de Comunicaciones SSNet',d:'Agenda con teléfonos y correos de todos los compis, y envío de emails directos al equipo docente, al ciclo o a todo el claustro.'},
+    {ic:'📣',n:'Centro de Comunicaciones ClaritaNet',d:'Agenda con teléfonos y correos de todos los compis, y envío de emails directos al equipo docente, al ciclo o a todo el claustro.'},
     {ic:'📸',n:'Subir fotos al Drive',d:'Sube las fotos de tu clase o de un evento directamente a la carpeta de tu clase, proyecto o evento.'},
     {ic:'🖼️',n:'Galería',d:'Ve las fotos que subimos todos a las carpetas de cada clase, evento o proyecto.'},
     {ic:'🎥',n:'Salas de Meet',d:'Todos los enlaces para cualquier reunión del curso, siempre listos, sin que nadie tenga que hacer nada.'},
@@ -694,13 +714,13 @@ function renderCuadHorarios(r){
     {ic:'🤖',n:'Profes.tv',d:'Herramienta de César Poyatos, muy útil para usar bien la IA con recursos docentes.'}
   ];
   var PASOS=[
-    {tab:'aldia',target:null,t:'¡Bienvenidos/as al claustro! 👋',d:'Bienvenidas/os, estimadas/os compis, a <b>Claritanet</b>: la app con la que trataremos de que tengáis a mano toda la información importante del centro y de facilitaros el trabajo y la coordinación del claustro. Si tenéis cualquier problema o incidencia, estaremos encantados de ayudaros. Somos un equipo y estamos aquí para lo que necesitéis.'},
+    {tab:'aldia',target:null,t:'¡Bienvenidos/as al claustro! 👋',d:'Bienvenidas/os, estimadas/os compis, a <b>ClaritaNet</b>: la app con la que trataremos de que tengáis a mano toda la información importante del centro y de facilitaros el trabajo y la coordinación del claustro. Si tenéis cualquier problema o incidencia, estaremos encantados de ayudaros. Somos un equipo y estamos aquí para lo que necesitéis.'},
     {tab:'aldia',target:'nb-aldia',t:'📅 Al Día',d:'Cada mañana, antes de entrar al cole: el <b>tablón de anuncios</b>, tu <b>horario del día</b> y el de tu grupo, y si tienes módulo de <b>Luciérnaga/Refuerzo/PT</b>. Puedes consultar el horario de cualquier compi por si necesitas localizarlo. También se publica el <b>cuadrante de sustituciones</b> del día, los eventos, reuniones y proyectos, y los <b>turnos de recreo</b> (tuyo y de tu grupo).'},
     {tab:'agenda',target:'nb-agenda',t:'🗓️ Agenda',d:'Un <b>calendario del mes en curso</b> para ver cualquier evento programado y, debajo, los <b>eventos y reuniones de la semana</b>.'},
     {tab:'cuadernos',target:'nb-cuadernos',t:'📒 Cuaderno Docente',intro:'Tu espacio de trabajo. Aquí tienes los documentos y actas del centro y todos tus cuadernos:',items:CUAD},
     {tab:'proyectos',target:'nb-proyectos',t:'🌱 Proyectos',d:'Un <b>calendario con los eventos de cada proyecto</b> y una sección donde se alojan los proyectos y la información que comparten sus coordinadores.'},
     {tab:'util',target:'nb-util',t:'🧰 Utilidades',intro:'Recursos de interés para todo el profesorado:',items:UTIL},
-    {tab:'util',target:null,t:'¡Todo listo! 🎉',d:'Ya conocéis Claritanet. Podréis <b>volver a ver este tour cuando queráis</b> desde <b>Utilidades → Ver tour de bienvenida</b>. ¡Gracias por vuestro trabajo y a disfrutarlo, juntos!'}
+    {tab:'util',target:null,t:'¡Todo listo! 🎉',d:'Ya conocéis ClaritaNet. Podréis <b>volver a ver este tour cuando queráis</b> desde <b>Utilidades → Ver tour de bienvenida</b>. ¡Gracias por vuestro trabajo y a disfrutarlo, juntos!'}
   ];
   function visible(el){ return el && el.offsetParent!==null; }
   function catalogo(lista){
@@ -791,7 +811,7 @@ function renderCuadHorarios(r){
 })();
 </script>
 <script>
-/* ── FORMULARIO DE SALIDA · Actividades Extraescolares y Complementarias · Claritanet ── */
+/* ── FORMULARIO DE SALIDA · Actividades Extraescolares y Complementarias · ClaritaNet ── */
 (function(){
   var CURSOS=[]; /* Rellena con los cursos del centro, p.ej. ['Infantil 3 años A','1º A',...] */
   function horas(){ var a=[]; for(var h=7;h<=20;h++){ ['00','15','30','45'].forEach(function(m){ a.push((h<10?'0'+h:h)+':'+m); }); } return a; }

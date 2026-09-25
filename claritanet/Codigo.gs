@@ -1,17 +1,17 @@
 // ══════════════════════════════════════════════════════════════════════════
-// CLARITANET — Codigo.gs  (base SSNet personalizada · CEIP Clara Campoamor)
+// CLARITANET — Codigo.gs  (base ClaritaNet personalizada · CEIP Clara Campoamor)
 // ══════════════════════════════════════════════════════════════════════════
 
 // ═══ CONFIG DEL CENTRO — cambia SOLO este bloque ═══════════════════════════
 const CONFIG = {
-  // ID de la hoja de cálculo de Claritanet.
-  // ▸ Si usas la COPIA que hiciste del Sheet de SSNet, pon AQUÍ el id de esa copia.
+  // ID de la hoja de cálculo de ClaritaNet.
+  // ▸ Si usas la COPIA que hiciste del Sheet de ClaritaNet, pon AQUÍ el id de esa copia.
   SPREADSHEET_ID:  '1rYYBau4Jtn2Y3VwzZXHBGwXtcLuP2fylvR0g4A0dRNs',
-  FOTOS_FOLDER_ID: '',        // carpeta de fotos de Claritanet (vacío = sin galería/subida)
+  FOTOS_FOLDER_ID: '',        // carpeta de fotos de ClaritaNet (vacío = sin galería/subida)
   LIBROS_FOLDER_ID:'',        // carpeta donde crear las listas de libros (vacío = quedan en tu Drive)
-  TITULO_WEB:  'Claritanet',
+  TITULO_WEB:  'ClaritaNet',
   CENTRO:      'CEIP Clara Campoamor',
-  MAIL_PREFIX: '[Claritanet]',
+  MAIL_PREFIX: '[ClaritaNet]',
   YT_USER:     '',            // usuario o @canal de YouTube (sin @). Vacío = cartelera vacía
   P27: {
     firma:  '\n\nCon cariño,\nEl Equipo Directivo',
@@ -717,7 +717,7 @@ function normalizeStr(s) {
 }
 
 // ── Coincidencia tolerante de nombres de maestro/a ─────────────────────────
-// La App de gestión y SSNet (Control_Acceso) a veces guardan el nombre distinto:
+// La App de gestión y ClaritaNet (Control_Acceso) a veces guardan el nombre distinto:
 // nombre de pila abreviado ("Mariló" vs "María Dolores") o con uno o dos
 // apellidos ("Paula Blanco" vs "Paula Blanco Rodríguez"). Emparejamos sin
 // acentos ni mayúsculas y, si no hay coincidencia exacta, por el nº de palabras
@@ -826,8 +826,8 @@ function getProyectos() {
     return {proyectos: proyectos};
   } catch(e) { return {proyectos: [], error: e.toString()}; }
 }// ═══════════════════════════════════════════════════════════════════════
-// CUADERNO DE HORARIOS — funciones de servidor para SSNet
-// Pega estas DOS funciones al final del Código.gs de SSNet.
+// CUADERNO DE HORARIOS — funciones de servidor para ClaritaNet
+// Pega estas DOS funciones al final del Código.gs de ClaritaNet.
 // Luego: guardar → Administrar implementaciones → lápiz → Nueva versión
 //        (EN LAS DOS implementaciones: personas y datos)
 // ═══════════════════════════════════════════════════════════════════════
@@ -1302,7 +1302,7 @@ function guardarLibro(d){
   return {ok:true};
 }
 /* ═══════════════ P27 · PERMISOS ASUNTOS PARTICULARES (2 días lectivos) ═══════════════
-   Instrucción 10/2025. Pegar al FINAL del Codigo.gs de SSNet.
+   Instrucción 10/2025. Pegar al FINAL del Codigo.gs de ClaritaNet.
    El portal llama estas funciones con google.script.run (no hace falta tocar el enrutador _acc).
 */
 var P27_PROP = 'P27_CONFIG_V1';
