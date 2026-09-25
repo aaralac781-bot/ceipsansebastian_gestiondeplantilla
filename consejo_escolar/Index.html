@@ -240,7 +240,7 @@ function renderDocCfg(){
    +'<div class="row" style="margin-top:10px"><div class="grow"><label>Director/a (nombre y apellidos)</label><input id="dcDirector" value="'+esc(c.director)+'" placeholder="Se firma como Presidente/a de la Junta Electoral"></div>'
    +'<div class="grow"><label>Secretario/a</label><input id="dcSecretario" value="'+esc(c.secretario)+'" placeholder="Secretario/a de la Junta / Mesa"></div></div>'
    +'<div class="row" style="margin-top:10px"><button class="btn" onclick="dcfgSave()">Guardar datos</button></div><div id="dcMsg"></div></div>'
-   +'<div class="msg info">Elige un documento: se abre <b>ya relleno</b> con estos datos y las fechas oficiales del calendario 2026/2027. Puedes <b>editar cualquier parte a mano</b> antes de imprimir o guardar en PDF.<br>Las <b>actas del sorteo y de las votaciones internas</b> se generan con los datos reales en la pestaña <b>Administración</b>.</div>';
+   +'<div class="msg info">Elige un documento: se abre <b>ya relleno</b> con estos datos y las fechas oficiales del calendario 2026/2027. Puedes <b>editar cualquier parte a mano</b> antes de imprimir o guardar en PDF.<br>En las <b>actas de mesa (fase D)</b> puedes pulsar «Rellenar con los votos de una votación» para traer <b>candidatos, votos y personas elegidas</b> directamente desde las votaciones de la app.<br>Las <b>actas del sorteo y de las votaciones internas</b> también se generan con datos reales en la pestaña <b>Administración</b>.</div>';
   el('docCfg').innerHTML=h;
 }
 function dcfgSave(){
@@ -273,14 +273,52 @@ function abrirDoc(n){
   var cfg=dcfgGet();
   el('docCfg').hidden=true; el('docList').hidden=true;
   var v=el('docView'); v.hidden=false;
+  var pull='';
+  if(doc.mesa){
+    pull='<div class="card" style="border-left:4px solid var(--gold)"><label>Rellenar con los votos de una votación de la app</label>'
+      +'<div id="pullInner"></div><div id="pullMsg"></div>'
+      +'<p class="hint">Trae los candidatos y sus votos desde la pestaña Votar/Administración. Luego revisa y edita el acta a mano.</p></div>';
+  }
   v.innerHTML='<div class="row" style="margin-bottom:10px;align-items:center">'
     +'<button class="btn ghost sm" onclick="cerrarDoc()">&larr; Volver</button>'
     +'<button class="btn sm" onclick="imprimirDoc()">🖨️ Imprimir / PDF</button>'
     +'<span class="small">Documento '+doc.n+'. Toca el texto para editarlo antes de imprimir.</span></div>'
+    +pull
     +'<div class="sheet" id="docSheet" contenteditable="true" spellcheck="false" data-title="'+esc(doc.t)+'">'+doc.body(cfg)+'</div>';
+  if(doc.mesa) pullInit(doc.n);
   window.scrollTo(0,0);
 }
 function cerrarDoc(){el('docView').hidden=true;el('docCfg').hidden=false;el('docList').hidden=false;window.scrollTo(0,0);}
+/* ---- traer resultados de una votación al acta de mesa ---- */
+var _pullDoc=null, _pullVots=[];
+function pullInit(n){
+  _pullDoc=n;
+  if(!ADMINPASS){ el('pullInner').innerHTML='<div class="row"><div class="grow"><input type="password" id="pullPw" placeholder="Contraseña de administración" onkeydown="if(event.key===\'Enter\')pullAuth()"></div><button class="btn ghost sm" onclick="pullAuth()">Ver votaciones</button></div>'; return; }
+  pullLoad();
+}
+function pullAuth(){
+  var pw=el('pullPw').value; el('pullMsg').innerHTML='<span class="spin"></span>';
+  google.script.run.withSuccessHandler(function(ok){ if(!ok){el('pullMsg').innerHTML='<div class="msg err">Contraseña incorrecta.</div>';return;} ADMINPASS=pw; el('pullMsg').innerHTML=''; pullLoad(); })
+   .withFailureHandler(function(e){el('pullMsg').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).adminEntrar(pw);
+}
+function pullLoad(){
+  el('pullInner').innerHTML='<span class="spin"></span>';
+  google.script.run.withSuccessHandler(function(list){
+    _pullVots=list||[];
+    if(!_pullVots.length){ el('pullInner').innerHTML='<div class="small">No hay votaciones creadas en la app. Créalas en la pestaña Administración.</div>'; return; }
+    var opt=_pullVots.map(function(v,i){return '<option value="'+i+'">'+esc(v.titulo)+' — '+v.votos+' votos ('+(v.estado==='abierta'?'abierta':'cerrada')+')</option>';}).join('');
+    el('pullInner').innerHTML='<div class="row"><select id="pullSel" style="flex:1;min-width:160px">'+opt+'</select><button class="btn sm" onclick="pullFill()">📥 Rellenar acta</button></div>';
+  }).withFailureHandler(function(e){el('pullInner').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).listarVotaciones(ADMINPASS);
+}
+function pullFill(){
+  var i=+el('pullSel').value, v=_pullVots[i]; if(!v)return;
+  el('pullMsg').innerHTML='<span class="spin"></span>';
+  google.script.run.withSuccessHandler(function(r){
+    var doc=DOCS.filter(function(x){return x.n===_pullDoc;})[0];
+    el('docSheet').innerHTML=doc.body(dcfgGet(), r);
+    el('pullMsg').innerHTML='<div class="msg ok">Acta rellena con «'+esc(v.titulo)+'» ('+r.total+' votos). Revisa la composición de la mesa y edita lo que necesites.</div>';
+  }).withFailureHandler(function(e){el('pullMsg').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).getResultados(ADMINPASS, v.id);
+}
 function imprimirDoc(){
   var node=el('docSheet'); if(!node)return;
   var titulo=node.getAttribute('data-title')||'Documento';
@@ -341,6 +379,32 @@ function precisionesConvocatoria(c,sector,maxNombres){
 function encabezaDispone(c){
   return '<p><b>CENTRO:</b> '+FV(c.centro)+'</p>'
    +'<p>D./D.ª '+FV(c.director,'lg')+', Director/a del Centro y Presidente/a de la Junta Electoral del mismo, en virtud de la normativa vigente,</p>';
+}
+/* ---- helpers de actas de mesa que se rellenan con una votación de la app (res) ---- */
+function _ordena(res){ return (res&&res.opciones?res.opciones.slice():[]).sort(function(a,b){return b.votos-a.votos;}); }
+function listaCand(res,siglas){                 /* "Se da lectura a las candidaturas presentadas" */
+  var o=_ordena(res);
+  if(o.length) return o.map(function(x){return 'D./D.ª '+esc(x.opcion)+(siglas?' ('+B('sm')+' *)':'');}).join('<br>');
+  var r=[]; for(var i=0;i<3;i++) r.push('D./D.ª '+B('lg')+(siglas?' ('+B('sm')+' *)':'')); return r.join('<br>');
+}
+function listaVotos(res){                        /* "Los votos válidos son los siguientes" */
+  var o=_ordena(res);
+  if(o.length) return o.map(function(x){return 'D./D.ª '+esc(x.opcion)+' &mdash; Nº de votos <b>'+x.votos+'</b>';}).join('<br>');
+  var r=[]; for(var i=0;i<4;i++) r.push('D./D.ª '+B('lg')+' Nº de votos '+B('sm')); return r.join('<br>');
+}
+function listaElegidos(res,single,siglas){       /* "En consecuencia, son elegidos/as" */
+  var o=_ordena(res);
+  if(o.length){ var top=single?o.slice(0,1):o; return top.map(function(x){return 'D./D.ª '+esc(x.opcion)+(siglas?' ('+B('sm')+' *)':'');}).join('<br>'); }
+  if(single) return 'D./D.ª '+B('lg');
+  var r=[]; for(var i=0;i<2;i++) r.push('D./D.ª '+B('lg')+(siglas?' ('+B('sm')+' *)':'')); return r.join('<br>');
+}
+function bloqueEscrutinioRes(res,noPres){        /* recuento; con res: válidos=total, blanco=0, nulos=0 (la app no admite nulos/blancos) */
+  var t=res?res.total:null;
+  return '<p>Se declara abierta la votación a las '+B('sm')+' horas.</p>'
+   +'<p>Finalizada la votación, se procede al escrutinio de votos, con el siguiente resultado:</p>'
+   +'<p>Votos válidos: '+(res?'<b>'+t+'</b>':B('sm'))+' &nbsp;&nbsp; Votos en blanco: '+(res?'<b>0</b>':B('sm'))+' &nbsp;&nbsp; Votos nulos: '+(res?'<b>0</b>':B('sm'))
+   +'<br><b>TOTAL VOTOS EMITIDOS:</b> '+(res?'<b>'+t+'</b>':B('sm'))+(noPres?'. De ellos, '+B('sm')+' por la modalidad no presencial.':'')+'</p>'
+   +'<p>Los votos válidos son los siguientes:</p><p>'+listaVotos(res)+'</p>';
 }
 
 /* ---- los documentos oficiales (Orden 7/10/2010 · Resolución 7/9/2026, BOJA 177) ---- */
@@ -460,67 +524,63 @@ var DOCS=[
  +'<p>Acredita a D./D.ª '+B('lg')+', alumno/a de este Centro, para actuar como supervisor/a de la votación de los representantes del alumnado en el Consejo Escolar de este Centro.</p>'
  +fechaLugar(c)+firmaPres(c);}},
 
-/* ===== FASE D — ACTAS DE MESA Y ELECCIÓN ===== */
-{n:6,fase:'D',t:'Acta de mesa y elección — profesorado',w:'El día de la elección del profesorado (19 de noviembre).',body:function(c){return cab(c)
+/* ===== FASE D — ACTAS DE MESA Y ELECCIÓN (mesa:true → botón "Traer resultados") ===== */
+{n:6,fase:'D',mesa:true,t:'Acta de mesa y elección — profesorado',w:'El día de la elección del profesorado (19 de noviembre).',body:function(c,res){return cab(c)
  +'<h1>6 · Acta de constitución de la Mesa Electoral y de elección de representantes del profesorado</h1>'
  +'<p>En la localidad de '+FV(c.localidad)+', siendo las '+B('sm')+' horas del día '+B('sm')+' de '+B()+' de 2026, se constituye la Mesa Electoral, que queda formada por:</p>'
  +'<p>&bull; D./D.ª '+FV(c.director,'lg')+', Director/a del Centro.<br>&bull; D./D.ª '+B('lg')+', profesor/a de más antigüedad en el Centro.<br>&bull; D./D.ª '+B('lg')+', profesor/a de menos antigüedad en el Centro.</p>'
- +bloqueEscrutinio()
+ +bloqueEscrutinioRes(res,false)
  +'<p>En consecuencia, son elegidos y elegidas como representantes en el Consejo Escolar:</p>'
- +'<p>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'</p>'
+ +'<p>'+listaElegidos(res,false,false)+'</p>'
  +cierreActa();}},
 
-{n:12,fase:'D',t:'Acta de mesa y elección — madres y padres',w:'El día de la elección de familias (17 de noviembre).',body:function(c){return cab(c)
+{n:12,fase:'D',mesa:true,t:'Acta de mesa y elección — madres y padres',w:'El día de la elección de familias (17 de noviembre).',body:function(c,res){return cab(c)
  +'<h1>12 · Acta de constitución de la Mesa Electoral y de elección de representantes de madres y padres</h1>'
  +'<p>En el Centro '+FV(c.centro)+', siendo las '+B('sm')+' horas del día '+B('sm')+' de '+B()+' de 2026, se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+FV(c.director,'lg')+', las personas que abajo se relacionan (elegidas por sorteo público):</p>'
  +'<p>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'</p>'
  +'<p>Se da lectura a las candidaturas presentadas (* siglas de la asociación o federación, en su caso):</p>'
- +'<p>D./D.ª '+B('lg')+' ('+B('sm')+' *)<br>D./D.ª '+B('lg')+' ('+B('sm')+' *)<br>D./D.ª '+B('lg')+' ('+B('sm')+' *)</p>'
- +'<p>Se declara abierta la votación a las '+B('sm')+' horas.</p>'
- +'<p>Finalizada la votación a las '+B('sm')+' horas, se procede al escrutinio, con el siguiente resultado:</p>'
- +'<p>Votos válidos: '+B('sm')+' &nbsp; Votos en blanco: '+B('sm')+' &nbsp; Votos nulos: '+B('sm')+'<br><b>TOTAL VOTOS EMITIDOS:</b> '+B('sm')+'. De ellos, '+B('sm')+' por la modalidad no presencial.</p>'
- +'<p>Los votos válidos son los siguientes:</p>'
- +'<p>D./D.ª '+B('lg')+' Nº de votos '+B('sm')+'<br>D./D.ª '+B('lg')+' Nº de votos '+B('sm')+'<br>D./D.ª '+B('lg')+' Nº de votos '+B('sm')+'</p>'
+ +'<p>'+listaCand(res,true)+'</p>'
+ +bloqueEscrutinioRes(res,true)
  +'<p>En consecuencia, han sido elegidos/as como representantes de madres y padres del alumnado en el Consejo Escolar:</p>'
- +'<p>D./D.ª '+B('lg')+' ('+B('sm')+' *)<br>D./D.ª '+B('lg')+' ('+B('sm')+' *)</p>'
+ +'<p>'+listaElegidos(res,false,true)+'</p>'
  +cierreActa();}},
 
-{n:16,fase:'D',t:'Acta de mesa y elección — alumnado',w:'El día de la elección del alumnado (18 de noviembre).',body:function(c){return cab(c)
+{n:16,fase:'D',mesa:true,t:'Acta de mesa y elección — alumnado',w:'El día de la elección del alumnado (18 de noviembre).',body:function(c,res){return cab(c)
  +'<h1>16 · Acta de constitución de la Mesa Electoral y de elección de representantes del alumnado</h1>'
  +'<p>En el Centro '+FV(c.centro)+', siendo las '+B('sm')+' horas del día '+B('sm')+' de '+B()+' de 2026, se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+FV(c.director,'lg')+', el alumnado que abajo se relaciona (elegido por sorteo público):</p>'
  +'<p>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'</p>'
  +'<p>Se da lectura a las candidaturas presentadas (* siglas de la asociación o federación, en su caso):</p>'
- +'<p>D./D.ª '+B('lg')+' ('+B('sm')+' *)<br>D./D.ª '+B('lg')+' ('+B('sm')+' *)<br>D./D.ª '+B('lg')+' ('+B('sm')+' *)</p>'
- +bloqueEscrutinio()
+ +'<p>'+listaCand(res,true)+'</p>'
+ +bloqueEscrutinioRes(res,false)
  +'<p>En consecuencia, han sido elegidos/as como representantes del alumnado en el Consejo Escolar:</p>'
- +'<p>D./D.ª '+B('lg')+' ('+B('sm')+' *)<br>D./D.ª '+B('lg')+' ('+B('sm')+' *)</p>'
+ +'<p>'+listaElegidos(res,false,true)+'</p>'
  +cierreActa();}},
 
-{n:18,fase:'D',t:'Acta de mesa y elección — PAEC',w:'Personal de atención educativa complementaria (si procede).',opt:true,body:function(c){return cab(c)
+{n:18,fase:'D',mesa:true,t:'Acta de mesa y elección — PAEC',w:'Personal de atención educativa complementaria (si procede).',opt:true,body:function(c,res){return cab(c)
  +'<h1>18 · Acta de mesa y elección del representante del personal de atención educativa complementaria</h1>'
  +'<p>En el Centro '+FV(c.centro)+', siendo las '+B('sm')+' horas del día '+B('sm')+' de '+B()+' de 2026, se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+FV(c.director,'lg')+'; D./D.ª '+FV(c.secretario,'lg')+', Secretario/a del centro y de la Mesa Electoral; y D./D.ª '+B('lg')+', representante del personal de atención educativa complementaria elegido/a mediante sorteo público.</p>'
  +'<p>Se da lectura a las candidaturas presentadas:</p>'
- +'<p>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'</p>'
- +bloqueEscrutinio()
- +'<p>En consecuencia, es elegido/a como representante del Personal de Atención Educativa Complementaria: D./D.ª '+B('lg')+'.</p>'
+ +'<p>'+listaCand(res,false)+'</p>'
+ +bloqueEscrutinioRes(res,false)
+ +'<p>En consecuencia, es elegido/a como representante del Personal de Atención Educativa Complementaria: '+listaElegidos(res,true,false)+'.</p>'
  +cierreActa();}},
 
-{n:20,fase:'D',t:'Acta de mesa y elección — PAS',w:'Personal de administración y servicios.',body:function(c){return cab(c)
+{n:20,fase:'D',mesa:true,t:'Acta de mesa y elección — PAS',w:'Personal de administración y servicios.',body:function(c,res){return cab(c)
  +'<h1>20 · Acta de mesa y elección del representante del personal de administración y servicios</h1>'
  +'<p>En el Centro '+FV(c.centro)+', siendo las '+B('sm')+' horas del día '+B('sm')+' de '+B()+' de 2026, se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+FV(c.director,'lg')+'; D./D.ª '+FV(c.secretario,'lg')+', Secretario/a del centro y de la Mesa Electoral; y D./D.ª '+B('lg')+', representante del personal de administración y servicios elegido/a mediante sorteo público.</p>'
  +'<p>Se da lectura a las candidaturas presentadas:</p>'
- +'<p>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'</p>'
- +bloqueEscrutinio()
- +'<p>En consecuencia, es elegido/a como representante del Personal de Administración y Servicios: D./D.ª '+B('lg')+'.</p>'
+ +'<p>'+listaCand(res,false)+'</p>'
+ +bloqueEscrutinioRes(res,false)
+ +'<p>En consecuencia, es elegido/a como representante del Personal de Administración y Servicios: '+listaElegidos(res,true,false)+'.</p>'
  +cierreActa();}},
 
-{n:22,fase:'D',t:'Acta de mesa y elección — personal educativo (1.er ciclo)',w:'Solo si el centro imparte primer ciclo de infantil.',opt:true,body:function(c){return cab(c)
+{n:22,fase:'D',mesa:true,t:'Acta de mesa y elección — personal educativo (1.er ciclo)',w:'Solo si el centro imparte primer ciclo de infantil.',opt:true,body:function(c,res){return cab(c)
  +'<h1>22 · Acta de mesa y elección del representante del personal educativo (1.er ciclo de infantil)</h1>'
  +'<p>En el Centro '+FV(c.centro)+', siendo las '+B('sm')+' horas del día '+B('sm')+' de '+B()+' de 2026, se reúnen, bajo la presidencia del Sr./Sra. Director/a D./D.ª '+FV(c.director,'lg')+'; D./D.ª '+FV(c.secretario,'lg')+', Secretario/a del centro y de la Mesa Electoral; y D./D.ª '+B('lg')+', representante del personal educativo de mayor antigüedad en el centro.</p>'
  +'<p>Se da lectura a las candidaturas presentadas:</p>'
- +'<p>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'<br>D./D.ª '+B('lg')+'</p>'
- +bloqueEscrutinio()
- +'<p>En consecuencia, es elegido/a como representante del Personal Educativo: D./D.ª '+B('lg')+'.</p>'
+ +'<p>'+listaCand(res,false)+'</p>'
+ +bloqueEscrutinioRes(res,false)
+ +'<p>En consecuencia, es elegido/a como representante del Personal Educativo: '+listaElegidos(res,true,false)+'.</p>'
  +cierreActa();}},
 
 /* ===== FASE E — MIEMBROS DE DERECHO ===== */
