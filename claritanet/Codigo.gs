@@ -1094,30 +1094,8 @@ function TEST_reservas(){
   Logger.log('leer ok: ' + (g && g.ok));
   Logger.log('espacios: ' + JSON.stringify((g && g.data && g.data.reservasEspacios) || 'NO HAY'));
 }
-/* ── Guardar Formulario de Salida en la hoja de cálculo del centro ── */
-function guardarSalidaExtraescolar(datos){
-  var SS_ID = '1-DeY1lLBQgDTa-Yk7o22rA01uYO52YY_5m0wHd1rlNs';
-  var ss = SpreadsheetApp.openById(SS_ID);
-  var sh = ss.getSheetByName('Salidas');
-  if(!sh){ sh = ss.insertSheet('Salidas'); }
-  var CAB = ['Fecha de registro','Destino','Hora de salida','Hora de llegada','Cursos que van',
-             'Alumnado que se queda','Alumnado que no ha venido','Profesorado que acompaña',
-             'Descripción · Lugar · Desplazamiento · Teléfonos','Coste actividad (€)',
-             'Coste transporte total (€)','Nº alumnos que van','Transporte por alumno (€)',
-             'Valoración (1-10)','Propuesta de mejora','Registrado por'];
-  if(sh.getLastRow() === 0){
-    sh.getRange(1,1,1,CAB.length).setValues([CAB]).setFontWeight('bold');
-    sh.setFrozenRows(1);
-  }
-  var d = datos || {};
-  var email = '';
-  try{ email = Session.getActiveUser().getEmail() || ''; }catch(e){}
-  sh.appendRow([ new Date(), d.destino||'', d.horaSalida||'', d.horaLlegada||'', d.cursos||'',
-    d.alumnadoQueda||'', d.alumnadoNoVino||'', d.profesorado||'', d.descripcion||'',
-    d.costeActividad||'', d.costeTransporte||'', d.numAlumnos||'', d.transportePorAlumno||'',
-    d.valoracion||'', d.propuestaMejora||'', email ]);
-  return { ok:true };
-}
+/* (Versión antigua de guardarSalidaExtraescolar eliminada: usaba una hoja fija.
+   La versión válida, más abajo, crea sola la hoja "Salidas y excursiones".) */
 /* ═══════════════ RESERVAS DE ESPACIOS · BACKEND (versión corregida) ═══════════════ */
 
 // Normaliza una fecha (sea texto o objeto Fecha) a "AAAA-MM-DD" para comparar bien
