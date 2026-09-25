@@ -187,15 +187,15 @@ function enterApp(){
     USER.maestros.forEach(function(m){var o=document.createElement('option');o.value=o.text=m;sel.appendChild(o);});
     sel.value=USER.name;
   }
-  // Cuadernos — configurar cursos del maestro
-  renderCuadLibros();
+  // Cuadernos — configurar cursos del maestro (blindado: nunca debe impedir entrar)
+  try{ renderCuadLibros(); }catch(e){}
   document.getElementById('login-screen').style.opacity='0';
   setTimeout(function(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
-    if(sel&&sel.value)fetchSchedule(sel.value);
+    try{ if(sel&&sel.value)fetchSchedule(sel.value); }catch(e){}
     try{google.script.run.withSuccessHandler(function(r){if(r){EVENTS_HASH=JSON.stringify(r.events||[]);onEventsLoad(r);}}).withFailureHandler(function(){onEventsLoad(null);}).getAgendaEvents();}catch(e){onEventsLoad(null);}
-    startRefresh();
+    try{ startRefresh(); }catch(e){}
   },420);
 }
 
