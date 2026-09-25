@@ -1,0 +1,1894 @@
+<script>
+var USER={},EVENTS=[],EVENTS_HASH='',CAL_DATE=new Date(),ACTIVE_VIEW='aldia';
+var REFRESH_S=90,refreshCount=90,refreshTimer=null,countTimer=null;
+var CALS=[
+  {id:'sustituciones',name:'Sustituciones',color:'#ef4444'},
+  {id:'cronograma',name:'Cronograma',color:'#3b82f6'},
+  {id:'proyectos',name:'Proyectos',color:'#8b5cf6'},
+  {id:'recreo',name:'Recreo',color:'#10b981'}
+];
+
+/* ── AUTO-REFRESH ─────────────────────────────────────── */
+function startRefresh(){
+  if(refreshTimer)clearInterval(refreshTimer);
+  if(countTimer)clearInterval(countTimer);
+  refreshCount=REFRESH_S;updateRLabel();
+  countTimer=setInterval(function(){refreshCount--;if(refreshCount<=0)refreshCount=REFRESH_S;updateRLabel();},1000);
+  refreshTimer=setInterval(silentRefresh,REFRESH_S*1000);
+  silentRefresh();   // comprueba novedades nada más abrir
+}
+function updateRLabel(){var l=document.getElementById('rlabel');if(l)l.innerText='Actualiza en '+refreshCount+'s';}
+function silentRefresh(){
+  refreshCount=REFRESH_S;
+  try{google.script.run.withSuccessHandler(function(r){
+    if(!r)return;
+    EVENTS_HASH=JSON.stringify(r.events||[]);
+    EVENTS=r.events||[];
+    renderAldia();renderWeek();renderProyectos();renderCal();
+    avisaNovedades();
+  }).withFailureHandler(function(){}).getAgendaEvents();}catch(e){}
+}
+function refreshManual(){
+  var b=document.getElementById('btn-refresh');
+  b.classList.add('spin');setTimeout(function(){b.classList.remove('spin');},800);
+  hideNew();refreshCount=REFRESH_S;silentRefresh();
+}
+/* ── AVISO DE NOVEDADES (ventana emergente única) ─────── */
+function _novVistas(){
+  try{return JSON.parse(localStorage.getItem('claritanet_novedades_vistas')||'null');}catch(e){return null;}
+}
+function _novGuardar(arr){
+  try{localStorage.setItem('claritanet_novedades_vistas',JSON.stringify(arr));}catch(e){}
+}
+function avisaNovedades(){
+  var ags = EVENTS||[];
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){ _procesaNovedades(ags,(r&&r.items)||[]); })
+      .withFailureHandler(function(){ _procesaNovedades(ags,[]); })
+      .getTablonItems();
+  }catch(e){ _procesaNovedades(ags,[]); }
+}
+function _procesaNovedades(eventos, tablon){
+  var actuales=[];
+  (eventos||[]).forEach(function(e){
+    if(e.calendarId==='recreo')return;              // el recreo no avisa (se ve en Al Día)
+    var cat = e.calendarId==='sustituciones' ? 'sust'
+            : e.calendarId==='proyectos'     ? 'proy'
+            : 'agenda';
+    actuales.push({id:'ev|'+(e.calendarId||'')+'|'+(e.fecha||'')+'|'+(e.titulo||''), cat:cat, titulo:e.titulo||'(sin título)'});
+  });
+  (tablon||[]).forEach(function(it){
+    actuales.push({id:'tab|'+(it.tipo||'')+'|'+(it.titulo||''), cat:'tablon', titulo:it.titulo||'(sin título)'});
+  });
+
+  var vistas=_novVistas();
+  if(vistas===null){ _novGuardar(actuales.map(function(x){return x.id;})); return; }  // 1ª vez: baseline, no avisa
+  var nuevos=actuales.filter(function(x){return vistas.indexOf(x.id)===-1;});
+  if(nuevos.length===0) return;
+  if(document.getElementById('nov-modal')) return;   // ya hay uno abierto
+  _novPopup(nuevos);
+}
+function _novPopup(nuevos){
+  var etiqueta={sust:'🔄 Sustituciones', agenda:'📅 Agenda', proy:'📁 Proyectos', tablon:'📢 Tablón'};
+  var orden=['sust','agenda','proy','tablon'];
+  var grupos={};
+  nuevos.forEach(function(x){(grupos[x.cat]=grupos[x.cat]||[]).push(x.titulo);});
+
+  var h='';
+  h+='<div id="nov-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px">';
+  h+='<div style="background:#fff;border-radius:16px;max-width:420px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3)">';
+  h+='<div style="background:#1e40af;color:#fff;padding:16px 18px;border-radius:16px 16px 0 0;display:flex;align-items:center;gap:10px">';
+  h+='<span style="font-size:1.4rem">🔔</span><span style="font-weight:800;font-size:1rem">Hay novedades</span></div>';
+  h+='<div style="padding:14px 18px">';
+  orden.forEach(function(cat){
+    if(!grupos[cat])return;
+    h+='<div style="margin-bottom:12px"><div style="font-weight:700;font-size:.9rem;color:#1e293b;margin-bottom:5px">'+etiqueta[cat]+' ('+grupos[cat].length+')</div>';
+    grupos[cat].slice(0,5).forEach(function(t){
+      h+='<div style="font-size:.82rem;color:#475569;padding:3px 0 3px 8px;border-left:3px solid #cbd5e1;margin-bottom:3px">'+t+'</div>';
+    });
+    if(grupos[cat].length>5) h+='<div style="font-size:.75rem;color:#94a3b8;padding-left:8px">…y '+(grupos[cat].length-5)+' más</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<div style="padding:0 18px 18px;display:flex;gap:10px">';
+  h+='<button onclick="_novCerrar(true)" style="flex:1;background:#1e40af;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:.9rem;cursor:pointer">Ver en Al Día</button>';
+  h+='<button onclick="_novCerrar(false)" style="background:#e2e8f0;color:#334155;border:none;border-radius:10px;padding:11px 16px;font-weight:700;font-size:.9rem;cursor:pointer">Cerrar</button>';
+  h+='</div></div></div>';
+
+  var d=document.createElement('div'); d.innerHTML=h;
+  document.body.appendChild(d.firstChild);
+  window._novPendientes=nuevos.map(function(x){return x.id;});
+  try{ var b=document.getElementById('badge-new'); if(b)b.style.display='flex';
+       var n=document.getElementById('nb-badge-aldia'); if(n)n.style.display='flex'; }catch(e){}
+  if(navigator.vibrate)navigator.vibrate([200,100,200]);
+}
+function _novCerrar(irAldia){
+  var vistas=_novVistas()||[];
+  (window._novPendientes||[]).forEach(function(id){ if(vistas.indexOf(id)===-1)vistas.push(id); });
+  _novGuardar(vistas); window._novPendientes=null;
+  var m=document.getElementById('nov-modal'); if(m)m.parentNode.removeChild(m);
+  if(irAldia && typeof goTab==='function') goTab('aldia');
+}
+function showNew(){
+  document.getElementById('badge-new').style.display='flex';
+  document.getElementById('nb-badge-aldia').style.display='flex';
+  var t=document.getElementById('toast');t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},4000);
+  if(navigator.vibrate)navigator.vibrate([200,100,200]);
+}
+function hideNew(){
+  document.getElementById('badge-new').style.display='none';
+  document.getElementById('nb-badge-aldia').style.display='none';
+}
+
+/* ── ARRANQUE ─────────────────────────────────────────── */
+window.onload=function(){
+  var h=new Date().getHours();
+  document.getElementById('login-greeting').innerText=h>=6&&h<14?'Buenos dias!':h>=14&&h<21?'Buenas tardes!':'Buenas noches!';
+  // Intentar auto-login con la cuenta de Google del usuario (educaand)
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r&&r.bgImage) document.getElementById('login-screen').style.backgroundImage="linear-gradient(rgba(11,19,43,.75),rgba(11,19,43,.95)),url('"+r.bgImage+"')";
+        if(r&&r.success){
+          // Auto-login exitoso con cuenta educaand
+          USER=r;
+          document.getElementById('login-status').innerText='Entrando como '+r.name+'...';
+          document.getElementById('login-status').style.display='block';
+          setTimeout(function(){enterApp();},600);
+        } else {
+          // No auto-login — mostrar formulario
+          setTimeout(function(){var e=document.getElementById('inp-email');if(e)e.focus();},300);
+        }
+      })
+      .withFailureHandler(function(){
+        setTimeout(function(){var e=document.getElementById('inp-email');if(e)e.focus();},300);
+      })
+      .autoLoginGoogle();
+  }catch(e){
+    setTimeout(function(){var ef=document.getElementById('inp-email');if(ef)ef.focus();},300);
+  }
+};
+
+/* ── LOGIN ────────────────────────────────────────────── */
+function doLogin(){
+  var email=(document.getElementById('inp-email').value||'').trim();
+  var pass=(document.getElementById('inp-pass').value||'').trim();
+  var err=document.getElementById('login-err');
+  var btn=document.getElementById('btn-login');
+  var spin=document.getElementById('login-spin');
+  if(!email){err.innerText='Introduce tu email.';err.style.display='block';return;}
+  err.style.display='none';
+  btn.disabled=true;btn.innerText='Verificando...';spin.style.display='block';
+  try{
+    google.script.run
+      .withSuccessHandler(function(r){
+        btn.disabled=false;btn.innerText='Acceder';spin.style.display='none';
+        if(!r||!r.success){err.innerText=r?r.message:'Error de conexion.';err.style.display='block';document.getElementById('inp-pass').value='';return;}
+        USER=r;enterApp();
+      })
+      .withFailureHandler(function(){btn.disabled=false;btn.innerText='Acceder';spin.style.display='none';err.innerText='Error del servidor.';err.style.display='block';})
+      .loginWithCredentials(email,pass);
+  }catch(e){btn.disabled=false;btn.innerText='Acceder';spin.style.display='none';err.innerText='Sin conexion.';err.style.display='block';}
+}
+
+/* ── DASHBOARD ────────────────────────────────────────── */
+function enterApp(){
+  var fn=USER.name.split(' ')[0];
+  document.getElementById('hdr-avatar').innerText=fn.charAt(0).toUpperCase();
+  document.getElementById('hdr-name').innerText=fn;
+  document.getElementById('hdr-sub').innerText=USER.group||'CEIP Clara Campoamor';
+  document.getElementById('welcome-name').innerText='Hola, '+fn+'!';
+  document.getElementById('welcome-quote').innerText=USER.quote||'';
+  var sel=document.getElementById('sched-sel');
+  if(USER.maestros&&USER.maestros.length>0){
+    sel.innerHTML='<option value="">-- Selecciona un maestro/a --</option>';
+    USER.maestros.forEach(function(m){var o=document.createElement('option');o.value=o.text=m;sel.appendChild(o);});
+    sel.value=USER.name;
+  }
+  // Cuadernos — configurar cursos del maestro
+  renderCuadLibros();
+  document.getElementById('login-screen').style.opacity='0';
+  setTimeout(function(){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    if(sel&&sel.value)fetchSchedule(sel.value);
+    try{google.script.run.withSuccessHandler(function(r){if(r){EVENTS_HASH=JSON.stringify(r.events||[]);onEventsLoad(r);}}).withFailureHandler(function(){onEventsLoad(null);}).getAgendaEvents();}catch(e){onEventsLoad(null);}
+    startRefresh();
+  },420);
+}
+
+function goTab(id,btn){
+  closeIframe(false);
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('on');});
+  document.getElementById('v-'+id).classList.add('on');
+  document.querySelectorAll('.nbtn').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');ACTIVE_VIEW=id;
+  if(id==='aldia')hideNew();
+}
+
+/* ── HORARIO ──────────────────────────────────────────── */
+var SCHED_NAME='';
+function fetchSchedule(name){
+  if(!name){document.getElementById('sched-box').innerHTML='<div class="no-ev" style="padding:14px">Selecciona un maestro/a.</div>';return;}
+  SCHED_NAME=name;
+  document.getElementById('sched-box').innerHTML='<div class="no-ev" style="padding:14px;text-align:center">Consultando...</div>';
+  try{google.script.run.withSuccessHandler(drawSched).withFailureHandler(function(){drawSched(null);}).getDailySchedule(name,USER.group);}
+  catch(e){drawSched(null);}
+}
+function fmtTramoHora(v){
+  if(!v) return '';
+  var t=v.toString();
+  // Fechas crudas tipo "Sat Dec 30 1899 09:00:00 GMT..." -> "09:00"
+  var m=t.match(/(\d{1,2}):(\d{2}):\d{2}/);
+  if(t.indexOf('189')>=0&&m) return m[1].padStart? (m[1].length<2?'0'+m[1]:m[1])+':'+m[2] : m[1]+':'+m[2];
+  if(m&&t.length>12) return (m[1].length<2?'0'+m[1]:m[1])+':'+m[2];
+  return t;
+}
+function drawSched(r){
+  var b=document.getElementById('sched-box');
+  if(!r||r.isWeekend){b.innerHTML='<div style="text-align:center;padding:18px;color:#64748b">Hoy es fin de semana. Descansa!</div>';return;}
+  if(!r.data||!r.data.length){
+    b.innerHTML='<div style="text-align:center;padding:18px;color:#64748b">' +
+      '<div style="font-size:1.5rem;margin-bottom:8px">📅</div>' +
+      '<div style="font-weight:700;margin-bottom:4px">Sin horario configurado</div>' +
+      '<div style="font-size:.78rem">El horario se publica desde la App de Gestión<br>con <strong>Exportar Horarios a Claritanet</strong>.</div>' +
+      '</div>';
+    return;
+  }
+  // Agrupar por tramo para montar la parrilla: Hora | Mi Horario | Grupo | Refuerzo
+  var tramos={}, orden=[];
+  var hayGrupo=false, hayRef=false;
+  r.data.forEach(function(row){
+    var t=fmtTramoHora(row.tramo);
+    if(!tramos[t]){tramos[t]={mi:'',grupo:'',ref:''};orden.push(t);}
+    if(row.tipo==='Mi Horario') tramos[t].mi=row.detalle||'';
+    else if(row.tipo==='Horario Grupo'){tramos[t].grupo=row.detalle||'';hayGrupo=true;}
+    else if(row.tipo==='Refuerzo / PT'){tramos[t].ref=row.refuerzo||row.detalle||'';hayRef=true;}
+  });
+  orden.sort(function(a,b){
+    var na=parseInt(a.replace(':',''),10)||0, nb=parseInt(b.replace(':',''),10)||0;
+    return na-nb;
+  });
+  var thS='padding:10px 8px;font-size:.7rem;font-weight:800;color:white;text-align:center;';
+  var tdS='padding:10px 8px;font-size:.78rem;color:#1e293b;border-bottom:1px solid #f1f5f9;text-align:center;';
+  var h='<div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:'+(280+(hayGrupo?110:0)+(hayRef?110:0))+'px">';
+  h+='<thead><tr>';
+  h+='<th style="'+thS+'background:#f59e0b">HORA</th>';
+  var nomSel=(SCHED_NAME||USER.name||'MI HORARIO');
+  var grpSel=(r.grupo||USER.group||'GRUPO');
+  h+='<th style="'+thS+'background:#16a34a">'+nomSel.toUpperCase()+'</th>';
+  if(hayGrupo)h+='<th style="'+thS+'background:#1e40af">'+grpSel.toUpperCase()+'</th>';
+  if(hayRef)h+='<th style="'+thS+'background:#7f1d3a">REFUERZO/<br>LUCIÉRNAGA '+grpSel.toUpperCase()+'</th>';
+  h+='</tr></thead><tbody>';
+  orden.forEach(function(t,i){
+    var f=tramos[t];
+    var bg=i%2?'background:#f8fafc;':'';
+    h+='<tr style="'+bg+'">';
+    h+='<td style="'+tdS+'font-weight:700;color:#64748b;white-space:nowrap">'+t+'</td>';
+    h+='<td style="'+tdS+'">'+(f.mi||'—')+'</td>';
+    if(hayGrupo)h+='<td style="'+tdS+'">'+(f.grupo||'—')+'</td>';
+    if(hayRef)h+='<td style="'+tdS+'">'+(f.ref||'—')+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  b.innerHTML=h;
+}
+
+/* ── IFRAME ───────────────────────────────────────────── */
+function toEmbed(url){
+  if(!url)return'';
+  if(url.includes('docs.google.com/spreadsheets'))return url.split('#')[0].replace('/edit','/preview');
+  if(url.includes('drive.google.com/drive/folders'))return url.split('?')[0]+'?usp=sharing';
+  if(url.includes('docs.google.com'))return url.replace('/edit','/preview').split('#')[0];
+  if(url.indexOf('drive.google.com/file/')>=0){ var _m=url.match(/[-\w]{25,}/); return _m?'https://drive.google.com/file/d/'+_m[0]+'/preview':url; }
+  return url;
+}
+function openEmbedEnc(el){
+  var url = decodeURIComponent(el.dataset.url||'');
+  if(url === 'LISTADO_IMPRIMIR'){ openListadoDetail(); return; }
+  if(url === 'LIBROS_CONTROL'){ openLibrosDetail(); return; }
+  if(url === 'CUAD_HORARIOS' || url === 'CUADERNO_HORARIOS'){ openHorariosDetail(); return; }
+  if(url === 'LISTADO_RELIGION'){ openReligionDetail(); return; }
+  if(url === 'PROXIMAMENTE' && /horario/i.test(el.textContent||'')){ openHorariosDetail(); return; }
+  if(url === 'PROXIMAMENTE'){ alert('Este cuaderno estará disponible próximamente.'); return; }
+  // Meet, Drive carpetas, webs protegidas y cuadernos sin permiso de recuadro abren en nueva pestaña
+  if(url.indexOf('meet.google.com') >= 0 ||
+     url.indexOf('drive.google.com/drive') >= 0 ||
+     url.indexOf('profes.tv') >= 0 ||
+     false){
+    window.open(url, '_blank');
+    return;
+  }
+  openEmbed(url,'');
+}
+function _openEmbedEnc_orig(el){openEmbed(decodeURIComponent(el.dataset.url||''),el.dataset.ctx||'');}
+function openCuadernoHorarios(){
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('on');});
+  var iw=document.getElementById('iframe-wrap'); if(iw)iw.style.display='none';
+  var rb=document.getElementById('res-bar'); if(rb)rb.style.display='none';
+  var cont=document.getElementById('cuad-hor-view');
+  if(!cont){
+    cont=document.createElement('div');
+    cont.id='cuad-hor-view';
+    cont.className='view on';
+    cont.style.cssText='padding:14px;overflow-y:auto';
+    document.querySelector('.wrap').appendChild(cont);
+  }
+  cont.classList.add('on');
+  cont.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
+    +'<button onclick="goTab(\'cuadernos\',document.getElementById(\'nb-cuadernos\'))" style="border:none;background:#f1f5f9;border-radius:10px;width:38px;height:38px;font-size:1rem;cursor:pointer">&#8592;</button>'
+    +'<div><div style="font-weight:800;font-size:1.05rem;color:#0B132B">Cuaderno de Horarios</div>'
+    +'<div style="font-size:.72rem;color:#64748b">Selecciona tu nombre para ver tus horarios semanales</div></div></div>'
+    +'<select id="cuad-hor-sel" class="form-sel" onchange="cargarCuadernoHorario(this.value)"><option value="">Elige maestro/a...</option></select>'
+    +'<div id="cuad-hor-box"><div class="no-ev" style="padding:20px;text-align:center">Elige tu nombre arriba.</div></div>';
+
+  // Rellenar el desplegable con el listado de maestros
+  google.script.run.withSuccessHandler(function(lista){
+    var sel=document.getElementById('cuad-hor-sel');
+    if(!sel||!lista)return;
+    (lista||[]).forEach(function(nom){
+      var o=document.createElement('option');o.value=nom;o.textContent=nom;sel.appendChild(o);
+    });
+    // Preseleccionar al usuario logueado si está en la lista
+    if(USER&&USER.name){
+      function _n(x){return (x||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();}
+      var match=(lista||[]).find(function(nom){return _n(nom)===_n(USER.name);});
+      if(match){sel.value=match;cargarCuadernoHorario(match);}
+    }
+  }).withFailureHandler(function(){}).getListaMaestros();
+}
+
+function cargarCuadernoHorario(nombre){
+  var box=document.getElementById('cuad-hor-box');
+  if(!nombre){box.innerHTML='<div class="no-ev" style="padding:20px;text-align:center">Elige tu nombre arriba.</div>';return;}
+  box.innerHTML='<div class="no-ev" style="padding:20px;text-align:center"><i class="fa-solid fa-spinner fa-spin"></i> Cargando horarios...</div>';
+  google.script.run.withSuccessHandler(pintarCuadernoHorario).withFailureHandler(function(e){
+    box.innerHTML='<div class="no-ev" style="padding:20px;text-align:center;color:#dc2626">No se pudo cargar. '+e+'</div>';
+  }).getHorarioSemanalCompleto(nombre);
+}
+
+function pintarCuadernoHorario(r){
+  var box=document.getElementById('cuad-hor-box');
+  if(!box)return;
+  if(!r||r.error){box.innerHTML='<div class="no-ev" style="padding:20px;text-align:center">'+((r&&r.error)||'Sin datos')+'</div>';return;}
+  var DIAS=['L','M','X','J','V'];
+  function tabla(titulo,color,icono,filas,vacio){
+    if(!filas||!filas.length)return vacio?('<div style="margin-bottom:16px"><div style="font-weight:800;font-size:.82rem;color:'+color+';margin-bottom:6px">'+icono+' '+titulo+'</div><div class="no-ev" style="padding:10px">'+vacio+'</div></div>'):'';
+    var th='padding:7px 4px;font-size:.62rem;font-weight:800;color:#fff;text-align:center;';
+    var td='padding:6px 4px;font-size:.68rem;color:#1e293b;border-bottom:1px solid #f1f5f9;text-align:center;';
+    var h='<div style="margin-bottom:18px">';
+    h+='<div style="font-weight:800;font-size:.85rem;color:'+color+';margin-bottom:7px">'+icono+' '+titulo+'</div>';
+    h+='<div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:340px">';
+    h+='<thead><tr><th style="'+th+'background:#f59e0b;width:52px">HORA</th>';
+    DIAS.forEach(function(d){h+='<th style="'+th+'background:'+color+'">'+d+'</th>';});
+    h+='</tr></thead><tbody>';
+    filas.forEach(function(f,i){
+      var bg=i%2?'background:#f8fafc;':'';
+      h+='<tr style="'+bg+'"><td style="'+td+'font-weight:700;color:#64748b;white-space:nowrap">'+f.hora+'</td>';
+      DIAS.forEach(function(d){h+='<td style="'+td+'">'+(f[d]||'—')+'</td>';});
+      h+='</tr>';
+    });
+    h+='</tbody></table></div></div>';
+    return h;
+  }
+  var out='';
+  out+=tabla('Mi horario','#16a34a','&#128218;',r.personal,'Sin horario publicado todavía.');
+  if(r.esTutor){
+    out+=tabla('Horario de mi grupo ('+(r.grupo||'')+')','#1e40af','&#128101;',r.grupo_horario,'');
+    out+=tabla('Refuerzo / Luciérnaga de mi grupo','#7f1d3a','&#10024;',r.refuerzo,'Sin refuerzo asignado.');
+    out+=tabla('Recreo de mi grupo','#0e7490','&#127793;',r.recreo_grupo,'');
+  }
+  out+=tabla('Mi recreo (vigilancia)','#ea580c','&#9749;',r.recreo_personal,'');
+  if(!r.esTutor){
+    out+='<div class="no-ev" style="padding:12px;text-align:center;background:#f8fafc;border-radius:10px">Como especialista, ves tu horario y tu turno de recreo. &#128522;</div>';
+  }
+  box.innerHTML=out||'<div class="no-ev" style="padding:20px;text-align:center">Sin horarios para mostrar.</div>';
+}
+
+function openEmbed(url,ctx){
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('on');});
+  document.getElementById('iframe-wrap').style.display='block';
+  document.getElementById('app-frame').src=toEmbed(url);
+  var bar=document.getElementById('res-bar');bar.style.display='flex';
+  ['dd-tutor','dd-sust','dd-inc'].forEach(function(id){document.getElementById(id).style.display='none';});
+  if(ctx==='tutor'){document.getElementById('dd-tutor').style.display='block';document.getElementById('dd-tutor').value='';}
+  if(ctx==='sust')document.getElementById('dd-sust').style.display='block';
+  if(ctx==='inc')document.getElementById('dd-inc').style.display='block';
+}
+function loadIframe(url){if(url)document.getElementById('app-frame').src=toEmbed(url);}
+function closeIframe(restore){
+  if(restore===undefined)restore=true;
+  document.getElementById('iframe-wrap').style.display='none';
+  document.getElementById('app-frame').src='about:blank';
+  document.getElementById('res-bar').style.display='none';
+  if(restore)document.getElementById('v-'+ACTIVE_VIEW).classList.add('on');
+}
+
+/* ── EVENTOS ──────────────────────────────────────────── */
+function onEventsLoad(r){
+  if(typeof loadProyCards==='function' && !window.PROYECTOS_LIST){ try{ loadProyCards(); }catch(e){} }
+  EVENTS=(r&&r.events)?r.events:[];
+  renderCal();renderAldia();renderWeek();renderProyectos();
+}
+
+/* RENDERIZAR AL DIA - sustituciones separadas, recreo separado, eventos con expandible */
+
+// ── LISTADOS PARA IMPRIMIR ────────────────────────────────────────────────────
+var LISTADO_ALUMNOS = {}; // {curso: [nombres]}
+var LISTADO_REL = {}; // {curso: {nombre: 'SI'|'NO'}}
+
+function openListadoDetail(){
+  // Cargar cursos desde los cuadernos del usuario
+  var sel = document.getElementById('listado-curso-sel');
+  sel.innerHTML = '<option value="">Selecciona un curso...</option>';
+
+  // Cargar TODOS los cursos del colegio (no solo los del usuario)
+  // Nombres exactos de grupos según la app de gestión
+  var TODOS_CURSOS = []; /* Rellena con las claves de curso del centro, p.ej. '1oA','3anosA' */
+  var CURSOS_LABELS = {}; /* Rellena: { '1oA':'1º A', ... } */
+  // Primero intentar cargar alumnos reales del servidor
+  try {
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r && r.alumnos){
+          LISTADO_ALUMNOS = r.alumnos;
+          LISTADO_REL = r.rel || {};
+          // Añadir todos los cursos con alumnos reales primero
+          var cursosConAlumnos = Object.keys(r.alumnos).sort();
+          // Añadir también los cursos sin alumnos
+          TODOS_CURSOS.forEach(function(c){
+            if(cursosConAlumnos.indexOf(c) < 0) cursosConAlumnos.push(c);
+          });
+          cursosConAlumnos.forEach(function(curso){
+            var opt = document.createElement('option');
+            opt.value = curso;
+            var n = (r.alumnos[curso]||[]).length;
+            opt.textContent = curso + (n > 0 ? ' (' + n + ' alumnos)' : '');
+            sel.appendChild(opt);
+          });
+        } else {
+          // Sin datos del servidor, mostrar todos los cursos posibles
+          TODOS_CURSOS.forEach(function(c){
+            var opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = CURSOS_LABELS[c]||c;
+            sel.appendChild(opt);
+          });
+        }
+        // Preseleccionar el curso del usuario si existe
+        if(USER.group) sel.value = USER.group;
+        if(sel.value) generarListado();
+      })
+      .withFailureHandler(function(){
+        TODOS_CURSOS.forEach(function(c){
+          var opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          sel.appendChild(opt);
+        });
+      })
+      .getListadoAlumnos();
+  } catch(e) {
+    TODOS_CURSOS.forEach(function(c){
+      var opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Selector de tipo de lista (Normal / Religión / ATEDU / Ambas)
+  if(!document.getElementById('listado-modo-box')){
+    var mb = document.createElement('div');
+    mb.id = 'listado-modo-box';
+    mb.style.cssText = 'display:flex;gap:7px;flex-wrap:wrap;margin:10px 0;padding:0 4px';
+    var modos = [['normal','Todo el alumnado'],['religion','Religión'],['atedu','ATEDU'],['ambas','Religión + ATEDU']];
+    modos.forEach(function(m){
+      var b = document.createElement('button');
+      b.id = 'lmodo-' + m[0];
+      b.textContent = m[1];
+      b.style.cssText = 'border:1.5px solid #e2e8f0;background:white;color:#64748b;border-radius:20px;padding:6px 13px;font-size:.75rem;font-weight:700;cursor:pointer';
+      b.onclick = function(){ setListadoModo(m[0]); };
+      mb.appendChild(b);
+    });
+    var pv = document.getElementById('listado-preview-box');
+    pv.parentNode.insertBefore(mb, pv);
+    setListadoModo('normal');
+  }
+  // Auto-generar con el curso del usuario
+  var selL = document.getElementById('listado-curso-sel');
+  if(selL && selL.value) generarListado();
+  document.getElementById('listado-detail').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeListadoDetail(){
+  document.getElementById('listado-detail').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+function toggleCol(el){
+  el.classList.toggle('on');
+  generarListado();
+}
+
+var LISTADO_MODO = 'normal';
+function setListadoModo(modo){
+  LISTADO_MODO = modo;
+  ['normal','religion','atedu','ambas'].forEach(function(m){
+    var b = document.getElementById('lmodo-' + m);
+    if(!b) return;
+    if(m === modo){ b.style.background = '#0B132B'; b.style.color = 'white'; b.style.borderColor = '#0B132B'; }
+    else { b.style.background = 'white'; b.style.color = '#64748b'; b.style.borderColor = '#e2e8f0'; }
+  });
+  generarListado();
+}
+function getModoCols(){
+  if(LISTADO_MODO === 'religion') return ['RELIGIÓN'];
+  if(LISTADO_MODO === 'atedu') return ['ATEDU'];
+  if(LISTADO_MODO === 'ambas') return ['RELIGIÓN','ATEDU'];
+  return [];
+}
+function getColsActivas(){
+  var cols = [];
+  document.querySelectorAll('#listado-cols-box .listado-col-chip.on').forEach(function(el){
+    cols.push(el.dataset.col);
+  });
+  return cols;
+}
+
+function generarListado(){
+  var curso = document.getElementById('listado-curso-sel').value;
+  var cursoLabel = (typeof CURSOS_LABELS !== 'undefined' && CURSOS_LABELS[curso]) ? CURSOS_LABELS[curso] : curso;
+  var box = document.getElementById('listado-preview-box');
+  if(!curso){
+    box.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:.85rem">Selecciona un curso para ver el listado</div>';
+    return;
+  }
+
+  var alumnos = LISTADO_ALUMNOS[curso] || [];
+  // Filtrado por Religión / ATEDU si hay datos
+  var relMap = LISTADO_REL[curso] || {};
+  if(LISTADO_MODO === 'religion' || LISTADO_MODO === 'atedu'){
+    var quiero = LISTADO_MODO === 'religion' ? 'SI' : 'NO';
+    var filtrados = alumnos.filter(function(n){ return (relMap[n]||'').toString().toUpperCase().trim() === quiero; });
+    if(filtrados.length){ alumnos = filtrados; }
+    else if(Object.keys(relMap).length === 0){
+      // Sin datos de religión en el Sheet: avisar dentro de la vista
+      var avisoBox = document.getElementById('listado-preview-box');
+      // se mostrará la lista completa; el aviso va en la cabecera del documento
+    }
+  }
+  var cols = getColsActivas();
+  var numCols = cols.length;
+  // Ancho de columnas — más columnas = más estrechas
+  var colW = numCols > 3 ? '60px' : numCols > 1 ? '80px' : '100px';
+
+  var html = '<div id="listado-contenido">';
+  // Membrete oficial superior
+  html += '<div style="width:100%;margin-bottom:4px"><img src="'+CAB_SUPERIOR+'" style="width:100%;height:auto;display:block"></div>';
+  // Cabecera del documento
+  html += '<div style="padding:16px 20px;border-bottom:2px solid #0B132B;display:flex;align-items:center;gap:12px">';
+  html += '<div style="width:40px;height:40px;border-radius:8px;background:#0B132B;display:flex;align-items:center;justify-content:center;flex-shrink:0">';
+  html += '<svg width="24" height="24" viewBox="0 0 48 48" fill="none"><rect x="8" y="18" width="32" height="24" rx="3" fill="white" opacity=".3"/><polygon points="4,20 24,6 44,20" fill="white" opacity=".5"/><rect x="20" y="30" width="8" height="12" rx="3" fill="#7C3AED" opacity=".9"/></svg>';
+  html += '</div>';
+  html += '<div style="flex:1"><div style="font-weight:900;font-size:.95rem;color:#0B132B">CEIP Clara Campoamor · La Puebla del Río</div>';
+  var tipoLista = LISTADO_MODO === 'religion' ? 'Alumnado de Religión' : LISTADO_MODO === 'atedu' ? 'Alumnado de ATEDU' : LISTADO_MODO === 'ambas' ? 'Religión y ATEDU' : 'Lista del alumnado';
+  html += '<div style="font-size:.75rem;color:#64748b;margin-top:1px">' + tipoLista + ' · Curso ' + curso + ' · ' + new Date().toLocaleDateString('es-ES',{year:'numeric',month:'long'}) + '</div></div>';
+  html += '<div style="font-size:.72rem;color:#94a3b8;text-align:right">Nº alumnos: <strong>' + (alumnos.length || '___') + '</strong></div>';
+  html += '</div>';
+
+  // Tabla
+  html += '<div style="padding:0 4px">';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+
+  // Cabecera tabla
+  html += '<thead><tr style="background:#f8fafc">';
+  html += '<th style="padding:8px 12px;text-align:left;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.72rem;font-weight:700;width:32px">#</th>';
+  html += '<th style="padding:8px 12px;text-align:left;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.72px;font-weight:700">NOMBRE Y APELLIDOS</th>';
+  if(cols.indexOf('asistencia') >= 0){
+    html += '<th style="padding:8px 6px;text-align:center;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.65rem;font-weight:700;width:'+colW+'">ASISTENCIA</th>';
+  }
+  var extraCols = cols.filter(function(c){return c !== 'asistencia';});
+  extraCols.forEach(function(c, i){
+    html += '<th style="padding:8px 6px;text-align:center;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.65rem;font-weight:700;width:'+colW+'"></th>';
+  });
+  var modoCols = getModoCols();
+  modoCols.forEach(function(mc){
+    html += '<th style="padding:8px 6px;text-align:center;border-bottom:1.5px solid #e2e8f0;color:#0B132B;font-size:.68rem;font-weight:800;width:84px">'+mc+'</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  // Filas de alumnos
+  var numFilas = alumnos.length > 0 ? alumnos.length : 25;
+  for(var i = 0; i < numFilas; i++){
+    var bg = i % 2 === 0 ? 'white' : '#fafafa';
+    html += '<tr style="background:' + bg + '">';
+    html += '<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;color:#94a3b8;font-weight:700;font-size:.75rem">' + (i+1) + '</td>';
+    if(alumnos[i]){
+      html += '<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e293b">' + alumnos[i] + '</td>';
+    } else {
+      html += '<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;"></td>';
+    }
+    cols.forEach(function(){
+      html += '<td style="padding:9px 6px;border-bottom:1px solid #f1f5f9;border-left:1px solid #f1f5f9;"></td>';
+    });
+    getModoCols().forEach(function(){
+      html += '<td style="padding:9px 6px;border-bottom:1px solid #f1f5f9;border-left:1.5px solid #e2e8f0;"></td>';
+    });
+    html += '</tr>';
+  }
+
+  // Filas vacías extra
+  if(alumnos.length > 0 && alumnos.length < 30){
+    for(var j = 0; j < 2; j++){
+      html += '<tr style="background:white">';
+      html += '<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;color:#e2e8f0;font-size:.75rem">' + (numFilas+j+1) + '</td>';
+      html += '<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;"></td>';
+      cols.forEach(function(){
+        html += '<td style="padding:9px 6px;border-bottom:1px solid #f1f5f9;border-left:1px solid #f1f5f9;"></td>';
+      });
+      getModoCols().forEach(function(){
+        html += '<td style="padding:9px 6px;border-bottom:1px solid #f1f5f9;border-left:1.5px solid #e2e8f0;"></td>';
+      });
+      html += '</tr>';
+    }
+  }
+
+  html += '</tbody></table></div>';
+  // Pie
+  html += '<div style="padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:.7rem;color:#94a3b8">';
+  html += '<span>Claritanet · CEIP Clara Campoamor</span>';
+  html += '<span>Tutor/a: _______________________    Firma: _______________________</span>';
+  html += '</div>';
+  // Membrete oficial inferior
+  html += '<div style="width:100%;margin-top:6px"><img src="'+CAB_INFERIOR+'" style="width:100%;height:auto;display:block"></div>';
+  html += '</div>';
+
+  box.innerHTML = html;
+}
+
+function imprimirListado(){
+  var contenido = document.getElementById('listado-contenido');
+  if(!contenido){
+    alert('Selecciona un curso primero.');
+    return;
+  }
+  var printArea = document.getElementById('listado-print-area');
+  printArea.innerHTML = contenido.outerHTML;
+  window.print();
+}
+
+
+var LIBROS_MATERIAS = {
+  "3": ["Lengua","Matemáticas","Inglés","C. del Medio","Música","Plástica"],
+  "4": ["Lengua","Matemáticas","Inglés","C. del Medio","Música","Plástica"],
+  "5": ["Lengua","Matemáticas","Inglés","C. del Medio","Música","Plástica","Francés"],
+  "6": ["Lengua","Matemáticas","Inglés","C. del Medio","Música","Plástica","Francés","Valores 6º"]
+};
+var LIBROS_ESTADOS = ["Nuevo","Buen estado","Deteriorado","Inutilizable"];
+
+function openLibrosDetail(){
+  // Preseleccionar grupo del usuario
+  var sel = document.getElementById('libros-curso-sel');
+  if(USER.group && sel) {
+    for(var i=0;i<sel.options.length;i++){
+      if(sel.options[i].value === USER.group){ sel.selectedIndex=i; break; }
+    }
+  }
+  if(sel.value) generarListadoLibros();
+  document.getElementById('libros-detail').classList.add('on');
+  document.body.style.overflow='hidden';
+}
+
+function closeLibrosDetail(){
+  document.getElementById('libros-detail').classList.remove('on');
+  document.body.style.overflow='';
+}
+
+function generarListadoLibros(){
+  var curso = document.getElementById('libros-curso-sel').value;
+  var box = document.getElementById('libros-preview-box');
+  if(!curso){ box.innerHTML='<div style="padding:24px;text-align:center;color:#94a3b8">Selecciona un curso</div>'; return; }
+  // Detectar nivel del curso exacto: 3oA→3, 4oB→4, etc.
+  var nivel = curso.replace(/[^0-9]/g,'').charAt(0)||'3';
+  // Para infantil no hay control de libros
+  var materias = LIBROS_MATERIAS[nivel] || LIBROS_MATERIAS['3'];
+  var alumnos = LISTADO_ALUMNOS[curso] || [];
+  var numFilas = Math.max(alumnos.length, 28);
+
+  // A4 HORIZONTAL — tabla compacta
+  var h = '<div id="libros-contenido" style="font-family:Arial,sans-serif;font-size:11px;background:white;padding:0">';
+  
+  // Cabecera A4
+  h += '<div style="padding:10px 14px 6px;border-bottom:2.5px solid #0B132B;display:flex;align-items:center;justify-content:space-between">';
+  h += '<div style="display:flex;align-items:center;gap:10px">';
+  h += '<div style="width:32px;height:32px;background:#0B132B;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.1rem">📚</div>';
+  h += '<div><div style="font-weight:900;font-size:13px;color:#0B132B">CEIP Clara Campoamor · La Puebla del Río</div>';
+  h += '<div style="font-size:10px;color:#64748b">Control de Libros de Texto · Curso '+curso+' · '+new Date().getFullYear()+'</div></div></div>';
+  h += '<div style="font-size:10px;color:#94a3b8">Tutor/a: ________________________</div>';
+  h += '</div>';
+
+  // Tabla
+  h += '<div style="padding:0 10px"><table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:6px">';
+  h += '<thead><tr style="background:#0B132B;color:white">';
+  h += '<th style="padding:5px 6px;text-align:center;width:24px;border:1px solid #1e3a5f">#</th>';
+  h += '<th style="padding:5px 8px;text-align:left;min-width:140px;border:1px solid #1e3a5f">NOMBRE Y APELLIDOS</th>';
+  materias.forEach(function(m){
+    h += '<th style="padding:4px 3px;text-align:center;border:1px solid #1e3a5f;min-width:52px">';
+    h += '<div style="font-size:9px;line-height:1.2">'+m+'</div>';
+    h += '<div style="display:flex;gap:1px;justify-content:center;margin-top:2px">';
+    h += '<span style="background:rgba(255,255,255,.2);padding:1px 4px;border-radius:2px;font-size:8px">Sep</span>';
+    h += '<span style="background:rgba(255,255,255,.2);padding:1px 4px;border-radius:2px;font-size:8px">Jun</span>';
+    h += '</div></th>';
+  });
+  h += '</tr></thead><tbody>';
+
+  for(var i=0;i<numFilas;i++){
+    var bg = i%2===0?'#ffffff':'#f8fafc';
+    h += '<tr style="background:'+bg+'">';
+    h += '<td style="padding:5px 4px;text-align:center;border:1px solid #e2e8f0;color:#94a3b8;font-size:9px">'+(i+1)+'</td>';
+    h += '<td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:'+(alumnos[i]?'600':'400')+';color:#1e293b">'+(alumnos[i]||'')+'</td>';
+    materias.forEach(function(){
+      // Dos celdas por materia: Septiembre y Junio
+      h += '<td style="padding:2px;border:1px solid #e2e8f0">';
+      h += '<div style="display:flex;gap:1px">';
+      h += '<div style="flex:1;border:1px solid #e2e8f0;border-radius:2px;height:18px"></div>';
+      h += '<div style="flex:1;border:1px solid #e2e8f0;border-radius:2px;height:18px"></div>';
+      h += '</div></td>';
+    });
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  // Leyenda
+  h += '<div style="margin-top:6px;font-size:9px;color:#64748b;display:flex;gap:12px;padding-bottom:8px">';
+  h += '<span>Estado: </span>';
+  ['Nuevo','Buen estado','Deteriorado','Inutilizable'].forEach(function(e,i){
+    var cols = ['#d1fae5','#dbeafe','#fef3c7','#fee2e2'];
+    var tcs  = ['#065f46','#1e40af','#92400e','#b91c1c'];
+    h += '<span style="background:'+cols[i]+';color:'+tcs[i]+';padding:2px 6px;border-radius:3px;font-weight:700">'+e+'</span>';
+  });
+  h += '</div>';
+  h += '</div></div>';
+
+  box.innerHTML = h;
+
+  // Cargar alumnos reales si no disponibles
+  if(alumnos.length === 0){
+    try{
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(r&&r.alumnos){ LISTADO_ALUMNOS=r.alumnos; generarListadoLibros(); }
+        }).withFailureHandler(function(){}).getListadoAlumnos();
+    }catch(e){}
+  }
+}
+
+function imprimirLibros(){
+  var c = document.getElementById('libros-contenido');
+  if(!c){ alert('Selecciona un curso primero.'); return; }
+  var p = document.getElementById('listado-print-area');
+  // CSS especial para A4 horizontal
+  p.innerHTML = '<style>@media print{@page{size:A4 landscape;margin:1cm}}</style>' + c.outerHTML;
+  window.print();
+}
+function crearLibrosDrive(){
+  var curso = document.getElementById('libros-curso-sel').value;
+  if(!curso){ alert('Selecciona un curso primero.'); return; }
+  var res = document.getElementById('libros-drive-res');
+  res.style.display = 'block';
+  res.style.background = '#dbeafe';
+  res.style.color = '#1e40af';
+  res.textContent = 'Creando lista en Drive... espera unos segundos.';
+  try {
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r && r.success){
+          res.style.background = '#d1fae5';
+          res.style.color = '#065f46';
+          res.innerHTML = '✅ Lista creada: <a href="'+r.url+'" target="_blank" style="color:#065f46;font-weight:700">'+r.titulo+'</a>';
+        } else {
+          res.style.background = '#fee2e2';
+          res.style.color = '#b91c1c';
+          res.textContent = 'Error: ' + (r?r.error:'sin respuesta');
+        }
+      })
+      .withFailureHandler(function(e){
+        res.style.background = '#fee2e2';
+        res.style.color = '#b91c1c';
+        res.textContent = 'Error de conexión.';
+      })
+      .crearListaControlLibros(curso);
+  } catch(e) {
+    res.style.background = '#fee2e2';
+    res.style.color = '#b91c1c';
+    res.textContent = 'Sin conexión con el servidor.';
+  }
+}
+
+var MEET_URLS={"MEET_ETCP":"","MEET_CLAUSTRO":"","MEET_CONSEJO":"","MEET_INFANTIL":"","MEET_CICLO1":"","MEET_CICLO2":"","MEET_CICLO3":""};
+function openSalasDetail(){
+  var d=document.getElementById('salas-detail');
+  if(d){
+    d.classList.add('on');
+    d.style.overflowY='auto';
+    var cont=d.querySelector('.salas-detail-body')||d;
+    // Añadir la sala de Equipo de Orientación (solo una vez)
+    if(!document.getElementById('sala-orientacion')){
+      var wrap=document.createElement('div');
+      wrap.innerHTML='<div class="sala-card" id="sala-orientacion" onclick="window.open(\'\',\'_blank\')"><div class="sala-ico" style="background:#cffafe"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="16" fill="#cffafe"/><circle cx="24" cy="24" r="16" fill="none" stroke="#0e7490" stroke-width="2.5"/><polygon points="24,10 27,24 21,24" fill="#ef4444"/><polygon points="24,38 27,24 21,24" fill="#0e7490"/><circle cx="24" cy="24" r="2.3" fill="#0B132B"/></svg></div><div class="sala-info"><div class="sala-nombre">Equipo de Orientación</div><div class="sala-desc">Orientación, PT y AL</div></div><button class="sala-btn" style="background:#0e7490" onclick="event.stopPropagation();window.open(\'\',\'_blank\')">Entrar</button></div>';
+      cont.appendChild(wrap.firstChild);
+    }
+    // Hueco abajo para que la última sala no quede tapada por el menú
+    cont.style.paddingBottom='140px';
+  }
+  document.body.style.overflow='hidden';
+}
+function closeSalasDetail(){
+  document.getElementById('salas-detail').classList.remove('on');
+  document.body.style.overflow='';
+}
+function abrirSala(meetId){
+  var url=MEET_URLS[meetId]||'';
+  if(!url||url.indexOf('PENDIENTE')>=0){
+    alert('Enlace pendiente de configurar. Díselo al director.');
+    return;
+  }
+  // Meet no permite iframe — abrir en nueva pestaña
+  window.open(url,'_blank');
+}
+
+function renderTablon(){
+  var box = document.getElementById('tablon-items-box');
+  if(!box) return;
+
+  // --- cuenta de "vistos" (cada móvil lleva la suya, guardada en el navegador) ---
+  function _tabVistos(){
+    try { return JSON.parse(localStorage.getItem('claritanet_tablon_vistos') || '[]'); }
+    catch(e){ return []; }
+  }
+  function _tabMarcarVisto(id){
+    try {
+      var v = _tabVistos();
+      if(v.indexOf(id) === -1){ v.push(id); localStorage.setItem('claritanet_tablon_vistos', JSON.stringify(v)); }
+    } catch(e){}
+  }
+  // toggle global (se define una vez, sobrevive a los refrescos)
+  window._tabToggle = function(idx){
+    var body = document.getElementById('tab-body-'+idx);
+    var arr  = document.getElementById('tab-arr-'+idx);
+    var dot  = document.getElementById('tab-dot-'+idx);
+    var id   = (body && body.getAttribute('data-id')) || '';
+    if(!body) return;
+    var abierto = body.style.display !== 'none';
+    if(abierto){
+      body.style.display = 'none';
+      if(arr) arr.style.transform = 'rotate(0deg)';
+    } else {
+      body.style.display = 'block';
+      if(arr) arr.style.transform = 'rotate(180deg)';
+      if(dot) dot.style.display = 'none';   // ya está visto: quita el puntito
+      _tabMarcarVisto(id);
+    }
+  };
+
+  try {
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(!r || !r.items || r.items.length === 0){
+          box.innerHTML = '<div style="font-size:.8rem;color:#94a3b8;padding:12px;text-align:center">Sin anuncios hoy.</div>';
+          return;
+        }
+        var vistos = _tabVistos();
+        var h = '';
+        r.items.forEach(function(item, idx){
+          var ico = item.tipo === 'recreo' ? '🌳' : item.tipo === 'cumple' ? '🎂' : '📢';
+          var bg  = item.tipo === 'recreo' ? '#d1fae5' : item.tipo === 'cumple' ? '#fce7f3' : '#dbeafe';
+          var col = item.tipo === 'recreo' ? '#065f46' : item.tipo === 'cumple' ? '#be185d' : '#1e40af';
+          var id  = (item.tipo || '') + '|' + (item.titulo || '');
+          var esNuevo = vistos.indexOf(id) === -1;
+
+          h += '<div style="background:'+bg+';border-radius:10px;margin-bottom:8px;overflow:hidden">';
+
+          // --- Cabecera clicable: icono + título + puntito + flecha ---
+          h += '<div onclick="_tabToggle('+idx+')" style="padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer">';
+          h += '<span style="font-size:1.2rem;flex-shrink:0">'+ico+'</span>';
+          h += '<div style="flex:1;font-weight:700;font-size:.88rem;color:'+col+'">'+item.titulo+'</div>';
+          h += '<span id="tab-dot-'+idx+'" style="display:'+(esNuevo?'inline-block':'none')+';width:9px;height:9px;border-radius:50%;background:#ef4444;flex-shrink:0"></span>';
+          h += '<span id="tab-arr-'+idx+'" style="font-size:.9rem;color:'+col+';flex-shrink:0;transition:transform .2s">▾</span>';
+          h += '</div>';
+
+          // --- Cuerpo desplegable (oculto hasta tocar) ---
+          h += '<div id="tab-body-'+idx+'" data-id="'+id.replace(/"/g,'&quot;')+'" style="display:none;padding:0 14px 12px 44px">';
+          if(item.mensaje) h += '<div style="font-size:.78rem;color:#475569;margin-bottom:8px">'+item.mensaje+'</div>';
+          if(item.link) h += '<button onclick="event.stopPropagation();openEmbed(decodeURIComponent(\'' + encodeURIComponent(item.link) + '\'),\'\')" style="font-size:.72rem;background:'+col+';color:white;padding:5px 12px;border-radius:6px;border:none;cursor:pointer">Ver</button>';
+          h += '</div>';
+
+          h += '</div>';
+        });
+        box.innerHTML = h;
+      })
+      .withFailureHandler(function(){
+        box.innerHTML = '<div style="font-size:.8rem;color:#94a3b8;padding:8px;text-align:center">Sin conexión al tablón.</div>';
+      })
+      .getTablonItems();
+  } catch(e) {
+    box.innerHTML = '<div style="font-size:.8rem;color:#94a3b8;padding:8px;text-align:center">Sin conexión.</div>';
+  }
+}
+
+
+// ── DOCUMENTOS DEL CENTRO VIA CODIGO.GS (carpetas navegables) ───────────
+var DOCS_LOADED = false;
+var NAV_STACK = {};
+var NAV_FILES = {};
+
+function loadDocsFolder(folderId, boxId, nombreRaiz){
+  NAV_STACK[boxId] = [{id: folderId, nombre: nombreRaiz || 'Inicio'}];
+  renderFolderBox(boxId);
+}
+
+function navFolderIdx(boxId, idx){
+  var f = (NAV_FILES[boxId]||[])[idx];
+  if(!f) return;
+  if(f.tipo === 'folder' && f.id){
+    NAV_STACK[boxId].push({id: f.id, nombre: f.nombre});
+    renderFolderBox(boxId);
+  } else {
+    openEmbed(f.url, '');
+  }
+}
+
+function navFolderBack(boxId){
+  if(NAV_STACK[boxId] && NAV_STACK[boxId].length > 1){
+    NAV_STACK[boxId].pop();
+    renderFolderBox(boxId);
+  }
+}
+
+function renderFolderBox(boxId){
+  var box = document.getElementById(boxId);
+  if(!box) return;
+  var stack = NAV_STACK[boxId];
+  var cur = stack[stack.length-1];
+  box.innerHTML = '<div style="text-align:center;padding:14px;color:#94a3b8;font-size:.8rem">Cargando...</div>';
+  try {
+    google.script.run
+      .withSuccessHandler(function(r){
+        var h = '';
+        if(stack.length > 1){
+          var ruta = stack.map(function(s){return s.nombre;}).join(' › ');
+          h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+          h += '<button onclick="navFolderBack(\''+boxId+'\')" style="background:#0B132B;color:white;border:none;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;cursor:pointer;flex-shrink:0">&#8592; Atrás</button>';
+          h += '<div style="font-size:.7rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ruta+'</div></div>';
+        }
+        NAV_FILES[boxId] = (r && r.files) ? r.files : [];
+        if(!NAV_FILES[boxId].length){
+          h += '<div style="text-align:center;padding:14px;color:#94a3b8;font-size:.8rem">Carpeta vacía.</div>';
+          box.innerHTML = h;
+          return;
+        }
+        NAV_FILES[boxId].forEach(function(f, idx){
+          var ico = f.tipo === 'folder' ? '📁' :
+                    f.tipo === 'spreadsheet' ? '📊' :
+                    f.tipo === 'document' ? '📄' :
+                    f.tipo === 'presentation' ? '📑' :
+                    f.tipo === 'pdf' ? '📕' : '📎';
+          var bg = f.tipo === 'folder' ? '#fef3c7' :
+                   f.tipo === 'spreadsheet' ? '#d1fae5' :
+                   f.tipo === 'document' ? '#dbeafe' :
+                   f.tipo === 'presentation' ? '#fce7f3' : '#f1f5f9';
+          h += '<div onclick="navFolderIdx(\''+boxId+'\','+idx+')" style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:7px;cursor:pointer">';
+          h += '<div style="width:36px;height:36px;border-radius:8px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">'+ico+'</div>';
+          h += '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:.85rem;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+f.nombre+'</div>';
+          if(f.fecha) h += '<div style="font-size:.7rem;color:#94a3b8;margin-top:2px">'+f.fecha+'</div>';
+          h += '</div>';
+          if(f.tipo === 'folder' && f.id) h += '<div style="color:#94a3b8;font-size:1rem;flex-shrink:0">›</div>';
+          h += '</div>';
+        });
+        box.innerHTML = h;
+      })
+      .withFailureHandler(function(){
+        box.innerHTML = '<div style="text-align:center;padding:14px;color:#ef4444;font-size:.8rem">Error al cargar. Comprueba permisos.</div>';
+      })
+      .getFolderContents(cur.id);
+  } catch(e) {
+    box.innerHTML = '<div style="text-align:center;padding:14px;color:#94a3b8;font-size:.8rem">Sin conexión.</div>';
+  }
+}
+function toggleCuadSec(boxId,arrId){
+  var box=document.getElementById(boxId);
+  var arr=document.getElementById(arrId);
+  if(!box)return;
+  var oculto=box.style.display==='none';
+  box.style.display=oculto?'block':'none';
+  if(arr)arr.style.transform=oculto?'rotate(180deg)':'rotate(0deg)';
+}
+
+// ── LIGHTBOX ────────────────────────────────────────────────────────────────
+var _lbPhotos = [];
+var _lbIdx = 0;
+
+function openLightbox(photos, idx){
+  _lbPhotos = photos;
+  _lbIdx = idx;
+  showLightboxPhoto();
+  document.getElementById('lightbox').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('on');
+  document.body.style.overflow = '';
+}
+function lightboxNav(dir){
+  _lbIdx = (_lbIdx + dir + _lbPhotos.length) % _lbPhotos.length;
+  showLightboxPhoto();
+}
+function showLightboxPhoto(){
+  var p = _lbPhotos[_lbIdx];
+  document.getElementById('lightbox-img').src = p.src || p;
+  document.getElementById('lightbox-cap').textContent = (p.nombre||'') + ' (' + (_lbIdx+1) + '/' + _lbPhotos.length + ')';
+}
+
+
+// ── LISTA RELIGIÓN / ATEDU ────────────────────────────────────────────────
+var RELIGION_MODO = 'religion'; // 'religion', 'atedu', 'todos'
+var RELIGION_ALUMNOS = {}; // {grupo: [{nombre, religion}]}
+
+function setModoReligion(modo){
+  RELIGION_MODO = modo;
+  ['religion','atedu','todos'].forEach(function(m){
+    var btn = document.getElementById('btn-'+m);
+    if(btn){
+      btn.style.background = m===modo ? '#0B132B' : 'white';
+      btn.style.color = m===modo ? 'white' : '#64748b';
+      btn.style.borderColor = m===modo ? '#0B132B' : '#e2e8f0';
+    }
+  });
+  generarListadoReligion();
+}
+
+function openReligionDetail(){
+  var sel = document.getElementById('religion-curso-sel');
+  sel.innerHTML = '<option value="">Selecciona un curso...</option>';
+  var TODOS_CURSOS_R = []; /* Rellena con las claves de curso del centro */
+  
+  try {
+    google.script.run
+      .withSuccessHandler(function(r){
+        if(r && r.alumnos){
+          RELIGION_ALUMNOS = r.alumnos;
+          Object.keys(r.alumnos).sort().forEach(function(curso){
+            var opt = document.createElement('option');
+            opt.value = curso;
+            opt.textContent = (CURSOS_LABELS[curso]||curso) + ' (' + r.alumnos[curso].length + ')';
+            sel.appendChild(opt);
+          });
+        } else {
+          TODOS_CURSOS_R.forEach(function(c){
+            var opt = document.createElement('option');
+            opt.value = c; opt.textContent = CURSOS_LABELS[c]||c;
+            sel.appendChild(opt);
+          });
+        }
+        if(USER.group) sel.value = USER.group;
+        if(sel.value) generarListadoReligion();
+      })
+      .withFailureHandler(function(){
+        TODOS_CURSOS_R.forEach(function(c){
+          var opt = document.createElement('option');
+          opt.value = c; opt.textContent = CURSOS_LABELS[c]||c;
+          sel.appendChild(opt);
+        });
+      })
+      .getListadoAlumnos();
+  } catch(e) {
+    TODOS_CURSOS_R.forEach(function(c){
+      var opt = document.createElement('option');
+      opt.value = c; opt.textContent = CURSOS_LABELS[c]||c;
+      sel.appendChild(opt);
+    });
+  }
+  document.getElementById('religion-detail').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeReligionDetail(){
+  document.getElementById('religion-detail').classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+function generarListadoReligion(){
+  var curso = document.getElementById('religion-curso-sel').value;
+  var box = document.getElementById('religion-preview-box');
+  var cursoLabel = CURSOS_LABELS[curso] || curso;
+  if(!curso){ box.innerHTML='<div style="padding:24px;text-align:center;color:#94a3b8">Selecciona un curso</div>'; return; }
+  
+  // Obtener alumnos del curso
+  var todosAlumnos = LISTADO_ALUMNOS[curso] || RELIGION_ALUMNOS[curso] || [];
+  var numFilas = Math.max(todosAlumnos.length, 20);
+  
+  // Modo: mostrar columna Religion o ATEDU
+  var titulo = RELIGION_MODO === 'religion' ? 'Religión' : RELIGION_MODO === 'atedu' ? 'ATEDU' : 'Religión y ATEDU';
+  
+  var h = '<div id="religion-contenido">';
+  // Cabecera superior
+  h += '<div style="width:100%;margin-bottom:4px">';
+  h += '<img src="'+CAB_SUPERIOR+'" style="width:100%;height:auto;display:block">';
+  h += '</div>';
+  
+  h += '<div style="padding:8px 16px 6px;border-bottom:2px solid #0B132B;display:flex;align-items:center;justify-content:space-between">';
+  h += '<div><div style="font-weight:900;font-size:.9rem;color:#0B132B">Lista ' + titulo + ' · Curso ' + cursoLabel + '</div>';
+  h += '<div style="font-size:.72rem;color:#64748b">Curso ' + new Date().getFullYear() + '/' + (new Date().getFullYear()+1) + '</div></div>';
+  h += '<div style="font-size:.72rem;color:#94a3b8">Nº alumnos: <strong>' + (todosAlumnos.length||'___') + '</strong></div>';
+  h += '</div>';
+  
+  h += '<table style="width:100%;border-collapse:collapse;font-size:.82rem">';
+  h += '<thead><tr style="background:#f8fafc">';
+  h += '<th style="padding:7px 8px;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.7rem;width:28px">#</th>';
+  h += '<th style="padding:7px 8px;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.7rem;text-align:left">NOMBRE Y APELLIDOS</th>';
+  
+  if(RELIGION_MODO === 'todos'){
+    h += '<th style="padding:7px 8px;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.7rem;text-align:center;width:80px">RELIGIÓN</th>';
+    h += '<th style="padding:7px 8px;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.7rem;text-align:center;width:80px">ATEDU</th>';
+  } else {
+    h += '<th style="padding:7px 8px;border-bottom:1.5px solid #e2e8f0;color:#64748b;font-size:.7rem;text-align:center;width:100px">' + titulo.toUpperCase() + '</th>';
+  }
+  h += '</tr></thead><tbody>';
+  
+  for(var i=0; i<numFilas; i++){
+    var bg = i%2===0?'white':'#fafafa';
+    h += '<tr style="background:'+bg+'">';
+    h += '<td style="padding:8px 6px;border-bottom:1px solid #f1f5f9;color:#94a3b8;text-align:center;font-size:.72rem">'+(i+1)+'</td>';
+    h += '<td style="padding:8px 8px;border-bottom:1px solid #f1f5f9;font-weight:'+(todosAlumnos[i]?'600':'400')+'">'+(todosAlumnos[i]||'')+'</td>';
+    if(RELIGION_MODO === 'todos'){
+      h += '<td style="padding:8px 4px;border-bottom:1px solid #f1f5f9;border-left:1px solid #f1f5f9"></td>';
+      h += '<td style="padding:8px 4px;border-bottom:1px solid #f1f5f9;border-left:1px solid #f1f5f9"></td>';
+    } else {
+      h += '<td style="padding:8px 4px;border-bottom:1px solid #f1f5f9;border-left:1px solid #f1f5f9"></td>';
+    }
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  
+  // Cabecera inferior
+  h += '<div style="width:100%;margin-top:8px">';
+  h += '<img src="'+CAB_SUPERIOR+'" style="width:100%;height:auto;display:block">';
+  h += '</div>';
+  h += '</div>';
+  
+  box.innerHTML = h;
+}
+
+function imprimirReligion(){
+  var c = document.getElementById('religion-contenido');
+  if(!c){ alert('Selecciona un curso primero.'); return; }
+  var p = document.getElementById('listado-print-area');
+  p.innerHTML = '<style>@media print{@page{size:A4 portrait;margin:0}}</style>' + c.outerHTML;
+  window.print();
+}
+
+
+
+function renderAldia(){
+  renderTablon();
+  var today=new Date().toISOString().split('T')[0];
+  var todayEvs=EVENTS.filter(function(e){return e.fecha===today;});
+
+  // SUSTITUCIONES
+  var sustEvs=todayEvs.filter(function(e){return e.calendarId==='sustituciones';});
+  var sustBox=document.getElementById('sust-box');
+  if(!sustEvs.length){sustBox.innerHTML='<div class="no-ev">Sin sustituciones hoy.</div>';}
+  else{
+    var sh='';
+    // Solo mostrar el ultimo cuadrante publicado
+    var lastSust=sustEvs[sustEvs.length-1];
+    if(lastSust.tablaFilas&&lastSust.tablaFilas.length>=2){sh=renderSustCard(lastSust);}
+    else{sh='<div class="no-ev">Sustituciones: '+lastSust.titulo+'</div>';}
+    sustBox.innerHTML=sh;
+  }
+
+  // RECREO
+  var recreoEvs=todayEvs.filter(function(e){return e.calendarId==='recreo';});
+  var recreoBox=document.getElementById('recreo-box');
+  if(!recreoEvs.length){recreoBox.innerHTML='<div class="no-ev">Sin cuadrante de recreo publicado.</div>';}
+  else{
+    var lastRecreo=recreoEvs[recreoEvs.length-1];
+    recreoBox.innerHTML=renderRecreoCard(lastRecreo);
+  }
+
+  // CRONOGRAMA Y PROYECTOS — con detalle expandible
+  var otrosEvs=todayEvs.filter(function(e){return e.calendarId!=='sustituciones'&&e.calendarId!=='recreo';});
+  var box=document.getElementById('aldia-box');
+  if(!otrosEvs.length){box.innerHTML='<div class="no-ev">Sin eventos de cronograma o proyectos hoy.</div>';return;}
+  var h='';
+  var calsToShow=['cronograma','proyectos'];
+  calsToShow.forEach(function(cid){
+    var cal=CALS.find(function(c){return c.id===cid;});
+    if(!cal)return;
+    var filtered=otrosEvs.filter(function(e){return e.calendarId===cid;});
+    if(!filtered.length)return;
+    h+='<div class="cbt" style="color:'+cal.color+'">'+cal.name+'</div>';
+    filtered.forEach(function(e,idx){
+      var uid='ev-'+cid+'-'+idx;
+      var hasDetail=e.descripcion&&e.descripcion.length>3&&!e.descripcion.startsWith('[[');
+      var barCol=(cid==='proyectos'&&e.proyecto)?_proyColor(e):cal.color;
+      h+='<div class="ev-item" style="border-left-color:'+barCol+'">';
+      h+='<div class="ev-header" '+(hasDetail?'data-uid="'+uid+'" onclick="toggleEv(this.dataset.uid)"':'')+'>';
+      h+='<div style="flex:1"><div class="ev-title">'+iconoProyectoDelante(e)+e.titulo+'</div>';
+      if(e.horaInicio)h+='<div class="ev-hora">'+e.horaInicio+(e.horaFin?' - '+e.horaFin:'')+'</div>';
+      h+=etiquetaProyecto(e);
+      h+='</div>';
+      if(hasDetail)h+='<span class="ev-toggle" id="tog-'+uid+'">&#9660;</span>';
+      h+='</div>';
+      if(hasDetail)h+='<div class="ev-body" id="'+uid+'">'+e.descripcion.replace(/\n/g,'<br>')+'</div>';
+      h+='</div>';
+    });
+  });
+  box.innerHTML=h||'<div class="no-ev">Sin eventos hoy.</div>';
+}
+
+function _proyColor(e){
+  var pin=(typeof _proyInfo==='function')?_proyInfo(e.proyecto):null;
+  return (pin&&pin.color)?pin.color:'#7c3aed';
+}
+function etiquetaProyecto(e){
+  if(e.calendarId!=='proyectos'||!e.proyecto)return '';
+  var pin=(typeof _proyInfo==='function')?_proyInfo(e.proyecto):null;
+  var col=(pin&&pin.color)?pin.color:'#7c3aed';
+  var ico=(pin&&pin.icono)?pin.icono+' ':'';
+  return '<div style="display:inline-block;margin-top:4px;background:'+col+'1c;color:'+col+';border-radius:20px;padding:2px 9px;font-size:.62rem;font-weight:800">'+ico+e.proyecto+'</div>';
+}
+function iconoProyectoDelante(e){
+  if(e.calendarId!=='proyectos'||!e.proyecto)return '';
+  var pin=(typeof _proyInfo==='function')?_proyInfo(e.proyecto):null;
+  return (pin&&pin.icono)?'<span style="font-size:1.15rem;margin-right:7px">'+pin.icono+'</span>':'';
+}
+function toggleEv(uid){
+  var body=document.getElementById(uid);
+  var tog=document.getElementById('tog-'+uid);
+  if(!body)return;
+  var open=body.classList.toggle('show');
+  if(tog)tog.classList.toggle('open',open);
+}
+
+function renderSustCard(e){
+  var f=e.tablaFilas;var cab=f[0];var nM=cab.length-1;
+  var h='<div class="sust-card"><div class="sust-hdr"><div class="sust-title">'+e.titulo+'</div><div class="sust-badge">'+nM+' ausente'+(nM!==1?'s':'')+'</div></div>';
+  h+='<div class="sust-chips">';
+  for(var i=1;i<cab.length;i++)h+='<span class="sust-chip">'+cab[i].replace(' (ausente)','').replace(' (falta)','')+'</span>';
+  h+='</div><div class="sust-tbl-wrap"><table class="sust-tbl"><tr><th class="hc">HORA</th>';
+  for(var i=1;i<cab.length;i++)h+='<th class="mc">'+cab[i].replace(' (ausente)','').replace(' (falta)','')+'</th>';
+  h+='</tr>';
+  for(var i=1;i<f.length;i++){
+    var row=f[i];
+    if(row[0]&&row[0].toString().toUpperCase().includes('RECREO')){h+='<tr class="rec"><td colspan="'+cab.length+'">RECREO</td></tr>';continue;}
+    h+='<tr><td class="ht">'+(row[0]||'')+'</td>';
+    for(var j=1;j<row.length;j++){
+      var v=row[j]?row[j].toString():'';
+      h+='<td class="mt">';
+      if(v){var m=v.match(/^(.+?)\s*\((.+?)\)$/);if(m)h+='<div class="mae-n">'+m[1].trim()+'</div><div class="mae-g">'+m[2].trim()+'</div>';else h+='<span class="mae-n">'+v+'</span>';}
+      else h+='<span style="color:#cbd5e1;font-size:.75rem">---</span>';
+      h+='</td>';
+    }
+    h+='</tr>';
+  }
+  h+='</table></div></div>';return h;
+}
+
+/* ── RECREO EN AL DÍA — dice el PUESTO que te toca (o si libras) ───── */
+function renderRecreoCard(e){
+  if(!e.tablaFilas||e.tablaFilas.length<2){
+    return'<div class="no-ev">Recreo publicado: '+e.titulo+'</div>';
+  }
+  var f=e.tablaFilas;
+  var cab=f[0]||[];
+  var today=new Date().toISOString().split('T')[0];
+  // Fila del día de hoy (o la primera de datos si no la encuentra)
+  var row=null;
+  for(var i=1;i<f.length;i++){
+    if((f[i][0]||'').toString().indexOf(today)>=0){row=f[i];break;}
+  }
+  if(!row) row=f[1];
+
+  function _n(x){return (x||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+  var me=_n(USER.name||'');
+  var meTok=me.split(' ').filter(function(w){return w.length>=3;});
+  function _match(cell){
+    if(!me) return false;
+    return (cell||'').toString().split(/[,\/+·]/).some(function(p){
+      var np=_n(p); if(!np) return false;
+      if(np===me||np.indexOf(me)>=0||me.indexOf(np)>=0) return true;
+      var pt=np.split(' ').filter(function(w){return w.length>=3;});
+      return meTok.filter(function(t){return pt.indexOf(t)>=0;}).length>=2;
+    });
+  }
+
+  // Puestos (columnas 2 en adelante; 0=Fecha, 1=Día) donde aparece el usuario
+  var misPuestos=[];
+  for(var j=2;j<cab.length;j++){
+    if(_match(row[j])) misPuestos.push(cab[j]);
+  }
+
+  var h='';
+  if(misPuestos.length){
+    h+='<div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">';
+    h+='<span style="font-size:1.7rem;flex-shrink:0">🌳</span>';
+    h+='<div><div style="font-weight:800;font-size:.95rem;color:#065f46">Hoy te toca recreo</div>';
+    h+='<div style="font-size:.88rem;color:#047857;margin-top:2px">Tu puesto: <strong>'+misPuestos.join(' · ')+'</strong></div></div>';
+    h+='</div>';
+  } else {
+    h+='<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px">';
+    h+='<span style="font-size:1.7rem;flex-shrink:0">☕</span>';
+    h+='<div><div style="font-weight:800;font-size:.95rem;color:#1e40af">Hoy libras de recreo</div>';
+    h+='<div style="font-size:.8rem;color:#3b82f6;margin-top:2px">Disfruta tu descanso 😊</div></div>';
+    h+='</div>';
+  }
+
+  // Plegable: ver todos los turnos de hoy
+  h+='<details style="margin-top:8px"><summary style="cursor:pointer;font-size:.78rem;color:#64748b;padding:6px 2px">Ver todos los turnos de hoy</summary>';
+  h+='<div style="border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-top:6px"><table style="width:100%;border-collapse:collapse">';
+  for(var j=2;j<cab.length;j++){
+    var val=(row[j]||'').toString().trim();
+    if(!val) continue;
+    var mine=_match(val);
+    h+='<tr'+(mine?' style="background:#d1fae5;font-weight:700"':'')+'>';
+    h+='<td style="padding:6px 10px;font-size:.72rem;color:#475569;border-bottom:1px solid #f1f5f9;white-space:nowrap">'+cab[j]+'</td>';
+    h+='<td style="padding:6px 10px;font-size:.78rem;color:#1e293b;border-bottom:1px solid #f1f5f9">'+val+'</td>';
+    h+='</tr>';
+  }
+  h+='</table></div></details>';
+  return h;
+}
+
+/* VISTA SEMANAL — desplegables por dia */
+function renderWeek(){
+  var box=document.getElementById('week-box');
+  var now=new Date();var dow=now.getDay()===0?6:now.getDay()-1;
+  var mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow);
+  var dayNames=['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'];
+  var h='';
+  for(var i=0;i<5;i++){// Solo dias lectivos (Lun-Vie)
+    var day=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i);
+    var ds=day.getFullYear()+'-'+String(day.getMonth()+1).padStart(2,'0')+'-'+String(day.getDate()).padStart(2,'0');
+       var dayEvs=EVENTS.filter(function(e){return e.fecha===ds&&e.calendarId!=='recreo';});
+    var isToday=ds===now.toISOString().split('T')[0];
+    // Contar puntitos por calendario
+    var dots='';
+    CALS.forEach(function(c){if(dayEvs.some(function(e){return e.calendarId===c.id;}))dots+='<span class="dot" style="background:'+c.color+'"></span>';});
+    h+='<div class="day-group">';
+    h+='<div class="day-group-hdr" data-body="dg-'+i+'" onclick="togDayGroup(this)">';
+    h+='<span style="'+(isToday?'color:#2563eb;font-weight:800':'')+'">'+dayNames[i]+' '+day.getDate()+(isToday?' (Hoy)':'')+'</span>';
+    h+='<div style="display:flex;align-items:center;gap:8px"><div class="day-dots">'+dots+'</div><span class="day-toggle" id="dtog-'+i+'">&#9660;</span></div>';
+    h+='</div>';
+    h+='<div class="day-group-body'+(isToday?' open':'') +'" id="dg-'+i+'">';
+    if(!dayEvs.length){h+='<div class="no-ev">Sin eventos este dia.</div>';}
+    else{
+      CALS.forEach(function(c){
+        if(c.id==='recreo')return;
+        var evs=dayEvs.filter(function(e){return e.calendarId===c.id;});
+        if(!evs.length)return;
+        h+='<div class="cbt" style="color:'+c.color+';font-size:.65rem">'+c.name+'</div>';
+        evs.forEach(function(e,idx){
+          var uid='wev-'+i+'-'+c.id+'-'+idx;
+          if(c.id==='sustituciones'&&e.tablaFilas&&e.tablaFilas.length>=2){h+=renderSustCard(e);}
+          else if(c.id==='recreo'){h+=renderRecreoCard(e);}
+          else{
+            var hasDetail=e.descripcion&&e.descripcion.length>3&&!e.descripcion.startsWith('[[');
+            var barCol=(c.id==='proyectos'&&e.proyecto)?_proyColor(e):c.color;
+            h+='<div class="ev-item" style="border-left-color:'+barCol+'">';
+            h+='<div class="ev-header" '+(hasDetail?'data-uid="'+uid+'" onclick="toggleEv(this.dataset.uid)"':'')+'>';
+            h+='<div style="flex:1"><div class="ev-title">'+iconoProyectoDelante(e)+e.titulo+'</div>';
+            if(e.horaInicio)h+='<div class="ev-hora">'+e.horaInicio+(e.horaFin?' - '+e.horaFin:'')+'</div>';
+            h+=etiquetaProyecto(e);
+            h+='</div>';
+            if(hasDetail)h+='<span class="ev-toggle" id="tog-'+uid+'">&#9660;</span>';
+            h+='</div>';
+            if(hasDetail)h+='<div class="ev-body" id="'+uid+'">'+e.descripcion.replace(/\n/g,'<br>')+'</div>';
+            h+='</div>';
+          }
+        });
+      });
+    }
+    h+='</div></div>';
+  }
+  box.innerHTML=h;
+  // Abrir el dia de hoy si no esta abierto
+  if(document.getElementById('dtog-'+dow)){
+    document.getElementById('dtog-'+dow).classList.add('open');
+  }
+}
+
+function togDayGroup(hdr,bodyId){if(!bodyId)bodyId=hdr.getAttribute('data-body');
+  var body=document.getElementById(bodyId);
+  var tog=hdr.querySelector('.day-toggle');
+  if(!body)return;
+  var open=body.classList.toggle('open');
+  if(tog)tog.classList.toggle('open',open);
+}
+
+/* PROYECTOS */
+var PCAL_DATE = new Date();
+var PROYECTOS_LIST = null;
+
+function renderProyectos(){
+  renderProyCal();
+  renderProyEventos();
+  loadProyCards();
+}
+
+function shiftMonthProy(d){ PCAL_DATE.setMonth(PCAL_DATE.getMonth()+d); renderProyCal(); }
+
+function renderProyCal(){
+  var grid=document.getElementById('pcal-grid');
+  if(!grid)return;
+  var y=PCAL_DATE.getFullYear(),m=PCAL_DATE.getMonth();
+  var mn=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var tt=document.getElementById('pcal-title'); if(tt)tt.innerText=mn[m]+' '+y;
+  var today=new Date().toISOString().split('T')[0];
+  var h=['L','M','X','J','V','S','D'].map(function(d){return'<div class="day-name">'+d+'</div>';}).join('');
+  var pad=new Date(y,m,1).getDay();pad=pad===0?6:pad-1;
+  for(var i=0;i<pad;i++)h+='<div></div>';
+  var total=new Date(y,m+1,0).getDate();
+  for(var d=1;d<=total;d++){
+    var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var tiene=EVENTS.some(function(e){return e.calendarId==='proyectos'&&e.fecha===ds;});
+    var dots='<div class="dots">'+(tiene?'<span class="dot" style="background:#8b5cf6"></span>':'')+'</div>';
+    h+='<div class="day-cell'+(ds===today?' today':'')+'" data-ds="'+ds+'" onclick="filterProyDay(this.dataset.ds)">'+d+dots+'</div>';
+  }
+  grid.innerHTML=h;
+}
+
+function filterProyDay(ds){ renderProyEventos(ds); }
+
+var PROY_DS = null;
+function _proyInfo(nombre){
+  if(!nombre||!PROYECTOS_LIST)return null;
+  var n=nombre.toString().toLowerCase().trim();
+  for(var i=0;i<PROYECTOS_LIST.length;i++){
+    if(PROYECTOS_LIST[i].nombre.toLowerCase().trim()===n)return PROYECTOS_LIST[i];
+  }
+  return null;
+}
+function _linkify(t){
+  return (t||'').replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:#4EA8DE;font-weight:700">&#128279; abrir enlace</a>');
+}
+
+function renderProyEventos(ds){
+  PROY_DS=ds||null;
+  var box=document.getElementById('proy-box');
+  var title=document.getElementById('proy-ev-title');
+  if(!box)return;
+  var evs;
+  if(ds){
+    var d=new Date(ds+'T00:00:00');
+    var bonita=d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+    if(title)title.innerHTML='Eventos del '+bonita+' &nbsp;<a onclick="renderProyEventos()" style="font-size:.72rem;color:#4EA8DE;cursor:pointer;font-weight:700">&larr; ver pr&oacute;ximos</a>';
+    evs=EVENTS.filter(function(e){return e.calendarId==='proyectos'&&e.fecha===ds;});
+  } else {
+    if(title)title.textContent='Pr\u00f3ximos eventos';
+    var now=new Date().toISOString().split('T')[0];
+    evs=EVENTS.filter(function(e){return e.calendarId==='proyectos'&&e.fecha>=now;})
+       .sort(function(a,b){return a.fecha.localeCompare(b.fecha);}).slice(0,4);
+  }
+  if(!evs.length){box.innerHTML='<div class="no-ev" style="padding:14px">Sin eventos'+(ds?' ese d\u00eda':' planificados')+'.</div>';return;}
+  var h='';
+  evs.forEach(function(e,i){
+    var d=new Date(e.fecha+'T00:00:00');
+    var l=d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
+    var horas=(e.horaInicio?e.horaInicio+(e.horaFin?' - '+e.horaFin:''):'');
+    var tieneMas=!!(e.descripcion||horas);
+    h+='<div style="background:white;border:1px solid #e2e8f0;border-left:4px solid #8b5cf6;border-radius:12px;margin-bottom:8px;overflow:hidden">';
+    h+='<div onclick="var b=this.nextElementSibling;if(b){b.style.display=b.style.display===\'block\'?\'none\':\'block\';this.querySelector(\'.pchev\').innerHTML=b.style.display===\'block\'?\'&#9650;\':\'&#9660;\';}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer">';
+    var pin=_proyInfo(e.proyecto);
+    var pColor=(pin&&pin.color)?pin.color:'#6d28d9';
+    if(pin&&pin.icono)h+='<div style="font-size:1.35rem;flex-shrink:0">'+pin.icono+'</div>';
+    h+='<div style="background:#f3e8ff;color:#7c3aed;border-radius:8px;padding:5px 9px;font-size:.68rem;font-weight:800;white-space:nowrap">'+l+'</div>';
+    h+='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.85rem;color:#1e293b">'+e.titulo+'</div>';
+    if(e.proyecto)h+='<div style="display:inline-block;margin-top:3px;background:'+pColor+'1c;color:'+pColor+';border-radius:20px;padding:2px 9px;font-size:.62rem;font-weight:800">'+e.proyecto+'</div>';
+    h+='</div>';
+    h+=(tieneMas?'<div class="pchev" style="color:#94a3b8;font-size:.75rem">&#9660;</div>':'');
+    h+='</div>';
+    if(tieneMas){
+      h+='<div style="display:none;padding:0 14px 12px;font-size:.8rem;color:#475569;line-height:1.5">';
+      if(horas)h+='<div style="font-weight:700;color:#7c3aed;margin-bottom:4px">&#128336; '+horas+'</div>';
+      if(e.descripcion)h+=_linkify(e.descripcion);
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  box.innerHTML=h;
+}
+
+function loadProyCards(){
+  if(PROYECTOS_LIST){ paintProyCards(); return; }
+  try{
+    google.script.run.withSuccessHandler(function(r){
+      PROYECTOS_LIST=(r&&r.proyectos)?r.proyectos:[];
+      paintProyCards();
+      renderProyEventos(PROY_DS);
+      // Repintar Al Día y Agenda ahora que ya tenemos iconos y colores de proyectos
+      try{ if(typeof renderAldia==='function') renderAldia(); }catch(e){}
+      try{ if(typeof renderWeek==='function') renderWeek(); }catch(e){}
+    }).withFailureHandler(function(){
+      document.getElementById('proy-cards').innerHTML='<div class="no-ev">No se pudieron cargar los proyectos.</div>';
+    }).getProyectos();
+  }catch(e){}
+}
+
+function paintProyCards(){
+  var box=document.getElementById('proy-cards');
+  if(!box)return;
+  if(!PROYECTOS_LIST.length){
+    box.innerHTML='<div class="no-ev" style="grid-column:1/-1;padding:14px">Sin proyectos. A\u00f1\u00e1delos en la pesta\u00f1a "Proyectos" del Sheet.</div>';
+    return;
+  }
+  var PALETA=['#38B000','#4EA8DE','#7209B7','#F72585','#f59e0b','#0B132B','#16a34a','#dc2626'];
+  var h='';
+  PROYECTOS_LIST.forEach(function(p,i){
+    var c=p.color||PALETA[i%PALETA.length];
+    h+='<div onclick="openProyecto('+i+')" style="cursor:pointer;border-radius:16px;padding:18px 12px;text-align:center;background:'+c+'14;border:2px solid '+c+'44">';
+    h+='<div style="font-size:2.2rem;margin-bottom:8px">'+(p.icono||'&#128193;')+'</div>';
+    h+='<div style="font-weight:800;font-size:.8rem;color:'+c+';line-height:1.25">'+p.nombre+'</div>';
+    h+='</div>';
+  });
+  box.innerHTML=h;
+}
+
+function openProyecto(i){
+  var p=PROYECTOS_LIST[i];
+  if(!p)return;
+  if(!p.carpeta){alert('Este proyecto no tiene carpeta de Drive configurada (columna carpeta de la pesta\u00f1a Proyectos).');return;}
+  var d=document.getElementById('proy-detail');
+  document.getElementById('proy-detail-title').textContent=(p.icono?p.icono+' ':'')+p.nombre;
+  d.style.display='block';
+  d.style.position='fixed';d.style.inset='0';d.style.zIndex='9999';
+  d.style.background='#f1f5f9';d.style.overflow='auto';d.style.padding='14px';d.style.margin='0';d.style.borderRadius='0';
+  loadDocsFolder(p.carpeta,'proy-folder-box',p.nombre);
+}
+function closeProyDetail(){
+  var d=document.getElementById('proy-detail');
+  d.style.display='none';
+  ['position','inset','zIndex','background','overflow','padding','margin','borderRadius'].forEach(function(k){d.style[k]='';});
+}
+
+/* CALENDARIO MENSUAL */
+function renderCal(){
+  var y=CAL_DATE.getFullYear(),m=CAL_DATE.getMonth();
+  var mn=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('cal-title').innerText=mn[m]+' '+y;
+  var today=new Date().toISOString().split('T')[0];
+  var h=['L','M','X','J','V','S','D'].map(function(d){return'<div class="day-name">'+d+'</div>';}).join('');
+  var pad=new Date(y,m,1).getDay();pad=pad===0?6:pad-1;
+  for(var i=0;i<pad;i++)h+='<div></div>';
+  var total=new Date(y,m+1,0).getDate();
+  for(var d=1;d<=total;d++){
+    var ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var matched=EVENTS.filter(function(e){return e.fecha===ds&&e.calendarId!=='recreo';});
+    var dots='<div class="dots">';
+    CALS.forEach(function(c){if(matched.some(function(e){return e.calendarId===c.id;}))dots+='<span class="dot" style="background:'+c.color+'"></span>';});
+    dots+='</div>';
+    h+='<div class="day-cell'+(ds===today?' today':'')+'" data-ds="'+ds+'" onclick="filterDay(this.dataset.ds,this)">'+d+dots+'</div>';
+  }
+  document.getElementById('cal-grid').innerHTML=h;
+}
+function shiftMonth(d){CAL_DATE.setMonth(CAL_DATE.getMonth()+d);renderCal();}
+function filterDay(ds,el){
+  document.querySelectorAll('.day-cell').forEach(function(c){c.classList.remove('sel');});
+  el.classList.add('sel');
+  // Al pulsar un dia del mes, actualizar la vista semanal con ese dia
+  var box=document.getElementById('week-box');
+  var f=EVENTS.filter(function(e){return e.fecha===ds&&e.calendarId!=='recreo';});
+  var d=new Date(ds+'T00:00:00');
+  var lbl=d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  var h='<div style="margin-bottom:10px;font-size:.82rem;font-weight:700;color:#0B132B">'+lbl+' - <a href="#" onclick="renderWeek();return false;" style="color:#3b82f6">Ver semana</a></div>';
+  if(!f.length){h+='<div class="no-ev">Sin eventos este dia.</div>';}
+  else{
+    CALS.forEach(function(c){
+      var matched=f.filter(function(e){return e.calendarId===c.id;});
+      if(!matched.length)return;
+      h+='<div class="cbt" style="color:'+c.color+'">'+c.name+'</div>';
+      matched.forEach(function(e,idx){
+        var uid='fev-'+c.id+'-'+idx;
+        if(c.id==='sustituciones'&&e.tablaFilas&&e.tablaFilas.length>=2)h+=renderSustCard(e);
+        else if(c.id==='recreo')h+=renderRecreoCard(e);
+        else{
+          var hasDetail=e.descripcion&&e.descripcion.length>3&&!e.descripcion.startsWith('[[');
+          h+='<div class="ev-item" style="border-left-color:'+c.color+'">';
+          h+='<div class="ev-header" '+(hasDetail?'data-uid="'+uid+'" onclick="toggleEv(this.dataset.uid)"':'')+'>';
+          h+='<div><div class="ev-title">'+e.titulo+'</div>';
+          if(e.horaInicio)h+='<div class="ev-hora">'+e.horaInicio+(e.horaFin?' - '+e.horaFin:'')+'</div>';
+          h+='</div>';
+          if(hasDetail)h+='<span class="ev-toggle" id="tog-'+uid+'">&#9660;</span>';
+          h+='</div>';
+          if(hasDetail)h+='<div class="ev-body" id="'+uid+'">'+e.descripcion.replace(/\n/g,'<br>')+'</div>';
+          h+='</div>';
+        }
+      });
+    });
+  }
+  box.innerHTML=h;
+}
+
+/* ── CUADERNOS — Grid de tarjetas por curso ───────────── */
+var CUAD_ITEMS=[
+  {key:'lista',label:'Lista para Imprimir',cls:'cc-azul',
+   svg:'<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+   url:'LISTADO_IMPRIMIR'},
+    {key:'prog-sem',label:'Cuaderno Programaciones Semanales',cls:'cc-azul',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="44" rx="19" ry="4" fill="#15803d" opacity=".5"/><rect x="8" y="8" width="28" height="32" rx="5" fill="white" opacity=".97"/><rect x="8" y="8" width="28" height="9" rx="5" fill="#3B82F6" opacity=".85"/><rect x="14" y="4" width="3.5" height="9" rx="1.75" fill="#1e40af"/><rect x="26.5" y="4" width="3.5" height="9" rx="1.75" fill="#1e40af"/><rect x="13" y="22" width="5" height="5" rx="1.5" fill="#93C5FD"/><rect x="21" y="22" width="5" height="5" rx="1.5" fill="#22C55E"/><rect x="29" y="22" width="4" height="5" rx="1.5" fill="#93C5FD"/><rect x="13" y="30" width="5" height="5" rx="1.5" fill="#22C55E"/><rect x="21" y="30" width="5" height="5" rx="1.5" fill="#93C5FD"/><rect x="36" y="32" width="3" height="10" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="37.5" cy="29" rx="5.5" ry="6" fill="#16a34a" opacity=".8"/></svg>',url:'PROXIMAMENTE'},
+  {key:'libros',label:'Lista Control Libros',cls:'cc-violeta',
+   svg:'<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>',
+   url:'LIBROS_CONTROL'},
+  {key:'criterios',label:'Cuaderno Criterios de Evaluación',cls:'cc-violeta',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="44" rx="19" ry="4" fill="#15803d" opacity=".5"/><rect x="9" y="6" width="26" height="34" rx="5" fill="white" opacity=".97"/><rect x="9" y="6" width="5" height="34" rx="5" fill="#A855F7" opacity=".7"/><circle cx="19" cy="15" r="2.6" fill="#22C55E"/><polyline points="16.8,15 18.6,16.8 21.4,13.4" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="24" y1="15" x2="31" y2="15" stroke="#e2e8f0" stroke-width="1.6" stroke-linecap="round"/><circle cx="19" cy="23" r="2.6" fill="#22C55E"/><polyline points="16.8,23 18.6,24.8 21.4,21.4" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="24" y1="23" x2="31" y2="23" stroke="#e2e8f0" stroke-width="1.6" stroke-linecap="round"/><circle cx="19" cy="31" r="2.6" fill="#cbd5e1"/><line x1="24" y1="31" x2="29" y2="31" stroke="#e2e8f0" stroke-width="1.6" stroke-linecap="round"/><rect x="36" y="31" width="3" height="11" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="37.5" cy="27" rx="6" ry="6.5" fill="#7c3aed" opacity=".55"/></svg>',url:'PROXIMAMENTE'},
+  {key:'portal-actas',label:'Portal de Actas de Evaluación',cls:'cc-verde',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="6" y="6" width="26" height="34" rx="5" fill="white" opacity=".95"/><rect x="6" y="6" width="5" height="34" rx="5" fill="#6366F1" opacity=".7"/><line x1="15" y1="14" x2="28" y2="14" stroke="#c7d2fe" stroke-width="2" stroke-linecap="round"/><line x1="15" y1="20" x2="28" y2="20" stroke="#e2e8f0" stroke-width="1.5" stroke-linecap="round"/><line x1="15" y1="25" x2="24" y2="25" stroke="#e2e8f0" stroke-width="1.5" stroke-linecap="round"/><rect x="36" y="30" width="3.5" height="14" rx="1.75" fill="#92400e" opacity=".7"/><ellipse cx="37.5" cy="25" rx="8" ry="9" fill="#22C55E" opacity=".9"/><ellipse cx="32" cy="28" rx="5" ry="6" fill="#4ADE80" opacity=".8" transform="rotate(-20 32 28)"/><rect x="30" y="43" width="16" height="4" rx="2" fill="#15803d" opacity=".5"/><circle cx="14" cy="34" r="6.5" fill="#22C55E"/><polyline points="10.5,34 13,36.5 17.5,31.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',url:'PROXIMAMENTE'},
+  {key:'cuad-horarios',label:'Cuaderno de Horarios',cls:'cc-naranja',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="44" rx="19" ry="4" fill="#15803d" opacity=".5"/><rect x="8" y="7" width="26" height="33" rx="4" fill="white" opacity=".97"/><rect x="8" y="7" width="26" height="8" rx="4" fill="#F59E0B" opacity=".9"/><rect x="12" y="20" width="5" height="5" rx="1.3" fill="#FCD34D"/><rect x="19" y="20" width="5" height="5" rx="1.3" fill="#22C55E"/><rect x="26" y="20" width="4" height="5" rx="1.3" fill="#93C5FD"/><rect x="12" y="28" width="5" height="5" rx="1.3" fill="#22C55E"/><rect x="19" y="28" width="5" height="5" rx="1.3" fill="#FCA5A5"/><rect x="26" y="28" width="4" height="5" rx="1.3" fill="#FCD34D"/><rect x="37" y="31" width="3" height="11" rx="1.5" fill="#92400e" opacity=".7"/><ellipse cx="38.5" cy="27" rx="6" ry="6.5" fill="#16a34a" opacity=".85"/><circle cx="33" cy="12" r="6" fill="#F59E0B"/><line x1="33" y1="9" x2="33" y2="12" stroke="white" stroke-width="1.4" stroke-linecap="round"/><line x1="33" y1="12" x2="35" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>',url:'CUADERNO_HORARIOS'},
+  {key:'cuad-sust',label:'Cuaderno Sustituciones',cls:'cc-rojo',
+   svg:'<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>',
+   url:'PROXIMAMENTE'},
+  {key:'cuad-inc',label:'Cuaderno Incidencias',cls:'cc-naranja',
+   svg:'<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+   url:'PROXIMAMENTE'},
+  {key:'cuad-enf',label:'Enfermedades Crónicas',cls:'cc-rojo',
+   svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="42" width="44" height="5" rx="2.5" fill="#15803d" opacity=".4"/><path d="M24 38 L8 24 Q4 16 12 12 Q18 8 24 16 Q30 8 36 12 Q44 16 40 24 Z" fill="#EF4444" opacity=".9"/><rect x="20" y="16" width="8" height="16" rx="3" fill="white" opacity=".9"/><rect x="16" y="20" width="16" height="8" rx="3" fill="white" opacity=".9"/><circle cx="38" cy="10" r="5" fill="#FCD34D" opacity=".8"/></svg>',
+   url:'PROXIMAMENTE'}
+];
+
+var CUAD_RECURSOS=[
+  {key:'lista',label:'Lista para Imprimir',cls:'cc-azul',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="6" y="18" width="36" height="20" rx="5" fill="#374151"/><rect x="6" y="18" width="36" height="9" rx="5" fill="#4B5563"/><rect x="14" y="6" width="20" height="16" rx="3" fill="white"/><line x1="18" y1="11" x2="30" y2="11" stroke="#e2e8f0" stroke-width="1.5"/><line x1="18" y1="15" x2="30" y2="15" stroke="#e2e8f0" stroke-width="1.5"/><rect x="14" y="32" width="20" height="12" rx="2" fill="white"/><line x1="18" y1="36" x2="30" y2="36" stroke="#3B82F6" stroke-width="1.5"/><line x1="18" y1="39" x2="30" y2="39" stroke="#3B82F6" stroke-width="1.5"/><circle cx="35" cy="24" r="2.5" fill="#22C55E"/></svg>',url:'LISTADO_IMPRIMIR'},
+    {key:'prog-sem',label:'Cuaderno Programaciones Semanales',cls:'cc-azul',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="44" rx="19" ry="4" fill="#15803d" opacity=".5"/><rect x="8" y="8" width="28" height="32" rx="5" fill="white" opacity=".97"/><rect x="8" y="8" width="28" height="9" rx="5" fill="#3B82F6" opacity=".85"/><rect x="14" y="4" width="3.5" height="9" rx="1.75" fill="#1e40af"/><rect x="26.5" y="4" width="3.5" height="9" rx="1.75" fill="#1e40af"/><rect x="13" y="22" width="5" height="5" rx="1.5" fill="#93C5FD"/><rect x="21" y="22" width="5" height="5" rx="1.5" fill="#22C55E"/><rect x="29" y="22" width="4" height="5" rx="1.5" fill="#93C5FD"/><rect x="13" y="30" width="5" height="5" rx="1.5" fill="#22C55E"/><rect x="21" y="30" width="5" height="5" rx="1.5" fill="#93C5FD"/><rect x="36" y="32" width="3" height="10" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="37.5" cy="29" rx="5.5" ry="6" fill="#16a34a" opacity=".8"/></svg>',url:'PROXIMAMENTE'},
+  {key:'libros',label:'Lista Control Libros',cls:'cc-violeta',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="37" y="28" width="3" height="14" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="38" cy="25" rx="7" ry="6" fill="#15803d" opacity=".7"/><rect x="4" y="32" width="28" height="8" rx="3" fill="#EF4444"/><line x1="8" y1="32" x2="8" y2="40" stroke="#DC2626" stroke-width="2"/><rect x="4" y="22" width="26" height="8" rx="3" fill="#3B82F6"/><line x1="8" y1="22" x2="8" y2="30" stroke="#1d4ed8" stroke-width="2"/><rect x="4" y="12" width="24" height="8" rx="3" fill="#22C55E"/><line x1="8" y1="12" x2="8" y2="20" stroke="#15803d" stroke-width="2"/><rect x="4" y="4" width="22" height="7" rx="3" fill="#F59E0B"/><circle cx="36" cy="8" r="5" fill="#FCD34D" opacity=".9"/><polyline points="33,8 35,10 39,6" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',url:'LIBROS_CONTROL'},
+  {key:'criterios',label:'Cuaderno Criterios de Evaluación',cls:'cc-violeta',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="44" rx="19" ry="4" fill="#15803d" opacity=".5"/><rect x="9" y="6" width="26" height="34" rx="5" fill="white" opacity=".97"/><rect x="9" y="6" width="5" height="34" rx="5" fill="#A855F7" opacity=".7"/><circle cx="19" cy="15" r="2.6" fill="#22C55E"/><polyline points="16.8,15 18.6,16.8 21.4,13.4" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="24" y1="15" x2="31" y2="15" stroke="#e2e8f0" stroke-width="1.6" stroke-linecap="round"/><circle cx="19" cy="23" r="2.6" fill="#22C55E"/><polyline points="16.8,23 18.6,24.8 21.4,21.4" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><line x1="24" y1="23" x2="31" y2="23" stroke="#e2e8f0" stroke-width="1.6" stroke-linecap="round"/><circle cx="19" cy="31" r="2.6" fill="#cbd5e1"/><line x1="24" y1="31" x2="29" y2="31" stroke="#e2e8f0" stroke-width="1.6" stroke-linecap="round"/><rect x="36" y="31" width="3" height="11" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="37.5" cy="27" rx="6" ry="6.5" fill="#7c3aed" opacity=".55"/></svg>',url:'PROXIMAMENTE'},
+  {key:'portal-actas',label:'Portal de Actas de Evaluación',cls:'cc-verde',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="6" y="6" width="26" height="34" rx="5" fill="white" opacity=".95"/><rect x="6" y="6" width="5" height="34" rx="5" fill="#6366F1" opacity=".7"/><line x1="15" y1="14" x2="28" y2="14" stroke="#c7d2fe" stroke-width="2" stroke-linecap="round"/><line x1="15" y1="20" x2="28" y2="20" stroke="#e2e8f0" stroke-width="1.5" stroke-linecap="round"/><line x1="15" y1="25" x2="24" y2="25" stroke="#e2e8f0" stroke-width="1.5" stroke-linecap="round"/><rect x="36" y="30" width="3.5" height="14" rx="1.75" fill="#92400e" opacity=".7"/><ellipse cx="37.5" cy="25" rx="8" ry="9" fill="#22C55E" opacity=".9"/><ellipse cx="32" cy="28" rx="5" ry="6" fill="#4ADE80" opacity=".8" transform="rotate(-20 32 28)"/><rect x="30" y="43" width="16" height="4" rx="2" fill="#15803d" opacity=".5"/><circle cx="14" cy="34" r="6.5" fill="#22C55E"/><polyline points="10.5,34 13,36.5 17.5,31.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',url:'PROXIMAMENTE'},
+  {key:'cuad-horarios',label:'Cuaderno de Horarios',cls:'cc-naranja',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><ellipse cx="24" cy="44" rx="19" ry="4" fill="#15803d" opacity=".5"/><rect x="8" y="7" width="26" height="33" rx="4" fill="white" opacity=".97"/><rect x="8" y="7" width="26" height="8" rx="4" fill="#F59E0B" opacity=".9"/><rect x="12" y="20" width="5" height="5" rx="1.3" fill="#FCD34D"/><rect x="19" y="20" width="5" height="5" rx="1.3" fill="#22C55E"/><rect x="26" y="20" width="4" height="5" rx="1.3" fill="#93C5FD"/><rect x="12" y="28" width="5" height="5" rx="1.3" fill="#22C55E"/><rect x="19" y="28" width="5" height="5" rx="1.3" fill="#FCA5A5"/><rect x="26" y="28" width="4" height="5" rx="1.3" fill="#FCD34D"/><rect x="37" y="31" width="3" height="11" rx="1.5" fill="#92400e" opacity=".7"/><ellipse cx="38.5" cy="27" rx="6" ry="6.5" fill="#16a34a" opacity=".85"/><circle cx="33" cy="12" r="6" fill="#F59E0B"/><line x1="33" y1="9" x2="33" y2="12" stroke="white" stroke-width="1.4" stroke-linecap="round"/><line x1="33" y1="12" x2="35" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>',url:'CUADERNO_HORARIOS'},
+  {key:'cuad-sust',label:'Cuaderno Sustituciones',cls:'cc-rojo',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="4" width="9" height="4" rx="1.5" fill="#7C3AED" opacity=".5"/><rect x="13" y="4" width="9" height="4" rx="1.5" fill="#7C3AED" opacity=".4"/><rect x="2" y="10" width="6" height="4" rx="1.5" fill="#7C3AED" opacity=".4"/><rect x="2" y="16" width="20" height="3" rx="1.5" fill="#166534" opacity=".4"/><rect x="6" y="20" width="26" height="22" rx="4" fill="white" opacity=".95"/><rect x="6" y="20" width="5" height="22" rx="4" fill="#7C3AED" opacity=".6"/><polyline points="17,28 24,28 24,25 30,30 24,35 24,32 17,32" fill="#7C3AED" opacity=".8"/><circle cx="14" cy="27" r="3" fill="#EF4444" opacity=".8"/><circle cx="14" cy="34" r="3" fill="#22C55E" opacity=".8"/></svg>',url:'PROXIMAMENTE'},
+  {key:'cuad-inc',label:'Cuaderno Incidencias',cls:'cc-naranja',svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="42" width="44" height="5" rx="2.5" fill="#15803d" opacity=".4"/><rect x="3" y="10" width="20" height="26" rx="4" fill="white" opacity=".9"/><rect x="3" y="10" width="4" height="26" rx="4" fill="#EF4444" opacity=".5"/><path d="M24 8 L42 38 L6 38 Z" fill="none" stroke="#F59E0B" stroke-width="3" stroke-linejoin="round"/><line x1="24" y1="18" x2="24" y2="28" stroke="#D97706" stroke-width="3" stroke-linecap="round"/><circle cx="24" cy="33" r="2.5" fill="#D97706"/><circle cx="42" cy="10" r="4" fill="#EC4899" opacity=".8"/></svg>',url:'PROXIMAMENTE'},
+
+  {key:'cuad-enf',label:'Enfermedades Crónicas',cls:'cc-rojo',
+   svg:'<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="42" width="44" height="5" rx="2.5" fill="#15803d" opacity=".4"/><path d="M24 8 C18 2 8 6 8 16 C8 26 24 38 24 38 C24 38 40 26 40 16 C40 6 30 2 24 8Z" fill="#EF4444" opacity=".9"/><rect x="20" y="14" width="8" height="16" rx="3" fill="white" opacity=".95"/><rect x="16" y="18" width="16" height="8" rx="3" fill="white" opacity=".95"/></svg>',
+   url:'PROXIMAMENTE'}
+];
+function renderCuadLibros(){
+  loadDocsCentro();
+  var box=document.getElementById('cuad-libros-box');
+  var cursos=[];
+  if(USER.group)cursos.push(USER.group);
+  if(USER.cursos&&Array.isArray(USER.cursos)){USER.cursos.forEach(function(c){if(cursos.indexOf(c)<0)cursos.push(c);});}
+  if(!cursos.length){box.innerHTML='<div class="no-ev" style="padding:14px">Sin cursos en Control_Acceso.</div>';return;}
+  var CL={'1':'#22C55E','2':'#F59E0B','3':'#A855F7','4':'#EF4444','5':'#3B82F6','6':'#10B981','I':'#EC4899'};
+  var h='';
+  cursos.forEach(function(c){
+    var n=(c||'').replace(/[^0-9]/g,'').charAt(0)||'I';
+    var col=CL[n]||'#64748b';
+    h+='<div style="background:white;border:1.5px solid #e2e8f0;border-radius:16px;margin-bottom:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.06)" data-curso="'+encodeURIComponent(c)+'" onclick="openCuadInner(decodeURIComponent(this.dataset.curso))">';
+    h+='<div style="display:flex;align-items:center;gap:14px;padding:16px">';
+    h+='<div style="width:52px;height:52px;border-radius:12px;background:'+col+'22;display:flex;align-items:center;justify-content:center;flex-shrink:0">';
+    h+='<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="40" width="44" height="6" rx="3" fill="#15803d" opacity=".4"/><rect x="6" y="6" width="28" height="36" rx="4" fill="white" opacity=".95" stroke="'+col+'" stroke-width="1.5"/><rect x="6" y="6" width="5" height="36" rx="4" fill="'+col+'" opacity=".6"/><line x1="16" y1="14" x2="30" y2="14" stroke="#e2e8f0" stroke-width="1.5"/><line x1="16" y1="20" x2="30" y2="20" stroke="#e2e8f0" stroke-width="1.5"/><line x1="16" y1="26" x2="30" y2="26" stroke="#e2e8f0" stroke-width="1.5"/></svg>';
+    h+='</div><div style="flex:1"><div style="font-size:1rem;font-weight:800;color:#0B132B">Cuadernos para el docente del CEIP Clara Campoamor</div>';
+    h+='<div style="font-size:.8rem;color:'+col+';font-weight:700;margin-top:3px">Curso '+c+'</div></div>';
+    h+='<div style="width:28px;height:28px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:#64748b">&#9654;</div>';
+    h+='</div></div>';
+  });
+  box.innerHTML=h;
+}
+
+function openCuadInner(curso){
+  var CL={'1':'#22C55E','2':'#F59E0B','3':'#A855F7','4':'#EF4444','5':'#3B82F6','6':'#10B981','I':'#EC4899'};
+  var n=(curso||'').replace(/[^0-9]/g,'').charAt(0)||'I';
+  var col=CL[n]||'#64748b';
+  var d=document.getElementById('cuad-inner');
+  var h='<div style="background:linear-gradient(135deg,'+col+','+col+'aa);border-radius:14px;padding:16px;margin-bottom:16px;color:white;display:flex;align-items:center;gap:14px">';
+  h+='<button style="background:rgba(255,255,255,.2);border:none;color:white;border-radius:8px;padding:7px 12px;font-size:.8rem;font-weight:700;cursor:pointer;flex-shrink:0" onclick="showCuadMain()">&#8592; Volver</button>';
+  h+='<div><div style="font-size:1rem;font-weight:800">Cuaderno '+curso+'</div>';
+  h+='<div style="font-size:.72rem;opacity:.8;margin-top:2px">Documentos del tutor/a</div></div></div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">';
+  CUAD_RECURSOS.forEach(function(item){
+    h+='<button style="background:white;border:1.5px solid #e2e8f0;border-radius:14px;padding:16px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:#1e293b;cursor:pointer;text-align:center;line-height:1.3;box-shadow:0 1px 4px rgba(0,0,0,.04)" data-url="'+encodeURIComponent(item.url)+'" onclick="openEmbedEnc(this)">'+item.svg+'<span>'+item.label+'</span></button>';
+  });
+  h+='</div>';
+  d.innerHTML=h;
+  document.getElementById('cuad-main').style.display='none';
+  d.style.display='block';
+}
+
+function showCuadMain(){
+  document.getElementById('cuad-main').style.display='block';
+  document.getElementById('cuad-inner').style.display='none';
+}
+
+
+function renderCuadGrid(curso){
+  if(!curso){document.getElementById('cuad-grid-box').innerHTML='<div class="no-ev" style="padding:14px">Selecciona un curso.</div>';return;}
+  var h='<div class="cuad-grid">';
+  CUAD_ITEMS.forEach(function(item){
+    h+='<button class="cuad-card '+item.cls+'" data-url="'+encodeURIComponent(item.url)+'" data-ctx="tutor" onclick="openEmbedEnc(this)">';
+    h+=item.svg;
+    h+='<span>'+item.label+'</span>';
+    h+='</button>';
+  });
+  h+='</div>';
+  document.getElementById('cuad-grid-box').innerHTML=h;
+}
+
+/* ── UTILIDADES ───────────────────────────────────────── */
+function showPanel(id){
+  document.querySelectorAll('.util-panel').forEach(function(p){p.style.display='none';});
+  var p=document.getElementById(id);if(p){p.style.display='block';p.scrollIntoView({behavior:'smooth',block:'start'});}
+  // Cartelera y Galería a PANTALLA COMPLETA
+  if(p&&(id==='p-cartelera'||id==='p-galeria')){
+    p.style.position='fixed';p.style.inset='0';p.style.zIndex='9999';
+    p.style.background='#f1f5f9';p.style.overflow='auto';
+    p.style.padding='14px';p.style.margin='0';p.style.borderRadius='0';
+  }
+  if(id==='p-cartelera')loadCartelera();
+  if(id==='p-galeria')loadGaleria();
+  if(id==='p-notif')loadDests();
+  if(id==='p-fotos')loadFolders();
+}
+function hidePanel(id){
+  var p=document.getElementById(id);
+  if(!p)return;
+  p.style.display='none';
+  ['position','inset','zIndex','background','overflow','padding','margin','borderRadius'].forEach(function(k){p.style[k]='';});
+}
+
+function loadCartelera(){
+  var b=document.getElementById('cartelera-box');
+  b.innerHTML='<div class="no-ev" style="padding:20px;text-align:center">Cargando...</div>';
+  try{google.script.run.withSuccessHandler(renderCartelera).withFailureHandler(function(){b.innerHTML='<div class="no-ev" style="padding:16px">Error.</div>';}).getCartelera();}
+  catch(e){b.innerHTML='<div class="no-ev" style="padding:16px">Sin conexion.</div>';}
+}
+function showYTCanal(){
+  var box = document.getElementById('yt-canal-box');
+  if(!box) return;
+  box.innerHTML = '<div style="font-size:.8rem;font-weight:700;color:#0B132B;margin-bottom:6px">Canal del colegio</div>' +
+    '<iframe src="https://www.youtube.com/embed?listType=user_uploads&list=&rel=0" ' +
+    'style="width:100%;aspect-ratio:16/9;border:none;border-radius:10px" ' +
+    'allow="accelerometer; autoplay; encrypted-media" allowfullscreen="true">' +
+    '</iframe>';
+}
+function renderCartelera(r){
+  var b=document.getElementById('cartelera-box');
+  if(!b)return;
+  if(!r||!r.videos||!r.videos.length){
+    b.innerHTML='<div class="no-ev" style="padding:20px;text-align:center">No se pudieron cargar los vídeos del canal.'+(r&&r.error?'<br><small>'+r.error+'</small>':'')+'</div>';
+    return;
+  }
+  var VIDS=r.videos, PAG=4, pagina=0;
+  var totalPags=Math.ceil(VIDS.length/PAG);
+  function pintar(){
+    var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;width:100%">';
+    VIDS.slice(pagina*PAG,(pagina+1)*PAG).forEach(function(v){
+      h+='<div onclick="playVideo(\'https://www.youtube.com/embed/'+v.id+'?autoplay=1&rel=0\',\''+(v.titulo||'').replace(/'/g,'')+'\')" style="cursor:pointer;border-radius:14px;overflow:hidden;background:white;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,.06)">';
+      h+='<div style="position:relative;width:100%;aspect-ratio:16/9;background:#0B132B">';
+      h+='<img src="https://i.ytimg.com/vi/'+v.id+'/hqdefault.jpg" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy">';
+      h+='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><div style="width:52px;height:52px;border-radius:50%;background:rgba(11,19,43,.75);display:flex;align-items:center;justify-content:center;color:white;font-size:1.3rem">&#9654;</div></div>';
+      h+='</div>';
+      h+='<div style="padding:10px 12px"><div style="font-weight:700;font-size:.85rem;color:#1e293b;line-height:1.3">'+(v.titulo||'')+'</div>';
+      if(v.fecha)h+='<div style="font-size:.7rem;color:#94a3b8;margin-top:3px">'+v.fecha+'</div>';
+      h+='</div></div>';
+    });
+    h+='</div>';
+    // Paginación con flechas
+    h+='<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px">';
+    h+='<button '+(pagina===0?'disabled style="opacity:.3;':'style="')+'background:#0B132B;color:white;border:none;border-radius:10px;padding:9px 16px;font-size:.9rem;font-weight:800;cursor:pointer" onclick="window._cartPrev()">&#8592;</button>';
+    h+='<div style="font-size:.78rem;color:#64748b;font-weight:700">'+(pagina+1)+' / '+totalPags+'</div>';
+    h+='<button '+(pagina>=totalPags-1?'disabled style="opacity:.3;':'style="')+'background:#0B132B;color:white;border:none;border-radius:10px;padding:9px 16px;font-size:.9rem;font-weight:800;cursor:pointer" onclick="window._cartNext()">&#8594;</button>';
+    h+='</div>';
+    h+='<div style="text-align:center;margin-top:10px"><a href="https://www.youtube.com/" target="_blank" style="font-size:.75rem;color:#4EA8DE;font-weight:700;text-decoration:none">Ver el canal completo en YouTube &#8599;</a></div>';
+    b.innerHTML=h;
+  }
+  window._cartPrev=function(){if(pagina>0){pagina--;pintar();}};
+  window._cartNext=function(){if(pagina<totalPags-1){pagina++;pintar();}};
+  pintar();
+}
+function playVideoEnc(el){var url=decodeURIComponent(el.getAttribute('data-url')||'');var titulo=decodeURIComponent(el.getAttribute('data-title')||'');playVideo(url,titulo);}
+function playVideo(url,titulo){
+  var em=url;var yt=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/);
+  if(yt)em='https://www.youtube.com/embed/'+yt[1]+'?autoplay=1';
+  else if(url.includes('drive.google.com')){var dm=url.match(/\/d\/([^/]+)/);if(dm)em='https://drive.google.com/file/d/'+dm[1]+'/preview';}
+  document.getElementById('video-title').innerText=titulo||'';
+  document.getElementById('video-frame').src=em;
+  document.getElementById('video-modal').classList.add('on');
+}
+function closeVideo(){document.getElementById('video-modal').classList.remove('on');document.getElementById('video-frame').src='';}
+
+function loadDests(){
+  try{google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.destinatarios)return;
+    var s=document.getElementById('notif-dest');s.innerHTML='';
+    r.destinatarios.forEach(function(d){var o=document.createElement('option');o.value=d.email;o.text=d.nombre;s.appendChild(o);});
+  }).getDestinatariosNotificacion();}catch(e){}
+}
+function sendNotif(){
+  var t=document.getElementById('notif-asunto').value.trim();
+  var m=document.getElementById('notif-msg').value.trim();
+  var lnk=document.getElementById('notif-link')?document.getElementById('notif-link').value.trim():'';
+  if(lnk) m=m+(m?'\n\n':'')+'Enlace: '+lnk;
+  var rec=document.getElementById('notif-dest').value;
+  var rb=document.getElementById('notif-res');var btn=document.getElementById('btn-notif');
+  if(!t||!m){rb.style.display='block';rb.style.background='#fef2f2';rb.style.color='#dc2626';rb.innerText='Rellena asunto y mensaje.';return;}
+  btn.disabled=true;btn.innerText='Enviando...';rb.style.display='none';
+  try{google.script.run
+    .withSuccessHandler(function(r){btn.disabled=false;btn.innerText='Enviar por Email';rb.style.display='block';rb.style.background=r.success?'#f0fdf4':'#fef2f2';rb.style.color=r.success?'#15803d':'#dc2626';rb.innerText=r.message;if(r.success){document.getElementById('notif-asunto').value='';document.getElementById('notif-msg').value='';} })
+    .withFailureHandler(function(e){btn.disabled=false;btn.innerText='Enviar por Email';rb.style.display='block';rb.style.background='#fef2f2';rb.style.color='#dc2626';rb.innerText='Error: '+e;})
+    .processNotification({title:t,message:m,recipient:rec});
+  }catch(e){btn.disabled=false;btn.innerText='Enviar por Email';rb.style.display='block';rb.style.background='#fef2f2';rb.innerText='Sin conexion.';}
+}
+function loadGaleria(){
+  var box=document.getElementById('galeria-box');
+  if(box)box.innerHTML='<div style="text-align:center;padding:20px;color:#94a3b8;font-size:.78rem;grid-column:1/-1">Cargando...</div>';
+  try{google.script.run.withSuccessHandler(function(r){
+    if(!r||((!r.fotos||!r.fotos.length)&&(!r.albums||!r.albums.length))){
+      if(box)box.innerHTML='<div style="text-align:center;padding:20px;color:#94a3b8;font-size:.78rem;grid-column:1/-1">No hay fotos aun.</div>';return;
+    }
+    var h='';
+    (r.albums||[]).forEach(function(a){
+      h+='<div style="border-radius:8px;overflow:hidden;background:#f1f5f9;cursor:pointer;position:relative" data-fid="'+a.id+'" data-fn="'+encodeURIComponent(a.nombre)+'" onclick="loadGaleriaFolder(this.dataset.fid,decodeURIComponent(this.dataset.fn))">';
+      if(a.thumb)h+='<img src="'+a.thumb+'" style="width:100%;aspect-ratio:1;object-fit:cover">';
+      else h+='<div style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:2rem">📁</div>';
+      h+='<div style="font-size:.65rem;font-weight:700;padding:4px;text-align:center;background:rgba(0,0,0,.4);color:white;position:absolute;bottom:0;width:100%">'+a.nombre+'</div>';
+      h+='</div>';
+    });
+    (r.fotos||[]).forEach(function(f){
+      h+='<div style="border-radius:8px;overflow:hidden;background:#f1f5f9;cursor:pointer" data-url="'+encodeURIComponent(f.url||'')+'" onclick="openEmbedEnc(this)">';
+      if(f.thumb)h+='<img src="'+f.thumb+'" style="width:100%;aspect-ratio:1;object-fit:cover">';
+      else h+='<div style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:2rem">📷</div>';
+      h+='</div>';
+    });
+    if(box)box.innerHTML=h||'<div style="text-align:center;padding:20px;color:#94a3b8;grid-column:1/-1">Sin fotos.</div>';
+  }).withFailureHandler(function(){if(box)box.innerHTML='<div style="text-align:center;padding:20px;color:#94a3b8;grid-column:1/-1">Sin conexion.</div>';}).getGaleriaFotos();}catch(e){if(box)box.innerHTML='<div style="text-align:center;padding:20px;color:#94a3b8;grid-column:1/-1">Sin conexion.</div>';}
+}
+function loadGaleriaFolder(folderId,nombre){
+  var box=document.getElementById('galeria-box');
+  if(box) box.innerHTML='<div style="text-align:center;padding:20px;color:#94a3b8;grid-column:1/-1">Cargando '+nombre+'...</div>';
+  // Añadir botón volver al álbum
+  var btn = document.getElementById('galeria-back-btn');
+  if(!btn){
+    btn = document.createElement('button');
+    btn.id = 'galeria-back-btn';
+    btn.textContent = '← Volver a álbumes';
+    btn.style.cssText = 'background:#0B132B;color:white;border:none;padding:8px 14px;border-radius:8px;font-size:.78rem;cursor:pointer;margin-bottom:10px;display:block';
+    btn.onclick = function(){ loadGaleria(); this.remove(); };
+    if(box) box.parentNode.insertBefore(btn, box);
+  }
+  // Por ahora mostrar el nombre del álbum — la carga real requiere Codigo.gs
+  if(box) box.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;grid-column:1/-1;font-size:.85rem">📁 '+nombre+'<br><span style="font-size:.75rem;color:#94a3b8">Las fotos de este álbum aparecerán aquí una vez que tengas fotos subidas.</span></div>';
+}
+
+function loadFolders(){
+  var s=document.getElementById('foto-carpeta');s.innerHTML='<option value="">Cargando...</option>';
+  try{google.script.run.withSuccessHandler(function(r){
+    if(!r||!r.folders||!r.folders.length){s.innerHTML='<option value="">Sin carpetas</option>';return;}
+    s.innerHTML='<option value="">-- Seleccionar --</option>';
+    r.folders.forEach(function(f){var o=document.createElement('option');o.value=o.text=f;if(USER.group&&f.replace(/\s/g,'')===USER.group.replace(/\s/g,''))o.selected=true;s.appendChild(o);});
+  }).withFailureHandler(function(){s.innerHTML='<option value="">Error</option>';}).getCourseFolders();}catch(e){}
+}
+function previewFotos(inp){
+  var c=document.getElementById('foto-prev-wrap');var p=document.getElementById('foto-prevs');var b=document.getElementById('btn-upload');
+  p.innerHTML='';
+  if(!inp.files||!inp.files.length){c.style.display='none';b.disabled=true;return;}
+  c.style.display='block';b.disabled=false;
+  Array.from(inp.files).forEach(function(f){var r=new FileReader();r.onload=function(e){var img=document.createElement('img');img.src=e.target.result;img.style='width:72px;height:72px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0';p.appendChild(img);};r.readAsDataURL(f);});
+}
+function uploadFotos(){
+  var inp=document.getElementById('foto-input');var cf=document.getElementById('foto-carpeta').value;
+  var rb=document.getElementById('foto-res');var btn=document.getElementById('btn-upload');
+  if(!inp.files||!inp.files.length){rb.style.display='block';rb.style.background='#fef2f2';rb.style.color='#dc2626';rb.innerText='Selecciona fotos.';return;}
+  btn.disabled=true;btn.innerText='Subiendo...';rb.style.display='none';
+  var files=Array.from(inp.files);var up=0,err=0,tot=files.length;
+  files.forEach(function(f){
+    var r=new FileReader();
+    r.onload=function(e){
+      var b64=e.target.result.split(',')[1];
+      try{google.script.run
+        .withSuccessHandler(function(r){if(r.success)up++;else err++;if(up+err===tot){btn.disabled=false;btn.innerText='Subir a Drive';rb.style.display='block';rb.style.background=!err?'#f0fdf4':'#fef2f2';rb.style.color=!err?'#15803d':'#dc2626';rb.innerText=!err?'OK '+up+' foto(s).':'Error en '+err+' foto(s).';} })
+        .withFailureHandler(function(){err++;if(up+err===tot){btn.disabled=false;btn.innerText='Subir a Drive';rb.style.display='block';rb.style.background='#fef2f2';rb.innerText='Error.';} })
+        .uploadPhotoToDrive(b64,f.name,cf,f.type);
+      }catch(ex){err++;}
+    };
+    r.readAsDataURL(f);
+  });
+}
+</script>

@@ -1,0 +1,24 @@
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   MEMBRETES · Claritanet · CEIP Clara Campoamor
+   ────────────────────────────────────────────────────────────────────
+   Cabecera y pie que aparecen en los documentos para imprimir del portal
+   (listas de clase, actas, etc.).
+
+   ESTÁN EN BLANCO. Pega aquí las imágenes del centro, como URL o como
+   data URI en base64:
+
+     var CAB_SUPERIOR = 'data:image/png;base64,iVBORw0KGgoAAAANS...';
+     var CAB_INFERIOR = 'https://.../pie-clara-campoamor.png';
+
+   Mientras estén vacíos se usa una imagen transparente (no se imprime
+   nada de cabecera/pie), así el listado sigue funcionando sin errores.
+   ══════════════════════════════════════════════════════════════════════ */
+var _MEMBRETE_VACIO = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+var CAB_SUPERIOR = '';   /* ← pega aquí la CABECERA del centro (URL o base64) */
+var CAB_INFERIOR = '';   /* ← pega aquí el PIE del centro (URL o base64) */
+
+if (!CAB_SUPERIOR) CAB_SUPERIOR = _MEMBRETE_VACIO;
+if (!CAB_INFERIOR) CAB_INFERIOR = _MEMBRETE_VACIO;
+</script>
