@@ -426,8 +426,8 @@ function openListadoDetail(){
 
   // Cargar TODOS los cursos del colegio (no solo los del usuario)
   // Nombres exactos de grupos según la app de gestión
-  var TODOS_CURSOS = []; /* Rellena con las claves de curso del centro, p.ej. '1oA','3anosA' */
-  var CURSOS_LABELS = {}; /* Rellena: { '1oA':'1º A', ... } */
+  var TODOS_CURSOS = ['3anosA','3anosB','4anosA','4anosB','5anosA','5anosB','1oA','1oB','2oA','2oB','3oA','3oB','3oC','4oA','4oB','4oC','4oD','5oA','5oB','5oC','6oA','6oB','6oC'];
+  var CURSOS_LABELS = {'3anosA':'3 años A', '3anosB':'3 años B', '4anosA':'4 años A', '4anosB':'4 años B', '5anosA':'5 años A', '5anosB':'5 años B', '1oA':'1º A', '1oB':'1º B', '2oA':'2º A', '2oB':'2º B', '3oA':'3º A', '3oB':'3º B', '3oC':'3º C', '4oA':'4º A', '4oB':'4º B', '4oC':'4º C', '4oD':'4º D', '5oA':'5º A', '5oB':'5º B', '5oC':'5º C', '6oA':'6º A', '6oB':'6º B', '6oC':'6º C'};
   // Primero intentar cargar alumnos reales del servidor
   try {
     google.script.run
@@ -1053,7 +1053,7 @@ function setModoReligion(modo){
 function openReligionDetail(){
   var sel = document.getElementById('religion-curso-sel');
   sel.innerHTML = '<option value="">Selecciona un curso...</option>';
-  var TODOS_CURSOS_R = []; /* Rellena con las claves de curso del centro */
+  var TODOS_CURSOS_R = ['3anosA','3anosB','4anosA','4anosB','5anosA','5anosB','1oA','1oB','2oA','2oB','3oA','3oB','3oC','4oA','4oB','4oC','4oD','5oA','5oB','5oC','6oA','6oB','6oC'];
   
   try {
     google.script.run

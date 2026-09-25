@@ -795,7 +795,7 @@ function renderCuadHorarios(r){
 <script>
 /* ── FORMULARIO DE SALIDA · Actividades Extraescolares y Complementarias · ClaritaNet ── */
 (function(){
-  var CURSOS=[]; /* Rellena con los cursos del centro, p.ej. ['Infantil 3 años A','1º A',...] */
+  var CURSOS=['Infantil 3 años A','Infantil 3 años B','Infantil 4 años A','Infantil 4 años B','Infantil 5 años A','Infantil 5 años B','1º A','1º B','2º A','2º B','3º A','3º B','3º C','4º A','4º B','4º C','4º D','5º A','5º B','5º C','6º A','6º B','6º C'];
   function horas(){ var a=[]; for(var h=7;h<=20;h++){ ['00','15','30','45'].forEach(function(m){ a.push((h<10?'0'+h:h)+':'+m); }); } return a; }
   function optsHora(){ return '<option value="">— elegir —</option>'+horas().map(function(x){return '<option>'+x+'</option>';}).join(''); }
   function estilo(){
@@ -899,7 +899,7 @@ function renderCuadHorarios(r){
 <script>
 /* ── RESERVAS DE ESPACIOS (profesorado) ── */
 (function(){
-  var GRUPOS=[]; /* Rellena con los grupos del centro, p.ej. ['Infantil 3 años A','1º A',...] */
+  var GRUPOS=['Infantil 3 años A','Infantil 3 años B','Infantil 4 años A','Infantil 4 años B','Infantil 5 años A','Infantil 5 años B','1º A','1º B','2º A','2º B','3º A','3º B','3º C','4º A','4º B','4º C','4º D','5º A','5º B','5º C','6º A','6º B','6º C'];
   var PAL=[['#fef9c3','#a16207'],['#fee2e2','#b91c1c'],['#dbeafe','#7E4E97'],['#dcfce7','#15803d'],['#ede9fe','#6d28d9'],['#fce7f3','#be185d'],['#ffedd5','#c2410c'],['#cffafe','#0e7490'],['#e0e7ff','#3730a3'],['#d1fae5','#047857'],['#fef3c7','#92400e'],['#e5e7eb','#334155'],['#f5d0fe','#a21caf'],['#bbf7d0','#166534'],['#bae6fd','#0369a1']];
   var COLG={}; GRUPOS.forEach(function(g,i){ COLG[g]=PAL[i%PAL.length]; });
   function colCurso(c){ return COLG[c]||['#cffafe','#0e7490']; }
