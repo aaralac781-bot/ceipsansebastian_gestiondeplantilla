@@ -90,11 +90,11 @@ function openHorariosDetail(){
     '<div style="position:sticky;top:0;background:#F59E0B;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;z-index:3">'+
       '<button onclick="document.getElementById(\'ov-horarios\').remove()" style="background:rgba(255,255,255,.25);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px">&#8592; Volver</button>'+
       '<div style="font-size:1.05rem;font-weight:800">Cuaderno de horarios</div></div>'+
-    '<div style="margin:12px;border-radius:18px;padding:16px 16px 12px;color:#fff;background:linear-gradient(135deg,#0B132B 0%,#1e2a52 55%,#5B21B6 130%);box-shadow:0 8px 24px rgba(11,19,43,.3)">'+
+    '<div style="margin:12px;border-radius:18px;padding:16px 16px 12px;color:#fff;background:linear-gradient(135deg,#7A1B39 0%,#1e2a52 55%,#5B2A5F 130%);box-shadow:0 8px 24px rgba(11,19,43,.3)">'+
       '<div style="font-size:1.15rem;font-weight:800">Cuaderno de horarios</div>'+
       '<div style="font-size:.75rem;opacity:.85;margin-top:2px">CEIP Clara Campoamor · se actualiza en cada exportación</div>'+
       '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px">'+
-        _legChip('#2563eb','Grupo','horario del curso')+_legChip('#7C3AED','Maestro','horario personal')+
+        _legChip('#B84E86','Grupo','horario del curso')+_legChip('#7C3AED','Maestro','horario personal')+
         _legChip('#F59E0B','Luciérnaga','refuerzo · sustit.')+_legChip('#EC4899','Recreo','maestro y grupo')+'</div></div>'+
     '<div style="padding:0 12px"><label style="font-size:.72rem;font-weight:700;color:#64748b">MAESTRO/A</label>'+
       '<select id="cuad-hor-sel" style="width:100%;margin-top:4px;padding:9px 10px;border-radius:10px;border:1px solid #e2e8f0;font-weight:600" onchange="cargarCuadHorarios(this.value)">'+opts+'</select></div>'+
@@ -123,7 +123,7 @@ function cuadranteRecreoHTML(c){
     var h='<div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px;overflow:hidden">';
     h+='<div style="background:'+color+';color:#fff;font-weight:800;padding:10px 14px">'+titulo+'</div>';
     h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:420px">';
-    h+='<tr style="background:#0B132B;color:#fff"><th style="padding:5px 6px;text-align:left">Puesto</th>';
+    h+='<tr style="background:#7A1B39;color:#fff"><th style="padding:5px 6px;text-align:left">Puesto</th>';
     D.forEach(function(d){ h+='<th style="padding:5px 4px">'+d+'</th>'; }); h+='</tr>';
     node.puestos.forEach(function(p,i){
       var fila=(node.filas && node.filas[p]) || ['','','','',''];
@@ -147,7 +147,7 @@ function renderCuadHorarios(r){
   if(!r.tramos||!r.tramos.length){ body.innerHTML='<div style="padding:14px;background:#fff;border-radius:14px">Sin horario para <b>'+(r.teacher||'')+'</b>. Publícalo desde la App con <b>Exportar horarios a SSNet</b>.</div>'; return; }
   var D=['L','M','X','J','V'];
   function tabla(titulo,color,datos){
-    var h='<div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px;overflow:hidden"><div style="background:'+color+';color:#fff;font-weight:800;padding:10px 14px">'+titulo+'</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:340px"><tr style="background:#0B132B;color:#fff"><th style="padding:5px 6px;text-align:left">Hora</th>';
+    var h='<div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px;overflow:hidden"><div style="background:'+color+';color:#fff;font-weight:800;padding:10px 14px">'+titulo+'</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:340px"><tr style="background:#7A1B39;color:#fff"><th style="padding:5px 6px;text-align:left">Hora</th>';
     D.forEach(function(d){ h+='<th style="padding:5px 4px">'+d+'</th>'; }); h+='</tr>';
     var hay=false;
     r.tramos.forEach(function(t,i){ var fila=datos[t]||['','','','','']; if(fila.some(function(x){return x;}))hay=true;
@@ -163,7 +163,7 @@ function renderCuadHorarios(r){
   }
   var out='';
   out+=tabla('Horario del maestro/a — '+(r.teacher||''),'#7C3AED',r.maestro);
-  if(r.group) out+=tabla('Horario del grupo '+r.group,'#2563eb',r.grupo);
+  if(r.group) out+=tabla('Horario del grupo '+r.group,'#B84E86',r.grupo);
   out+=tabla('Refuerzo / Luciérnaga','#F59E0B',r.refuerzo)||'<div style="padding:10px 14px;margin-bottom:14px;background:#fff;border-radius:14px;color:#64748b;font-size:.78rem">Sin horas de refuerzo/luciérnaga.</div>';
    out+=cuadranteRecreoHTML(r.recreoCuad);
   body.innerHTML=out;
@@ -236,7 +236,7 @@ function renderCuadHorarios(r){
     <!-- CUADERNOS -->
     <section id="v-cuadernos" class="view">
       <div id="cuad-main">
-        <div style="background:linear-gradient(135deg,#0B132B,#1c2541);border-radius:14px;padding:18px 16px;margin-bottom:16px;color:white;position:relative;overflow:hidden"><div style="font-size:1.1rem;font-weight:800;margin-bottom:4px">Cuadernos y Documentos</div><div style="font-size:.75rem;opacity:.7">Accede a tus cuadernos de tutor/a y documentos del centro</div></div>
+        <div style="background:linear-gradient(135deg,#7A1B39,#5A1029);border-radius:14px;padding:18px 16px;margin-bottom:16px;color:white;position:relative;overflow:hidden"><div style="font-size:1.1rem;font-weight:800;margin-bottom:4px">Cuadernos y Documentos</div><div style="font-size:.75rem;opacity:.7">Accede a tus cuadernos de tutor/a y documentos del centro</div></div>
         
         <div class="sec-title">Mis Cuadernos de Tutor/a</div>
         <div id="cuad-libros-box"><div class="no-ev" style="padding:14px">Cargando...</div></div>
@@ -270,9 +270,9 @@ function renderCuadHorarios(r){
       <div class="sec-title">Calendario de Proyectos</div>
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <button onclick="shiftMonthProy(-1)" style="border:none;background:#f1f5f9;border-radius:8px;width:34px;height:34px;font-size:.9rem;cursor:pointer;color:#0B132B">&#9664;</button>
-          <div id="pcal-title" style="font-weight:800;color:#0B132B"></div>
-          <button onclick="shiftMonthProy(1)" style="border:none;background:#f1f5f9;border-radius:8px;width:34px;height:34px;font-size:.9rem;cursor:pointer;color:#0B132B">&#9654;</button>
+          <button onclick="shiftMonthProy(-1)" style="border:none;background:#f1f5f9;border-radius:8px;width:34px;height:34px;font-size:.9rem;cursor:pointer;color:#7A1B39">&#9664;</button>
+          <div id="pcal-title" style="font-weight:800;color:#7A1B39"></div>
+          <button onclick="shiftMonthProy(1)" style="border:none;background:#f1f5f9;border-radius:8px;width:34px;height:34px;font-size:.9rem;cursor:pointer;color:#7A1B39">&#9654;</button>
         </div>
         <div id="pcal-grid" class="cal-grid"></div>
       </div>
@@ -297,12 +297,12 @@ function renderCuadHorarios(r){
         <button class="util-btn" data-url="https%3A%2F%2Fprofes.tv%2Frecursos.html" onclick="openEmbedEnc(this)"><div class="util-ico" style="font-size:.62rem;font-weight:900;letter-spacing:-.5px">profes<span style="color:#b91c1c">.tv</span></div><span>profes.tv &middot; IA en el aula<br><small style="font-weight:400;opacity:.7">de C&eacute;sar Poyatos</small></span></button>
         <button class="util-btn" onclick="showPanel('p-fotos')"><div class="util-ico">&#128248;</div><span>Subir Fotos al Drive</span></button>
         <button class="util-btn" onclick="showPanel('p-galeria')">
-          <div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="2" y="42" width="44" height="5" rx="2.5" fill="#15803d" opacity=".4"/><rect x="38" y="30" width="3" height="12" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="39" cy="27" rx="6" ry="5" fill="#15803d" opacity=".7"/><rect x="2" y="4" width="20" height="14" rx="3" fill="#0B132B" opacity=".9"/><rect x="4" y="6" width="16" height="10" rx="2" fill="#166534" opacity=".7"/><circle cx="8" cy="10" r="2" fill="#FCD34D" opacity=".7"/><rect x="24" y="4" width="22" height="14" rx="3" fill="#0B132B" opacity=".9"/><rect x="26" y="6" width="18" height="10" rx="2" fill="#1e3a5f" opacity=".7"/><circle cx="30" cy="11" r="3" fill="#EF4444" opacity=".7"/><rect x="2" y="20" width="20" height="14" rx="3" fill="#0B132B" opacity=".9"/><rect x="4" y="22" width="16" height="10" rx="2" fill="#4c1d95" opacity=".6"/><circle cx="7" cy="25" r="1.5" fill="#4ADE80" opacity=".9"/><rect x="24" y="20" width="12" height="14" rx="3" fill="#0B132B" opacity=".9"/><rect x="26" y="22" width="8" height="10" rx="2" fill="#92400e" opacity=".6"/></svg></div>
+          <div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="2" y="42" width="44" height="5" rx="2.5" fill="#15803d" opacity=".4"/><rect x="38" y="30" width="3" height="12" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="39" cy="27" rx="6" ry="5" fill="#15803d" opacity=".7"/><rect x="2" y="4" width="20" height="14" rx="3" fill="#7A1B39" opacity=".9"/><rect x="4" y="6" width="16" height="10" rx="2" fill="#166534" opacity=".7"/><circle cx="8" cy="10" r="2" fill="#FCD34D" opacity=".7"/><rect x="24" y="4" width="22" height="14" rx="3" fill="#7A1B39" opacity=".9"/><rect x="26" y="6" width="18" height="10" rx="2" fill="#1e3a5f" opacity=".7"/><circle cx="30" cy="11" r="3" fill="#EF4444" opacity=".7"/><rect x="2" y="20" width="20" height="14" rx="3" fill="#7A1B39" opacity=".9"/><rect x="4" y="22" width="16" height="10" rx="2" fill="#4c1d95" opacity=".6"/><circle cx="7" cy="25" r="1.5" fill="#4ADE80" opacity=".9"/><rect x="24" y="20" width="12" height="14" rx="3" fill="#7A1B39" opacity=".9"/><rect x="26" y="22" width="8" height="10" rx="2" fill="#92400e" opacity=".6"/></svg></div>
           <span>Ver Galería</span>
         </button>
         
         <button class="util-btn" onclick="openSalasDetail()">
-          <div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><rect x="4" y="10" width="26" height="20" rx="5" fill="#0B132B" opacity=".9"/><rect x="6" y="12" width="22" height="16" rx="3" fill="#1e3a5f" opacity=".8"/><circle cx="12" cy="18" r="3" fill="#22C55E" opacity=".8"/><circle cx="20" cy="16" r="3" fill="#3B82F6" opacity=".8"/><circle cx="28" cy="18" r="3" fill="#EF4444" opacity=".7"/><rect x="14" y="24" width="8" height="4" rx="2" fill="#4ADE80" opacity=".7"/><path d="M30 20 L38 14 L38 28 Z" fill="#22C55E" opacity=".8"/><circle cx="8" cy="38" r="2" fill="#4ADE80" opacity=".9"/></svg></div>
+          <div class="util-ico"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><rect x="4" y="10" width="26" height="20" rx="5" fill="#7A1B39" opacity=".9"/><rect x="6" y="12" width="22" height="16" rx="3" fill="#1e3a5f" opacity=".8"/><circle cx="12" cy="18" r="3" fill="#22C55E" opacity=".8"/><circle cx="20" cy="16" r="3" fill="#B84E86" opacity=".8"/><circle cx="28" cy="18" r="3" fill="#EF4444" opacity=".7"/><rect x="14" y="24" width="8" height="4" rx="2" fill="#4ADE80" opacity=".7"/><path d="M30 20 L38 14 L38 28 Z" fill="#22C55E" opacity=".8"/><circle cx="8" cy="38" r="2" fill="#4ADE80" opacity=".9"/></svg></div>
           <span>Salas Meet</span>
         </button>
         <button class="util-btn" onclick="window.open('','_blank')">
@@ -327,12 +327,12 @@ function renderCuadHorarios(r){
         <div class="util-panel-body">
           <div style="font-size:.8rem;color:#64748b;margin-bottom:14px">Pulsa para entrar directamente a la reunión. Los enlaces son fijos — siempre el mismo para cada equipo.</div>
           <div onclick="openEmbed('','')" style="background:#dbeafe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
-            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><circle cx="12" cy="14" r="5" fill="#1e40af" opacity=".9"/><circle cx="24" cy="12" r="5.5" fill="#1e40af"/><circle cx="36" cy="14" r="5" fill="#1e40af" opacity=".9"/><path d="M5 32 Q5 23 12 23 Q19 23 19 32" fill="#1d4ed8" opacity=".7"/><path d="M17 32 Q17 22 24 22 Q31 22 31 32" fill="#2563eb"/><path d="M29 32 Q29 23 36 23 Q43 23 43 32" fill="#1d4ed8" opacity=".7"/><circle cx="12" cy="7" r="1.5" fill="#FCD34D" opacity=".8"/><circle cx="24" cy="5" r="1.5" fill="#FCD34D" opacity=".8"/><circle cx="36" cy="7" r="1.5" fill="#FCD34D" opacity=".8"/></svg></div>
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><circle cx="12" cy="14" r="5" fill="#7E4E97" opacity=".9"/><circle cx="24" cy="12" r="5.5" fill="#7E4E97"/><circle cx="36" cy="14" r="5" fill="#7E4E97" opacity=".9"/><path d="M5 32 Q5 23 12 23 Q19 23 19 32" fill="#B84E86" opacity=".7"/><path d="M17 32 Q17 22 24 22 Q31 22 31 32" fill="#B84E86"/><path d="M29 32 Q29 23 36 23 Q43 23 43 32" fill="#B84E86" opacity=".7"/><circle cx="12" cy="7" r="1.5" fill="#FCD34D" opacity=".8"/><circle cx="24" cy="5" r="1.5" fill="#FCD34D" opacity=".8"/><circle cx="36" cy="7" r="1.5" fill="#FCD34D" opacity=".8"/></svg></div>
             <div style="flex:1">
-              <div style="font-weight:800;font-size:.92rem;color:#0B132B">ETCP</div>
+              <div style="font-weight:800;font-size:.92rem;color:#7A1B39">ETCP</div>
               <div style="font-size:.72rem;color:#64748b;margin-top:2px">Equipo Tecnico de Coordinacion Pedagogica</div>
             </div>
-            <div style="background:#0B132B;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+            <div style="background:#7A1B39;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
           </div>
           <div onclick="openEmbed('','')" style="background:#d1fae5;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
             <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".5"/><rect x="20" y="33" width="3" height="10" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="21" cy="30" rx="8" ry="6" fill="#15803d" opacity=".7"/><circle cx="8" cy="18" r="4" fill="#22C55E" opacity=".9"/><circle cx="16" cy="15" r="4.5" fill="#16a34a"/><circle cx="24" cy="13" r="5" fill="#15803d"/><circle cx="32" cy="15" r="4.5" fill="#16a34a"/><circle cx="40" cy="18" r="4" fill="#22C55E" opacity=".9"/><path d="M3 32 Q3 26 8 26 Q13 26 13 32" fill="#22C55E" opacity=".6"/><path d="M10 32 Q10 24 16 24 Q22 24 22 32" fill="#16a34a" opacity=".7"/><path d="M26 32 Q26 24 32 24 Q38 24 38 32" fill="#16a34a" opacity=".7"/><path d="M35 32 Q35 26 40 26 Q45 26 45 32" fill="#22C55E" opacity=".6"/></svg></div>
@@ -375,15 +375,15 @@ function renderCuadHorarios(r){
             <div style="background:#b91c1c;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
           </div>
           <div onclick="openEmbed('','')" style="background:#dbeafe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
-            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><line x1="24" y1="10" x2="24" y2="38" stroke="#3B82F6" stroke-width="2" stroke-dasharray="3,2" opacity=".5"/><circle cx="14" cy="16" r="6" fill="#3B82F6" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#1d4ed8" opacity=".8"/><circle cx="34" cy="18" r="6" fill="#93c5fd" opacity=".9"/><path d="M26 36 Q26 28 34 28 Q42 28 42 36" fill="#3B82F6" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">5</text><text x="34" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">6</text></svg></div>
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><line x1="24" y1="10" x2="24" y2="38" stroke="#B84E86" stroke-width="2" stroke-dasharray="3,2" opacity=".5"/><circle cx="14" cy="16" r="6" fill="#B84E86" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#B84E86" opacity=".8"/><circle cx="34" cy="18" r="6" fill="#93c5fd" opacity=".9"/><path d="M26 36 Q26 28 34 28 Q42 28 42 36" fill="#B84E86" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">5</text><text x="34" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">6</text></svg></div>
             <div style="flex:1">
-              <div style="font-weight:800;font-size:.92rem;color:#1e40af">Tercer Ciclo</div>
+              <div style="font-weight:800;font-size:.92rem;color:#7E4E97">Tercer Ciclo</div>
               <div style="font-size:.72rem;color:#64748b;margin-top:2px">5º y 6º curso</div>
             </div>
-            <div style="background:#1e40af;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
+            <div style="background:#7E4E97;color:white;border-radius:8px;padding:6px 12px;font-size:.75rem;font-weight:700;flex-shrink:0">Entrar</div>
           </div>
                     <div onclick="window.open('','_blank')" style="background:#cffafe;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)">
-            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="20" cy="22" r="15" fill="#cffafe"/><circle cx="20" cy="22" r="15" fill="none" stroke="#0e7490" stroke-width="2.5"/><polygon points="20,9 23,22 17,22" fill="#ef4444"/><polygon points="20,35 23,22 17,22" fill="#0e7490"/><circle cx="20" cy="22" r="2.2" fill="#0B132B"/></svg></div>
+            <div style="width:50px;height:50px;border-radius:12px;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.1)"><svg width="36" height="36" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="20" cy="22" r="15" fill="#cffafe"/><circle cx="20" cy="22" r="15" fill="none" stroke="#0e7490" stroke-width="2.5"/><polygon points="20,9 23,22 17,22" fill="#ef4444"/><polygon points="20,35 23,22 17,22" fill="#0e7490"/><circle cx="20" cy="22" r="2.2" fill="#7A1B39"/></svg></div>
             <div style="flex:1">
               <div style="font-weight:800;font-size:.92rem;color:#0e7490">Equipo de Orientación</div>
               <div style="font-size:.72rem;color:#64748b;margin-top:2px">Orientación, PT y AL</div>
@@ -440,11 +440,11 @@ function renderCuadHorarios(r){
   <!-- ═══ NAV con SVG temáticos ═══ -->
   <nav class="nav">
     <button class="nbtn on" id="nb-aldia" onclick="goTab('aldia',this)">
-      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="2" y="4" width="12" height="5" rx="1.5" fill="#7C3AED" opacity=".45"/><rect x="16" y="4" width="10" height="5" rx="1.5" fill="#7C3AED" opacity=".35"/><circle cx="34" cy="22" r="7" fill="#FCD34D"/><circle cx="34" cy="22" r="5" fill="#F59E0B"/><line x1="34" y1="12" x2="34" y2="10" stroke="#FCD34D" stroke-width="2" stroke-linecap="round"/><line x1="41" y1="15" x2="43" y2="13" stroke="#FCD34D" stroke-width="2" stroke-linecap="round"/><ellipse cx="12" cy="34" rx="7" ry="3" fill="white" opacity=".9"/><path d="M5 34 Q5 42 12 43 Q19 42 19 34" fill="#E8D5B0" opacity=".85"/><ellipse cx="9" cy="29" rx="4" ry="6" fill="#22C55E" opacity=".9" transform="rotate(-15 9 29)"/><rect x="2" y="44" width="44" height="3" rx="1.5" fill="#16A34A" opacity=".7"/><rect x="4" y="44" width="6" height="3" rx="1" fill="#EF4444" opacity=".8"/><rect x="13" y="44" width="6" height="3" rx="1" fill="#F59E0B" opacity=".8"/><rect x="22" y="44" width="6" height="3" rx="1" fill="#3B82F6" opacity=".8"/><rect x="31" y="44" width="6" height="3" rx="1" fill="#A855F7" opacity=".8"/></svg>
+      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="2" y="4" width="12" height="5" rx="1.5" fill="#7C3AED" opacity=".45"/><rect x="16" y="4" width="10" height="5" rx="1.5" fill="#7C3AED" opacity=".35"/><circle cx="34" cy="22" r="7" fill="#FCD34D"/><circle cx="34" cy="22" r="5" fill="#F59E0B"/><line x1="34" y1="12" x2="34" y2="10" stroke="#FCD34D" stroke-width="2" stroke-linecap="round"/><line x1="41" y1="15" x2="43" y2="13" stroke="#FCD34D" stroke-width="2" stroke-linecap="round"/><ellipse cx="12" cy="34" rx="7" ry="3" fill="white" opacity=".9"/><path d="M5 34 Q5 42 12 43 Q19 42 19 34" fill="#E8D5B0" opacity=".85"/><ellipse cx="9" cy="29" rx="4" ry="6" fill="#22C55E" opacity=".9" transform="rotate(-15 9 29)"/><rect x="2" y="44" width="44" height="3" rx="1.5" fill="#16A34A" opacity=".7"/><rect x="4" y="44" width="6" height="3" rx="1" fill="#EF4444" opacity=".8"/><rect x="13" y="44" width="6" height="3" rx="1" fill="#F59E0B" opacity=".8"/><rect x="22" y="44" width="6" height="3" rx="1" fill="#B84E86" opacity=".8"/><rect x="31" y="44" width="6" height="3" rx="1" fill="#A855F7" opacity=".8"/></svg>
       <span>Al Dia</span><span class="nbadge" id="nb-badge-aldia"></span>
     </button>
     <button class="nbtn" id="nb-agenda" onclick="goTab('agenda',this)">
-      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="6" y="10" width="36" height="30" rx="5" fill="white" opacity=".15"/><rect x="6" y="10" width="36" height="11" rx="5" fill="#3B82F6" opacity=".9"/><rect x="6" y="16" width="36" height="5" fill="#3B82F6" opacity=".9"/><circle cx="14" cy="29" r="3" fill="#EF4444" opacity=".5"/><circle cx="24" cy="29" r="3" fill="#A855F7"/><circle cx="42" cy="12" r="4" fill="#EC4899" opacity=".8"/><circle cx="8" cy="40" r="3" fill="#FCD34D" opacity=".7"/></svg>
+      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="6" y="10" width="36" height="30" rx="5" fill="white" opacity=".15"/><rect x="6" y="10" width="36" height="11" rx="5" fill="#B84E86" opacity=".9"/><rect x="6" y="16" width="36" height="5" fill="#B84E86" opacity=".9"/><circle cx="14" cy="29" r="3" fill="#EF4444" opacity=".5"/><circle cx="24" cy="29" r="3" fill="#A855F7"/><circle cx="42" cy="12" r="4" fill="#EC4899" opacity=".8"/><circle cx="8" cy="40" r="3" fill="#FCD34D" opacity=".7"/></svg>
       <span>Agenda</span>
     </button>
     <button class="nbtn" id="nb-cuadernos" onclick="goTab('cuadernos',this)">
@@ -456,7 +456,7 @@ function renderCuadHorarios(r){
       <span>Proyectos</span>
     </button>
     <button class="nbtn" id="nb-util" onclick="goTab('util',this)">
-      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="8" y="22" width="32" height="20" rx="4" fill="#fed7aa" opacity=".95"/><rect x="8" y="22" width="32" height="8" rx="4" fill="#f97316" opacity=".9"/><rect x="22" y="16" width="4" height="10" rx="2" fill="#c2410c" opacity=".9"/><line x1="15" y1="30" x2="15" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="15" cy="28" rx="3" ry="4" fill="#EF4444" opacity=".85"/><line x1="22" y1="29" x2="22" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="22" cy="27" rx="3" ry="4" fill="#3B82F6" opacity=".85"/><line x1="29" y1="30" x2="29" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="29" cy="28" rx="3" ry="4" fill="#22C55E" opacity=".85"/><line x1="36" y1="29" x2="36" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="36" cy="27" rx="3" ry="4" fill="#A855F7" opacity=".85"/><ellipse cx="40" cy="16" rx="5" ry="2" fill="white" opacity=".8"/><path d="M35 16 Q35 22 40 23 Q45 22 45 16" fill="#E8D5B0" opacity=".75"/><circle cx="40" cy="12" r="3.5" fill="#EC4899" opacity=".85"/></svg>
+      <svg viewBox="0 0 48 48" fill="none" width="26" height="26"><rect x="8" y="22" width="32" height="20" rx="4" fill="#fed7aa" opacity=".95"/><rect x="8" y="22" width="32" height="8" rx="4" fill="#f97316" opacity=".9"/><rect x="22" y="16" width="4" height="10" rx="2" fill="#c2410c" opacity=".9"/><line x1="15" y1="30" x2="15" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="15" cy="28" rx="3" ry="4" fill="#EF4444" opacity=".85"/><line x1="22" y1="29" x2="22" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="22" cy="27" rx="3" ry="4" fill="#B84E86" opacity=".85"/><line x1="29" y1="30" x2="29" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="29" cy="28" rx="3" ry="4" fill="#22C55E" opacity=".85"/><line x1="36" y1="29" x2="36" y2="40" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="36" cy="27" rx="3" ry="4" fill="#A855F7" opacity=".85"/><ellipse cx="40" cy="16" rx="5" ry="2" fill="white" opacity=".8"/><path d="M35 16 Q35 22 40 23 Q45 22 45 16" fill="#E8D5B0" opacity=".75"/><circle cx="40" cy="12" r="3.5" fill="#EC4899" opacity=".85"/></svg>
       <span>Utilidades</span>
     </button>
   </nav>
@@ -480,12 +480,12 @@ function renderCuadHorarios(r){
       <div class="salas-detail-body">
         <div style="font-size:.8rem;color:#64748b;margin-bottom:14px">Pulsa <strong>Entrar</strong> para acceder directamente a tu reunión. Los enlaces son fijos.</div>
           <div class="sala-card" onclick="abrirSala('MEET_ETCP')">
-            <div class="sala-ico" style="background:#dbeafe"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><circle cx="12" cy="14" r="5" fill="#1e40af" opacity=".9"/><circle cx="24" cy="12" r="5.5" fill="#1e40af"/><circle cx="36" cy="14" r="5" fill="#1e40af" opacity=".9"/><path d="M5 32 Q5 23 12 23 Q19 23 19 32" fill="#1d4ed8" opacity=".7"/><path d="M17 32 Q17 22 24 22 Q31 22 31 32" fill="#2563eb"/><path d="M29 32 Q29 23 36 23 Q43 23 43 32" fill="#1d4ed8" opacity=".7"/><circle cx="24" cy="5" r="1.5" fill="#FCD34D" opacity=".8"/></svg></div>
+            <div class="sala-ico" style="background:#dbeafe"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="36" y="31" width="3" height="12" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="37" cy="28" rx="6" ry="5" fill="#15803d" opacity=".6"/><circle cx="12" cy="14" r="5" fill="#7E4E97" opacity=".9"/><circle cx="24" cy="12" r="5.5" fill="#7E4E97"/><circle cx="36" cy="14" r="5" fill="#7E4E97" opacity=".9"/><path d="M5 32 Q5 23 12 23 Q19 23 19 32" fill="#B84E86" opacity=".7"/><path d="M17 32 Q17 22 24 22 Q31 22 31 32" fill="#B84E86"/><path d="M29 32 Q29 23 36 23 Q43 23 43 32" fill="#B84E86" opacity=".7"/><circle cx="24" cy="5" r="1.5" fill="#FCD34D" opacity=".8"/></svg></div>
             <div class="sala-info">
               <div class="sala-nombre">ETCP</div>
               <div class="sala-desc">Equipo Técnico de Coordinación Pedagógica</div>
             </div>
-            <button class="sala-btn" style="background:#1e40af" onclick="event.stopPropagation();abrirSala('MEET_ETCP')">Entrar</button>
+            <button class="sala-btn" style="background:#7E4E97" onclick="event.stopPropagation();abrirSala('MEET_ETCP')">Entrar</button>
           </div>
           <div class="sala-card" onclick="abrirSala('MEET_CLAUSTRO')">
             <div class="sala-ico" style="background:#d1fae5"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".5"/><rect x="20" y="33" width="3" height="10" rx="1.5" fill="#92400e" opacity=".6"/><ellipse cx="21" cy="30" rx="8" ry="6" fill="#15803d" opacity=".7"/><circle cx="8" cy="18" r="4" fill="#22C55E" opacity=".9"/><circle cx="16" cy="15" r="4.5" fill="#16a34a"/><circle cx="24" cy="13" r="5" fill="#15803d"/><circle cx="32" cy="15" r="4.5" fill="#16a34a"/><circle cx="40" cy="18" r="4" fill="#22C55E" opacity=".9"/><path d="M3 32 Q3 26 8 26 Q13 26 13 32" fill="#22C55E" opacity=".6"/><path d="M10 32 Q10 24 16 24 Q22 24 22 32" fill="#16a34a" opacity=".7"/><path d="M26 32 Q26 24 32 24 Q38 24 38 32" fill="#16a34a" opacity=".7"/><path d="M35 32 Q35 26 40 26 Q45 26 45 32" fill="#22C55E" opacity=".6"/></svg></div>
@@ -528,12 +528,12 @@ function renderCuadHorarios(r){
             <button class="sala-btn" style="background:#b91c1c" onclick="event.stopPropagation();abrirSala('MEET_CICLO2')">Entrar</button>
           </div>
           <div class="sala-card" onclick="abrirSala('MEET_CICLO3')">
-            <div class="sala-ico" style="background:#dbeafe"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="14" cy="16" r="6" fill="#3B82F6" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#1d4ed8" opacity=".8"/><circle cx="32" cy="18" r="6" fill="#93c5fd" opacity=".9"/><path d="M24 36 Q24 28 32 28 Q40 28 40 36" fill="#3B82F6" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">5</text><text x="32" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">6</text></svg></div>
+            <div class="sala-ico" style="background:#dbeafe"><svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect x="2" y="43" width="44" height="4" rx="2" fill="#15803d" opacity=".4"/><rect x="38" y="32" width="3" height="11" rx="1.5" fill="#92400e" opacity=".5"/><ellipse cx="39" cy="29" rx="6" ry="5" fill="#15803d" opacity=".55"/><circle cx="14" cy="16" r="6" fill="#B84E86" opacity=".9"/><path d="M6 36 Q6 27 14 27 Q22 27 22 36" fill="#B84E86" opacity=".8"/><circle cx="32" cy="18" r="6" fill="#93c5fd" opacity=".9"/><path d="M24 36 Q24 28 32 28 Q40 28 40 36" fill="#B84E86" opacity=".7"/><text x="14" y="19" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">5</text><text x="32" y="21" text-anchor="middle" font-size="7" font-weight="900" fill="white" font-family="sans-serif">6</text></svg></div>
             <div class="sala-info">
               <div class="sala-nombre">Tercer Ciclo</div>
               <div class="sala-desc">5º y 6º curso</div>
             </div>
-            <button class="sala-btn" style="background:#1e40af" onclick="event.stopPropagation();abrirSala('MEET_CICLO3')">Entrar</button>
+            <button class="sala-btn" style="background:#7E4E97" onclick="event.stopPropagation();abrirSala('MEET_CICLO3')">Entrar</button>
           </div>
       </div>
     </div>
@@ -653,7 +653,7 @@ function renderCuadHorarios(r){
           <div style="margin-top:10px">
             <label>Mostrar</label>
             <div style="display:flex;gap:8px;margin-top:6px">
-              <button id="btn-religion" onclick="setModoReligion('religion')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #0B132B;background:#0B132B;color:white;font-weight:700;cursor:pointer;font-size:.82rem">Religión</button>
+              <button id="btn-religion" onclick="setModoReligion('religion')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #7A1B39;background:#7A1B39;color:white;font-weight:700;cursor:pointer;font-size:.82rem">Religión</button>
               <button id="btn-atedu" onclick="setModoReligion('atedu')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #e2e8f0;background:white;color:#64748b;font-weight:700;cursor:pointer;font-size:.82rem">ATEDU</button>
               <button id="btn-todos" onclick="setModoReligion('todos')" style="flex:1;padding:8px;border-radius:8px;border:2px solid #e2e8f0;background:white;color:#64748b;font-weight:700;cursor:pointer;font-size:.82rem">Todos</button>
             </div>
@@ -707,7 +707,7 @@ function renderCuadHorarios(r){
     lista.forEach(function(it){
       h+='<div style="display:flex;gap:10px;align-items:flex-start;background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:10px 12px;margin-bottom:8px">'+
          '<div style="font-size:1.35rem;flex:0 0 auto;line-height:1">'+it.ic+'</div>'+
-         '<div><div style="font-weight:800;color:#0B132B;font-size:.9rem">'+it.n+'</div>'+
+         '<div><div style="font-weight:800;color:#7A1B39;font-size:.9rem">'+it.n+'</div>'+
          '<div style="font-size:.79rem;color:#475569;line-height:1.45;margin-top:2px">'+it.d+'</div></div></div>';
     });
     return h+'</div>';
@@ -753,12 +753,12 @@ function renderCuadHorarios(r){
           '<div style="font-size:.7rem;font-weight:800;color:#94a3b8">'+(i+1)+' / '+PASOS.length+'</div>'+
           '<button onclick="__tourSkip()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer">✕</button>'+
         '</div>'+
-        '<div style="font-size:1.2rem;font-weight:800;color:#0B132B;margin-bottom:8px">'+p.t+'</div>'+
+        '<div style="font-size:1.2rem;font-weight:800;color:#7A1B39;margin-bottom:8px">'+p.t+'</div>'+
         cuerpo+
         '<div style="text-align:center;margin:2px 0 14px">'+puntos+'</div>'+
         '<div style="display:flex;gap:8px">'+
-          (i>0?'<button onclick="__tourBack()" style="background:#f1f5f9;border:none;color:#0B132B;font-weight:700;border-radius:12px;padding:12px 16px;cursor:pointer">Atrás</button>':'')+
-          '<button onclick="__tourNext()" style="flex:1;background:linear-gradient(135deg,#0B132B,#7C3AED);border:none;color:#fff;font-weight:800;border-radius:12px;padding:12px 16px;cursor:pointer">'+(i===PASOS.length-1?'¡Empezar!':'Siguiente ›')+'</button>'+
+          (i>0?'<button onclick="__tourBack()" style="background:#f1f5f9;border:none;color:#7A1B39;font-weight:700;border-radius:12px;padding:12px 16px;cursor:pointer">Atrás</button>':'')+
+          '<button onclick="__tourNext()" style="flex:1;background:linear-gradient(135deg,#7A1B39,#7C3AED);border:none;color:#fff;font-weight:800;border-radius:12px;padding:12px 16px;cursor:pointer">'+(i===PASOS.length-1?'¡Empezar!':'Siguiente ›')+'</button>'+
         '</div>';
       setTimeout(recolocar,70);
     }
@@ -786,7 +786,7 @@ function renderCuadHorarios(r){
     try{ localStorage.setItem('ssnet_tour_count',(n+1)+''); }catch(e){}
     lanzarTour();
   }
-  autoTour(); (function(){function idDe(u){var m=String(u||'').match(/[-\w]{25,}/);return m?m[0]:'';}function tools(){var rb=document.getElementById('res-bar');if(!rb)return null;var t=document.getElementById('doc-tools');if(!t){t=document.createElement('div');t.id='doc-tools';t.style.cssText='display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;align-items:center';rb.appendChild(t);}return t;}function btn(txt,href,bg){return '<a href="'+href+'" target="_blank" rel="noopener" style="text-decoration:none;background:'+bg+';color:#fff;font-weight:700;font-size:.72rem;border-radius:8px;padding:6px 10px;white-space:nowrap">'+txt+'</a>';}function show(url,ctx){var t=tools();if(!t)return;var id=idDe(url);if(ctx||!id){t.style.display='none';t.innerHTML='';return;}t.innerHTML=btn('🖨️ Imprimir','https://drive.google.com/file/d/'+id+'/view','#0B132B')+btn('📄 Guardar en mi Drive','https://docs.google.com/document/d/'+id+'/copy','#4E2680')+btn('📥 Descargar','https://drive.google.com/uc?export=download&id='+id,'#0E7A32');t.style.display='flex';}function ocultar(){var t=document.getElementById('doc-tools');if(t){t.style.display='none';t.innerHTML='';}}function hook(){if(typeof window.openEmbed!=='function'){return setTimeout(hook,400);}if(window.__docToolsHooked)return;window.__docToolsHooked=true;var _oe=window.openEmbed;window.openEmbed=function(url,ctx){_oe.apply(this,arguments);try{show(url,ctx);}catch(e){}};if(typeof window.closeIframe==='function'){var _ci=window.closeIframe;window.closeIframe=function(){_ci.apply(this,arguments);ocultar();};}}hook();})();
+  autoTour(); (function(){function idDe(u){var m=String(u||'').match(/[-\w]{25,}/);return m?m[0]:'';}function tools(){var rb=document.getElementById('res-bar');if(!rb)return null;var t=document.getElementById('doc-tools');if(!t){t=document.createElement('div');t.id='doc-tools';t.style.cssText='display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;align-items:center';rb.appendChild(t);}return t;}function btn(txt,href,bg){return '<a href="'+href+'" target="_blank" rel="noopener" style="text-decoration:none;background:'+bg+';color:#fff;font-weight:700;font-size:.72rem;border-radius:8px;padding:6px 10px;white-space:nowrap">'+txt+'</a>';}function show(url,ctx){var t=tools();if(!t)return;var id=idDe(url);if(ctx||!id){t.style.display='none';t.innerHTML='';return;}t.innerHTML=btn('🖨️ Imprimir','https://drive.google.com/file/d/'+id+'/view','#7A1B39')+btn('📄 Guardar en mi Drive','https://docs.google.com/document/d/'+id+'/copy','#4E2680')+btn('📥 Descargar','https://drive.google.com/uc?export=download&id='+id,'#0E7A32');t.style.display='flex';}function ocultar(){var t=document.getElementById('doc-tools');if(t){t.style.display='none';t.innerHTML='';}}function hook(){if(typeof window.openEmbed!=='function'){return setTimeout(hook,400);}if(window.__docToolsHooked)return;window.__docToolsHooked=true;var _oe=window.openEmbed;window.openEmbed=function(url,ctx){_oe.apply(this,arguments);try{show(url,ctx);}catch(e){}};if(typeof window.closeIframe==='function'){var _ci=window.closeIframe;window.closeIframe=function(){_ci.apply(this,arguments);ocultar();};}}hook();})();
 })();
 </script>
 <script>
@@ -798,7 +798,7 @@ function renderCuadHorarios(r){
   function estilo(){
     if(document.getElementById('salida-css'))return;
     var st=document.createElement('style'); st.id='salida-css';
-    st.textContent='.sf-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}.sf-lbl{display:block;font-weight:800;color:#0B132B;font-size:.9rem;margin-bottom:6px}.sf-in{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:.9rem;font-family:inherit;color:#0f172a}.sf-in:focus{outline:none;border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.15)}textarea.sf-in{min-height:70px;resize:vertical}.sf-chk{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:9px 10px;font-size:.82rem;font-weight:700;color:#334155;cursor:pointer}.sf-chk input{width:17px;height:17px;accent-color:#0d9488}';
+    st.textContent='.sf-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}.sf-lbl{display:block;font-weight:800;color:#7A1B39;font-size:.9rem;margin-bottom:6px}.sf-in{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:.9rem;font-family:inherit;color:#0f172a}.sf-in:focus{outline:none;border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.15)}textarea.sf-in{min-height:70px;resize:vertical}.sf-chk{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:9px 10px;font-size:.82rem;font-weight:700;color:#334155;cursor:pointer}.sf-chk input{width:17px;height:17px;accent-color:#0d9488}';
     document.head.appendChild(st);
   }
   function cerrar(){ var o=document.getElementById('salida-ov'); if(o)o.remove(); }
@@ -897,7 +897,7 @@ function renderCuadHorarios(r){
 /* ── RESERVAS DE ESPACIOS (profesorado) ── */
 (function(){
   var GRUPOS=[]; /* Rellena con los grupos del centro, p.ej. ['Infantil 3 años A','1º A',...] */
-  var PAL=[['#fef9c3','#a16207'],['#fee2e2','#b91c1c'],['#dbeafe','#1e40af'],['#dcfce7','#15803d'],['#ede9fe','#6d28d9'],['#fce7f3','#be185d'],['#ffedd5','#c2410c'],['#cffafe','#0e7490'],['#e0e7ff','#3730a3'],['#d1fae5','#047857'],['#fef3c7','#92400e'],['#e5e7eb','#334155'],['#f5d0fe','#a21caf'],['#bbf7d0','#166534'],['#bae6fd','#0369a1']];
+  var PAL=[['#fef9c3','#a16207'],['#fee2e2','#b91c1c'],['#dbeafe','#7E4E97'],['#dcfce7','#15803d'],['#ede9fe','#6d28d9'],['#fce7f3','#be185d'],['#ffedd5','#c2410c'],['#cffafe','#0e7490'],['#e0e7ff','#3730a3'],['#d1fae5','#047857'],['#fef3c7','#92400e'],['#e5e7eb','#334155'],['#f5d0fe','#a21caf'],['#bbf7d0','#166534'],['#bae6fd','#0369a1']];
   var COLG={}; GRUPOS.forEach(function(g,i){ COLG[g]=PAL[i%PAL.length]; });
   function colCurso(c){ return COLG[c]||['#cffafe','#0e7490']; }
   var MESc=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
@@ -940,7 +940,7 @@ function renderCuadHorarios(r){
     if(!esp.length){ body().innerHTML='<div class="rcard">Aún no hay espacios configurados. El equipo directivo los define y exporta desde la App de gestión.</div>'; return; }
     var h='<div style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;border-radius:16px;padding:16px;margin-bottom:14px"><div style="font-weight:800;font-size:1.1rem">Reserva un espacio</div><div style="font-size:.8rem;opacity:.9;margin-top:2px">Elige un espacio y la semana. Los tramos de Luciérnaga están bloqueados.</div></div>';
     h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">';
-    esp.forEach(function(e){ h+='<div onclick="__resvEsp('+JSON.stringify(e.id).replace(/"/g,'&quot;')+')" style="cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.05)"><div style="font-size:1.9rem">🔑</div><div style="font-weight:800;color:#0B132B;font-size:.86rem;margin-top:6px">'+(e.nombre||'Espacio')+'</div></div>'; });
+    esp.forEach(function(e){ h+='<div onclick="__resvEsp('+JSON.stringify(e.id).replace(/"/g,'&quot;')+')" style="cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.05)"><div style="font-size:1.9rem">🔑</div><div style="font-weight:800;color:#7A1B39;font-size:.86rem;margin-top:6px">'+(e.nombre||'Espacio')+'</div></div>'; });
     h+='</div>'; body().innerHTML=h;
   }
 
@@ -965,10 +965,10 @@ function renderCuadHorarios(r){
     var hoyL=lunesDe(new Date()), prevDis=(st.lunes.getTime()<=hoyL.getTime());
     var h='<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px 10px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)">'+
       '<button onclick="__resvSem(-1)" '+(prevDis?'disabled':'')+' style="background:'+(prevDis?'#f1f5f9':'#0d9488')+';color:'+(prevDis?'#cbd5e1':'#fff')+';border:none;border-radius:10px;padding:8px 12px;font-weight:800;cursor:'+(prevDis?'default':'pointer')+'">◄</button>'+
-      '<div style="text-align:center"><div style="font-weight:800;color:#0B132B;font-size:.9rem">Semana del '+rango(st.lunes)+'</div>'+(prevDis?'<div style="font-size:.66rem;color:#0d9488;font-weight:700">semana actual</div>':'')+'</div>'+
+      '<div style="text-align:center"><div style="font-weight:800;color:#7A1B39;font-size:.9rem">Semana del '+rango(st.lunes)+'</div>'+(prevDis?'<div style="font-size:.66rem;color:#0d9488;font-weight:700">semana actual</div>':'')+'</div>'+
       '<button onclick="__resvSem(1)" style="background:#0d9488;color:#fff;border:none;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer">►</button></div>';
     if(!tramos.length){ h+='<div class="rcard">Este espacio no tiene tramos configurados todavía.</div>'; body().innerHTML=h; return; }
-    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:360px"><tr style="background:#0B132B;color:#fff"><th style="padding:6px 6px;text-align:left">Hora</th>';
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:360px"><tr style="background:#7A1B39;color:#fff"><th style="padding:6px 6px;text-align:left">Hora</th>';
     dias.forEach(function(d){ h+='<th style="padding:6px 4px">'+d.slice(0,3)+'</th>'; });
     h+='</tr>';
     tramos.forEach(function(t,ti){
@@ -995,7 +995,7 @@ function renderCuadHorarios(r){
     var o=document.createElement('div'); o.id='resv-pick';
     o.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(11,19,43,.55);display:flex;align-items:flex-end;justify-content:center;padding:0 12px 18px';
     var btns=GRUPOS.map(function(g){ return '<button onclick="__resvSel('+di+','+ti+','+JSON.stringify(g).replace(/"/g,'&quot;')+')" style="background:#f0fdfa;border:1px solid #99f6e4;color:#0f766e;border-radius:10px;padding:10px 8px;font-weight:800;font-size:.78rem;cursor:pointer">'+g+'</button>'; }).join('');
-    o.innerHTML='<div style="background:#fff;border-radius:18px;max-width:440px;width:100%;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,.4)"><div style="font-weight:800;color:#0B132B;margin-bottom:10px">¿Qué curso ocupa este hueco?</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;max-height:52vh;overflow-y:auto">'+btns+'</div><button onclick="document.getElementById(\'resv-pick\').remove()" style="width:100%;margin-top:12px;background:#f1f5f9;border:none;border-radius:10px;padding:11px;font-weight:800;color:#0B132B;cursor:pointer">Cancelar</button></div>';
+    o.innerHTML='<div style="background:#fff;border-radius:18px;max-width:440px;width:100%;padding:16px;box-shadow:0 16px 50px rgba(0,0,0,.4)"><div style="font-weight:800;color:#7A1B39;margin-bottom:10px">¿Qué curso ocupa este hueco?</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;max-height:52vh;overflow-y:auto">'+btns+'</div><button onclick="document.getElementById(\'resv-pick\').remove()" style="width:100%;margin-top:12px;background:#f1f5f9;border:none;border-radius:10px;padding:11px;font-weight:800;color:#7A1B39;cursor:pointer">Cancelar</button></div>';
     document.body.appendChild(o);
   }
   function seleccionarCurso(di,ti,curso){
@@ -1086,7 +1086,7 @@ function renderCuadHorarios(r){
 <!-- ▼▼ CONTROL DE LIBROS (v2) — pegar al final, antes de </body> ▼▼ -->
 <script>
 (function(){
-  var COL={ '':['#f1f5f9','#94a3b8'], 'Nuevo':['#dcfce7','#15803d'], 'Buen estado':['#dbeafe','#1e40af'], 'Deteriorado':['#fef3c7','#b45309'], 'Inutilizable':['#fee2e2','#b91c1c'] };
+  var COL={ '':['#f1f5f9','#94a3b8'], 'Nuevo':['#dcfce7','#15803d'], 'Buen estado':['#dbeafe','#7E4E97'], 'Deteriorado':['#fef3c7','#b45309'], 'Inutilizable':['#fee2e2','#b91c1c'] };
   var st={grupo:null, nombre:'', year:'', anios:[], estados:['Nuevo','Buen estado','Deteriorado','Inutilizable'], alById:{}};
   function ov(){ return document.getElementById('lib-ov'); }
   function cerrar(){ var o=ov(); if(o)o.remove(); }
@@ -1116,7 +1116,7 @@ function renderCuadHorarios(r){
   }
   function selectorAnios(){
     if(!st.anios||!st.anios.length) return '';
-    var h='<select id="lib-anio" onchange="__libAnio(this.value)" style="border:none;border-radius:9px;padding:8px 10px;font-weight:800;color:#5B21B6;background:#fff">';
+    var h='<select id="lib-anio" onchange="__libAnio(this.value)" style="border:none;border-radius:9px;padding:8px 10px;font-weight:800;color:#5B2A5F;background:#fff">';
     st.anios.forEach(function(y){ h+='<option value="'+y+'"'+(y===st.year?' selected':'')+'>Curso '+y+'</option>'; });
     return h+'</select>';
   }
@@ -1129,7 +1129,7 @@ function renderCuadHorarios(r){
     if(!g.length){ body().innerHTML='<div class="lcard">Aún no hay alumnado de 3º a 6º en el portal.</div>'; return; }
     var mine=(window.USER&&USER.group)?String(USER.group):'';
     g.sort(function(a,b){ if(a.grupo===mine)return -1; if(b.grupo===mine)return 1; return a.grupo.localeCompare(b.grupo); });
-    var h='<div style="background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;border-radius:16px;padding:16px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">';
+    var h='<div style="background:linear-gradient(135deg,#7C3AED,#5B2A5F);color:#fff;border-radius:16px;padding:16px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">';
     h+='<div style="flex:1;min-width:180px"><div style="font-weight:800;font-size:1.1rem">Elige una clase</div><div style="font-size:.8rem;opacity:.9;margin-top:2px">Marca el estado de cada libro en septiembre (entrega) y junio (devolución).</div></div>';
     h+=selectorAnios()+'</div>';
     h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">';
@@ -1137,7 +1137,7 @@ function renderCuadHorarios(r){
       var tuya=(x.grupo===mine);
       h+='<div onclick="__libGrupo('+JSON.stringify(x.grupo).replace(/"/g,'&quot;')+','+JSON.stringify(x.nombre||x.grupo).replace(/"/g,'&quot;')+')" style="cursor:pointer;position:relative;background:#fff;border:'+(tuya?'2px solid #7C3AED':'1px solid #e2e8f0')+';border-radius:14px;padding:18px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.05)">';
       if(tuya) h+='<div style="position:absolute;top:8px;right:8px;background:#7C3AED;color:#fff;font-size:.6rem;font-weight:800;border-radius:20px;padding:2px 8px">TU CLASE</div>';
-      h+='<div style="font-size:1.7rem">📚</div><div style="font-weight:800;color:#0B132B;margin-top:6px">'+(x.nombre||x.grupo)+'</div><div style="font-size:.72rem;color:#94a3b8">'+x.n+' alumnos/as</div></div>';
+      h+='<div style="font-size:1.7rem">📚</div><div style="font-weight:800;color:#7A1B39;margin-top:6px">'+(x.nombre||x.grupo)+'</div><div style="font-size:.72rem;color:#94a3b8">'+x.n+' alumnos/as</div></div>';
     });
     h+='</div>'; body().innerHTML=h;
   }
@@ -1167,14 +1167,14 @@ function renderCuadHorarios(r){
     st.estados.forEach(function(e){ var c=COL[e]||COL['']; leg+='<span style="background:'+c[0]+';color:'+c[1]+';border-radius:8px;padding:4px 10px;font-weight:800;font-size:.72rem">'+e+'</span>'; });
     leg+='<span style="font-size:.7rem;color:#7C3AED"><span class="lib-her" style="display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle"></span> Heredado de junio</span></div>';
     var h=leg+'<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:12px"><table style="border-collapse:separate;border-spacing:0;font-size:.72rem;background:#fff">';
-    h+='<tr><th rowspan="2" style="position:sticky;left:0;z-index:2;background:#0B132B;color:#fff;padding:8px 10px;text-align:left;min-width:148px">Alumno/a</th>';
-    mat.forEach(function(m){ h+='<th colspan="2" style="background:#0B132B;color:#fff;padding:6px 6px;border-left:2px solid #334155;white-space:nowrap">'+m+'</th>'; });
+    h+='<tr><th rowspan="2" style="position:sticky;left:0;z-index:2;background:#7A1B39;color:#fff;padding:8px 10px;text-align:left;min-width:148px">Alumno/a</th>';
+    mat.forEach(function(m){ h+='<th colspan="2" style="background:#7A1B39;color:#fff;padding:6px 6px;border-left:2px solid #334155;white-space:nowrap">'+m+'</th>'; });
     h+='</tr><tr>';
     mat.forEach(function(){ h+='<th style="background:#1e293b;color:#cbd5e1;padding:4px 6px;font-size:.64rem;border-left:2px solid #334155">Sep</th><th style="background:#1e293b;color:#cbd5e1;padding:4px 6px;font-size:.64rem">Jun</th>'; });
     h+='</tr>';
     al.forEach(function(a,idx){
       var bg=(idx%2)?'#f8fafc':'#fff';
-      h+='<tr><td style="position:sticky;left:0;z-index:1;background:'+bg+';padding:6px 10px;font-weight:700;color:#0B132B;white-space:nowrap;border-top:1px solid #eef2f7;min-width:148px">'+a.nombre+'</td>';
+      h+='<tr><td style="position:sticky;left:0;z-index:1;background:'+bg+';padding:6px 10px;font-weight:700;color:#7A1B39;white-space:nowrap;border-top:1px solid #eef2f7;min-width:148px">'+a.nombre+'</td>';
       mat.forEach(function(m){
         var d=datos[a.id+'|'+m]||{};
         h+='<td style="padding:3px;border-top:1px solid #eef2f7;border-left:2px solid #eef2f7;min-width:80px">'+selHtml(a.id,m,'sep',d.sep||'',d.heredado)+'</td>';
@@ -1252,7 +1252,7 @@ window.renderWeek=function(){
     CALS.forEach(function(c){if(dayEvs.some(function(e){return e.calendarId===c.id;}))dots+='<span class="dot" style="background:'+c.color+'"></span>';});
     h+='<div class="day-group">';
     h+='<div class="day-group-hdr" data-body="dg-'+count+'" onclick="togDayGroup(this)">';
-    h+='<span style="'+(isToday?'color:#2563eb;font-weight:800':'')+'">'+dayNames[wd]+' '+day.getDate()+(isToday?' (Hoy)':'')+'</span>';
+    h+='<span style="'+(isToday?'color:#B84E86;font-weight:800':'')+'">'+dayNames[wd]+' '+day.getDate()+(isToday?' (Hoy)':'')+'</span>';
     h+='<div style="display:flex;align-items:center;gap:8px"><div class="day-dots">'+dots+'</div><span class="day-toggle" id="dtog-'+count+'">&#9660;</span></div>';
     h+='</div>';
     h+='<div class="day-group-body'+(count===0?' open':'')+'" id="dg-'+count+'">';
@@ -1423,7 +1423,7 @@ window.renderWeek=function(){
       var ini=((st.sel&&st.sel.nombre)||userName()||'?').charAt(0).toUpperCase();
       h+='<div class="p27card" style="display:flex;align-items:center;gap:10px">'+
          '<div style="width:40px;height:40px;border-radius:50%;background:#0d9488;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:0 0 auto">'+ini+'</div>'+
-         '<div><div style="font-weight:800;color:#0B132B">'+((st.sel&&st.sel.nombre)||userName())+'</div>'+
+         '<div><div style="font-weight:800;color:#7A1B39">'+((st.sel&&st.sel.nombre)||userName())+'</div>'+
          '<div style="font-size:.7rem;color:#94a3b8">Pides con tu propio usuario. Toca en el calendario los días que quieras.</div></div></div>';
     } else {
       // (respaldo) si no se detecta el usuario, desplegable de nombres
@@ -1444,7 +1444,7 @@ window.renderWeek=function(){
     var y=st.ver.getFullYear(), m=st.ver.getMonth();
     h+='<div class="p27card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
       '<button onclick="__p27Mes(-1)" style="border:none;background:#f1f5f9;border-radius:8px;width:36px;height:36px;font-weight:800;cursor:pointer">◄</button>'+
-      '<div style="font-weight:800;color:#0B132B">'+MES[m]+' '+y+'</div>'+
+      '<div style="font-weight:800;color:#7A1B39">'+MES[m]+' '+y+'</div>'+
       '<button onclick="__p27Mes(1)" style="border:none;background:#f1f5f9;border-radius:8px;width:36px;height:36px;font-weight:800;cursor:pointer">►</button></div>';
     h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:.72rem;text-align:center">';
     ['L','M','X','J','V','S','D'].forEach(function(x){ h+='<div style="font-weight:800;color:#94a3b8">'+x+'</div>'; });
@@ -1469,7 +1469,7 @@ window.renderWeek=function(){
 
     // resumen del curso por mes (todas las peticiones, ordenadas por fecha)
     var fechas=Object.keys(d.porDia||{}).filter(function(fs){ return (d.porDia[fs]||[]).length; }).sort();
-    h+='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:8px">Resumen del curso · peticiones por mes</div>';
+    h+='<div class="p27card"><div style="font-weight:800;color:#7A1B39;margin-bottom:8px">Resumen del curso · peticiones por mes</div>';
     if(!fechas.length){ h+='<div style="font-size:.82rem;color:#94a3b8">Todavía no hay peticiones este curso.</div>'; }
     else {
       var curMes='';
@@ -1479,7 +1479,7 @@ window.renderWeek=function(){
         (d.porDia[fs]||[]).forEach(function(x){
           var col=_p27estadoCol(x.estado);
           h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid #f5f7fa">'+
-            '<span style="font-weight:700;color:#0B132B;min-width:92px;font-size:.76rem">'+fmtDia(fs)+'</span>'+
+            '<span style="font-weight:700;color:#7A1B39;min-width:92px;font-size:.76rem">'+fmtDia(fs)+'</span>'+
             '<span style="flex:1;font-size:.8rem;color:#334155">'+x.nombre+'</span>'+
             '<span class="p27chip" style="background:'+col[0]+';color:'+col[1]+'">'+_p27estadoTxt(x.estado)+'</span></div>';
         });
@@ -1488,14 +1488,14 @@ window.renderWeek=function(){
     h+='</div>';
 
     // solicitudes del maestro seleccionado
-    h+='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:8px">Solicitudes de '+((st.sel&&st.sel.nombre)||'…')+'</div>';
+    h+='<div class="p27card"><div style="font-weight:800;color:#7A1B39;margin-bottom:8px">Solicitudes de '+((st.sel&&st.sel.nombre)||'…')+'</div>';
     if(!d.mias.length){ h+='<div style="font-size:.82rem;color:#94a3b8">Sin solicitudes.</div>'; }
     else {
       d.mias.forEach(function(x){
         var col=_p27estadoCol(x.estado);
         h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #f1f5f9">'+
           '<span class="p27chip" style="background:'+col[0]+';color:'+col[1]+'">'+_p27estadoTxt(x.estado)+'</span>'+
-          '<span style="font-weight:700;color:#0B132B">'+x.fecha+'</span>';
+          '<span style="font-weight:700;color:#7A1B39">'+x.fecha+'</span>';
         if(['ACEPTADA','PENDIENTE','ESPERA'].indexOf(x.estado)>=0)
           h+='<button onclick="__p27Cancelar(\''+x.fecha+'\')" style="margin-left:auto;background:#fee2e2;color:#b91c1c;border:none;border-radius:8px;padding:6px 10px;font-weight:800;font-size:.72rem;cursor:pointer">Borrar</button>';
         h+='</div>';
@@ -1507,7 +1507,7 @@ window.renderWeek=function(){
     body().innerHTML=h; ov().scrollTop=0;
   }
   function _p27estadoCol(e){
-    return {ACEPTADA:['#dcfce7','#15803d'],PENDIENTE:['#dbeafe','#1e40af'],ESPERA:['#fef9c3','#a16207'],
+    return {ACEPTADA:['#dcfce7','#15803d'],PENDIENTE:['#dbeafe','#7E4E97'],ESPERA:['#fef9c3','#a16207'],
             RECHAZADA:['#fee2e2','#b91c1c'],CANCELADA:['#eef2f7','#64748b']}[e]||['#eef2f7','#64748b'];
   }
   function _p27estadoTxt(e){
@@ -1524,7 +1524,7 @@ window.renderWeek=function(){
     var mio=(d.mias||[]).some(function(mm){ return mm.fecha===fs && ['ACEPTADA','PENDIENTE','ESPERA'].indexOf(mm.estado)>=0; });
     var full=acep>=d.plazas;
     var h='<div style="background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:82vh;overflow:auto;padding:18px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))">';
-    h+='<div style="font-weight:800;font-size:1.05rem;color:#0B132B">'+fs+'</div>';
+    h+='<div style="font-weight:800;font-size:1.05rem;color:#7A1B39">'+fs+'</div>';
     h+='<div style="font-size:.78rem;color:#64748b;margin-bottom:10px">Ocupadas: '+acep+' / '+d.plazas+'</div>';
     if(!lista.length){ h+='<div style="font-size:.85rem;color:#94a3b8">Nadie lo ha solicitado todavía.</div>'; }
     else {
@@ -1533,7 +1533,7 @@ window.renderWeek=function(){
         var c=_p27estadoCol(x.estado);
         h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #f1f5f9">'+
           '<span style="font-weight:800;min-width:22px;color:'+(x.dentro?'#15803d':'#b91c1c')+'">'+x.pos+'º</span>'+
-          '<span style="flex:1;font-weight:700;color:#0B132B">'+x.nombre+'</span>'+
+          '<span style="flex:1;font-weight:700;color:#7A1B39">'+x.nombre+'</span>'+
           '<span class="p27chip" style="background:'+c[0]+';color:'+c[1]+'">'+(x.dentro?'Entra':_p27estadoTxt(x.estado))+'</span></div>';
       });
     }
@@ -1546,7 +1546,7 @@ window.renderWeek=function(){
       h+='<button onclick="__p27Pedir(\''+fs+'\')" style="width:100%;margin-top:12px;background:'+(full?'#a16207':'#0d9488')+';color:#fff;border:none;border-radius:12px;padding:13px;font-weight:800;cursor:pointer">'+
          (full?'Entrar en lista de espera':'Pedir este día')+' · '+((st.sel&&st.sel.nombre)||'')+'</button>';
     }
-    h+='<button onclick="__p27CerrarDia()" style="width:100%;margin-top:8px;background:#f1f5f9;color:#0B132B;border:none;border-radius:12px;padding:12px;font-weight:800;cursor:pointer">Cerrar</button></div>';
+    h+='<button onclick="__p27CerrarDia()" style="width:100%;margin-top:8px;background:#f1f5f9;color:#7A1B39;border:none;border-radius:12px;padding:12px;font-weight:800;cursor:pointer">Cerrar</button></div>';
     var w=document.createElement('div'); w.id='p27-dia';
     w.style.cssText='position:fixed;inset:0;background:rgba(11,19,43,.55);z-index:100000;display:flex;align-items:flex-end;justify-content:center';
     w.onclick=function(e){ if(e.target===w) cerrarDia(); };
@@ -1590,7 +1590,7 @@ window.renderWeek=function(){
         '<div style="font-size:.82rem;color:#334155;margin-bottom:8px">Aún no hay contraseña de dirección. Escribe una para protegerlo:</div>'+
         '<input id="p27-newpass" type="text" placeholder="Nueva contraseña" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px"></div>';
     }
-    h+='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:10px">Configuración</div>'+
+    h+='<div class="p27card"><div style="font-weight:800;color:#7A1B39;margin-bottom:10px">Configuración</div>'+
       '<label style="font-size:.75rem;font-weight:700;color:#64748b">Letra del sorteo</label>'+
       '<input id="p27-cf-letra" maxlength="1" value="'+(c.letra||'A')+'" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px;text-transform:uppercase;margin:4px 0 10px">'+
       '<label style="font-size:.75rem;font-weight:700;color:#64748b">Plazas por día (≤20→1 · 21-40→2 · 41-60→3…)</label>'+
@@ -1607,7 +1607,7 @@ window.renderWeek=function(){
       '<input id="p27-cf-dir" value="'+(c.directivo||'')+'" placeholder="tu@…, paula@…, antonio@…" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:10px;margin:4px 0 10px">'+
       '<button onclick="__p27Guardar()" style="width:100%;background:#0d9488;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;cursor:pointer">Guardar configuración</button></div>';
 
-    h+='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:10px">Solicitudes ('+r.solicitudes.length+')</div>';
+    h+='<div class="p27card"><div style="font-weight:800;color:#7A1B39;margin-bottom:10px">Solicitudes ('+r.solicitudes.length+')</div>';
     if(!r.solicitudes.length){ h+='<div style="font-size:.82rem;color:#94a3b8">Sin solicitudes.</div>'; }
     else {
       r.solicitudes.forEach(function(s){
@@ -1615,7 +1615,7 @@ window.renderWeek=function(){
         h+='<div style="border-top:1px solid #f1f5f9;padding:8px 0">'+
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
             '<span class="p27chip" style="background:'+col[0]+';color:'+col[1]+'">'+_p27estadoTxt(s.estado)+'</span>'+
-            '<b style="color:#0B132B">'+s.fecha+'</b>'+
+            '<b style="color:#7A1B39">'+s.fecha+'</b>'+
             '<span style="font-size:.8rem;color:#475569">'+s.nombre+'</span>'+
             '<span style="font-size:.7rem;color:#94a3b8">('+s.usados+' usados)</span>'+
           '</div>';
@@ -1629,7 +1629,7 @@ window.renderWeek=function(){
       });
     }
     h+='</div>';
-    h+='<button onclick="__p27Registro()" style="width:100%;background:#0B132B;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;cursor:pointer;margin-bottom:12px">📜 Ver registro de auditoría</button>';
+    h+='<button onclick="__p27Registro()" style="width:100%;background:#7A1B39;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;cursor:pointer;margin-bottom:12px">📜 Ver registro de auditoría</button>';
     h+='<div style="height:30px"></div>';
     body().innerHTML=h; ov().scrollTop=0;
   }
@@ -1637,13 +1637,13 @@ window.renderWeek=function(){
     body().innerHTML='<div style="padding:24px;text-align:center;color:#64748b">Cargando registro…</div>';
     google.script.run.withSuccessHandler(function(r){
       bar('📜 Registro de auditoría', function(){ google.script.run.withSuccessHandler(adminPanel).p27Admin(st.pass); });
-      var h='<div class="p27card"><div style="font-weight:800;color:#0B132B;margin-bottom:8px">Últimos movimientos</div>';
+      var h='<div class="p27card"><div style="font-weight:800;color:#7A1B39;margin-bottom:8px">Últimos movimientos</div>';
       if(!r||!r.ok){ h+='<div style="color:#b91c1c">'+((r&&r.error)||'Error')+'</div>'; }
       else if(!r.registro.length){ h+='<div style="font-size:.82rem;color:#94a3b8">Sin movimientos todavía.</div>'; }
       else {
         r.registro.forEach(function(x){
           var f=new Date(x.ts), fh=('0'+f.getDate()).slice(-2)+'/'+('0'+(f.getMonth()+1)).slice(-2)+' '+('0'+f.getHours()).slice(-2)+':'+('0'+f.getMinutes()).slice(-2);
-          h+='<div style="border-top:1px solid #f1f5f9;padding:7px 0;font-size:.8rem"><b style="color:#0B132B">'+x.accion+'</b> · '+x.nombre+' · '+(x.fecha||'')+
+          h+='<div style="border-top:1px solid #f1f5f9;padding:7px 0;font-size:.8rem"><b style="color:#7A1B39">'+x.accion+'</b> · '+x.nombre+' · '+(x.fecha||'')+
              '<div style="font-size:.7rem;color:#94a3b8">'+fh+(x.detalle?(' · '+x.detalle):'')+'</div></div>';
         });
       }
@@ -1677,9 +1677,9 @@ window.renderWeek=function(){
   /* ── AYUDA / normativa ── */
   function ayuda(){
     var d=st.d||{};
-    function sec(ic,tit,txt){ return '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="font-size:1.3rem;flex:0 0 auto;line-height:1">'+ic+'</div><div><div style="font-weight:800;color:#0B132B;font-size:.9rem">'+tit+'</div><div style="font-size:.83rem;color:#475569;line-height:1.5;margin-top:2px">'+txt+'</div></div></div>'; }
+    function sec(ic,tit,txt){ return '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="font-size:1.3rem;flex:0 0 auto;line-height:1">'+ic+'</div><div><div style="font-weight:800;color:#7A1B39;font-size:.9rem">'+tit+'</div><div style="font-size:.83rem;color:#475569;line-height:1.5;margin-top:2px">'+txt+'</div></div></div>'; }
     var h='<div style="background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:20px;padding-bottom:calc(26px + env(safe-area-inset-bottom,0px))">';
-    h+='<div style="font-weight:900;font-size:1.15rem;color:#0B132B">Cómo funcionan los días de libre disposición</div>';
+    h+='<div style="font-weight:900;font-size:1.15rem;color:#7A1B39">Cómo funcionan los días de libre disposición</div>';
     h+='<div style="font-size:.75rem;color:#64748b;margin-bottom:14px">Instrucción 10/2025 · permisos por asuntos particulares</div>';
     h+=sec('🗓️','Cuántos días','Tienes <b>'+(d.diasPorMaestro||2)+' días lectivos</b> de libre disposición por curso (sin contar los no lectivos), a disfrutar durante el curso <b>excepto en agosto</b>.');
     h+=sec('👥','Cuántos a la vez','Cada día solo pueden ausentarse <b>'+(d.plazas||2)+'</b> maestro(s), según el tamaño del claustro. Si lo piden más, entran los de mayor prioridad y el resto queda en lista de espera.');
@@ -1749,7 +1749,7 @@ window.renderWeek=function(){
   function css(){
     if(document.getElementById('cumple-css'))return;
     var st=document.createElement('style');st.id='cumple-css';
-    st.textContent='@keyframes cmpPop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}@keyframes cmpFall{0%{transform:translateY(-12vh) rotate(0);opacity:1}100%{transform:translateY(112vh) rotate(720deg);opacity:.9}}@keyframes cmpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}#cumple-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,19,43,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);padding:18px}#cumple-card{position:relative;max-width:420px;width:100%;border-radius:26px;padding:30px 24px 24px;text-align:center;background:linear-gradient(160deg,#ffe0f0 0%,#fff6e6 55%,#e9e0ff 100%);box-shadow:0 24px 70px rgba(0,0,0,.4);animation:cmpPop .5s cubic-bezier(.2,.9,.3,1.4);overflow:hidden}#cumple-card .cake{font-size:74px;line-height:1;animation:cmpFloat 2.6s ease-in-out infinite}#cumple-card h2{margin:8px 0 2px;font-family:"Amatic SC",cursive;font-weight:700;font-size:2.7rem;color:#be185d;line-height:1}#cumple-card .nom{font-family:"Bitter",serif;font-weight:700;font-size:1.45rem;color:#0B132B;margin:2px 0 12px}#cumple-card .msg{font-size:1rem;color:#5b2b4a;line-height:1.5;margin:0 2px 18px;background:rgba(255,255,255,.6);border-radius:14px;padding:12px 14px}#cumple-card .cbtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}#cumple-card .cbtns a,#cumple-card .cbtns button{border:0;cursor:pointer;text-decoration:none;font-weight:800;font-size:.95rem;border-radius:12px;padding:12px 18px}.cmp-conf{position:absolute;top:-12vh;width:11px;height:16px;border-radius:2px;animation:cmpFall linear forwards;pointer-events:none}';
+    st.textContent='@keyframes cmpPop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}@keyframes cmpFall{0%{transform:translateY(-12vh) rotate(0);opacity:1}100%{transform:translateY(112vh) rotate(720deg);opacity:.9}}@keyframes cmpFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}#cumple-ov{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(11,19,43,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);padding:18px}#cumple-card{position:relative;max-width:420px;width:100%;border-radius:26px;padding:30px 24px 24px;text-align:center;background:linear-gradient(160deg,#ffe0f0 0%,#fff6e6 55%,#e9e0ff 100%);box-shadow:0 24px 70px rgba(0,0,0,.4);animation:cmpPop .5s cubic-bezier(.2,.9,.3,1.4);overflow:hidden}#cumple-card .cake{font-size:74px;line-height:1;animation:cmpFloat 2.6s ease-in-out infinite}#cumple-card h2{margin:8px 0 2px;font-family:"Amatic SC",cursive;font-weight:700;font-size:2.7rem;color:#be185d;line-height:1}#cumple-card .nom{font-family:"Bitter",serif;font-weight:700;font-size:1.45rem;color:#7A1B39;margin:2px 0 12px}#cumple-card .msg{font-size:1rem;color:#5b2b4a;line-height:1.5;margin:0 2px 18px;background:rgba(255,255,255,.6);border-radius:14px;padding:12px 14px}#cumple-card .cbtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}#cumple-card .cbtns a,#cumple-card .cbtns button{border:0;cursor:pointer;text-decoration:none;font-weight:800;font-size:.95rem;border-radius:12px;padding:12px 18px}.cmp-conf{position:absolute;top:-12vh;width:11px;height:16px;border-radius:2px;animation:cmpFall linear forwards;pointer-events:none}';
     document.head.appendChild(st);
   }
   function confetti(host){
@@ -1770,7 +1770,7 @@ window.renderWeek=function(){
     var link=esMio?'':((uno.link||'').trim());
     var ov=document.createElement('div');ov.id='cumple-ov';
     var felic=esMio?'':('<a id="cmp-fel" href="'+(link?esc(link):'#')+'"'+(link?' target="_blank" rel="noopener"':'')+' style="background:linear-gradient(135deg,#ec4899,#7c3aed);color:#fff">🎉 Felicitar</a>');
-    ov.innerHTML='<div id="cumple-card"><div class="cake">🎂</div><h2>'+esc(titulo)+'</h2><div class="nom">'+esc(quien)+'</div><div class="msg">'+esc(msg)+'</div><div class="cbtns">'+felic+'<button id="cmp-cerrar" style="background:#0B132B;color:#fff">Cerrar</button></div></div>';
+    ov.innerHTML='<div id="cumple-card"><div class="cake">🎂</div><h2>'+esc(titulo)+'</h2><div class="nom">'+esc(quien)+'</div><div class="msg">'+esc(msg)+'</div><div class="cbtns">'+felic+'<button id="cmp-cerrar" style="background:#7A1B39;color:#fff">Cerrar</button></div></div>';
     document.body.appendChild(ov);
     confetti(ov.firstChild);
     document.getElementById('cmp-cerrar').onclick=cerrar;
