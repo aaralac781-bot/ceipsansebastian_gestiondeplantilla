@@ -26,6 +26,8 @@ input,select{width:100%;padding:7px 9px;border:1.5px solid var(--linea);border-r
 .doc-btn:hover{background:#eff6ff}
 .doc-btn.on{background:#dbeafe;font-weight:700;color:var(--tinta)}
 .doc-btn small{display:block;color:var(--muted);font-size:.68rem;font-weight:400}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#cbd5e1;margin-right:7px;vertical-align:middle}
+.dot.ok{background:#16a34a}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .btn{border:none;border-radius:8px;padding:9px 14px;font-weight:700;font-size:.83rem;cursor:pointer}
 .btn-print{background:var(--acc);color:#fff}
@@ -71,6 +73,9 @@ input,select{width:100%;padding:7px 9px;border:1.5px solid var(--linea);border-r
         <label>Centro</label><input id="c_centro" placeholder="CEIP San Sebastián">
         <div class="row2"><div><label>Código</label><input id="c_codigo" placeholder="41003522"></div><div><label>Localidad</label><input id="c_loc" placeholder="La Puebla del Río"></div></div>
         <label>Curso</label><input id="c_curso" value="2026/2027">
+        <label>Logo del centro (membrete de los documentos)</label>
+        <input type="file" id="logo_file" accept="image/*" onchange="subirLogo(this)" style="padding:5px;font-size:.75rem">
+        <div id="logo_prev" style="margin-top:6px"></div>
         <label>Director/a (Presidente/a Junta Electoral)</label><input id="c_dir" placeholder="Nombre y apellidos">
         <label>Secretario/a de la Junta / Mesa</label><input id="c_sec" placeholder="Nombre y apellidos">
         <div class="sec-t" style="margin-top:14px">Fechas del proceso</div>
@@ -89,6 +94,7 @@ input,select{width:100%;padding:7px 9px;border:1.5px solid var(--linea);border-r
   <main class="main">
     <div class="toolbar">
       <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+      <button class="btn" id="btn-hecho" onclick="toggleHecho()" style="background:#f1f5f9;color:#475569;border:1px solid var(--linea)">○ Marcar como hecho</button>
       <button class="btn btn-reset" onclick="render(ACT)">↺ Regenerar (perder ediciones)</button>
       <button class="btn btn-cfg" onclick="document.getElementById('cfg-box').open=true;document.getElementById('c_centro').focus()">⚙️ Editar datos</button>
     </div>
@@ -101,10 +107,16 @@ input,select{width:100%;padding:7px 9px;border:1.5px solid var(--linea);border-r
 /* ================= CONFIG ================= */
 var CK='consejo_escolar_ss_v1';
 var CFG={centro:'',codigo:'',loc:'',curso:'2026/2027',dir:'',sec:'',
-  fSorteoJunta:'',hSorteoJunta:'',fConstJunta:'',hConstJunta:'',recIni:'',recFin:'',fVotFam:'',hVotFam:'',fVotAlu:'',hVotAlu:''};
+  fSorteoJunta:'',hSorteoJunta:'',fConstJunta:'',hConstJunta:'',recIni:'',recFin:'',fVotFam:'',hVotFam:'',fVotAlu:'',hVotAlu:'',logo:'',estado:{}};
 function cargarCfg(){try{var s=JSON.parse(localStorage.getItem(CK)||'{}');Object.keys(CFG).forEach(function(k){if(s[k]!=null)CFG[k]=s[k];});}catch(e){}
   Object.keys(CFG).forEach(function(k){var el=document.getElementById('c_'+k);if(el)el.value=CFG[k];});
-  pintaSub();}
+  if(!CFG.estado||typeof CFG.estado!=='object')CFG.estado={};
+  pintaSub();pintaLogoPrev();}
+function subirLogo(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(e){CFG.logo=e.target.result;try{localStorage.setItem(CK,JSON.stringify(CFG));}catch(x){}pintaLogoPrev();if(ACT)render(ACT);};r.readAsDataURL(f);}
+function pintaLogoPrev(){var p=document.getElementById('logo_prev');if(!p)return;p.innerHTML=CFG.logo?('<img src="'+CFG.logo+'" style="max-height:46px;border:1px solid #e2e8f0;border-radius:6px;vertical-align:middle"> <button class="btn btn-reset" style="padding:3px 8px;font-size:.7rem" onclick="quitarLogo()">Quitar</button>'):'<span style="font-size:.68rem;color:#64748b">Sin logo: se usa un recuadro.</span>';}
+function quitarLogo(){CFG.logo='';try{localStorage.setItem(CK,JSON.stringify(CFG));}catch(x){}pintaLogoPrev();if(ACT)render(ACT);}
+function toggleHecho(){if(!ACT)return;CFG.estado[ACT.n]=!CFG.estado[ACT.n];try{localStorage.setItem(CK,JSON.stringify(CFG));}catch(x){}actualizaHecho();pintaLista();}
+function actualizaHecho(){var b=document.getElementById('btn-hecho');if(!b||!ACT)return;var ok=!!CFG.estado[ACT.n];b.textContent=ok?'✓ Hecho (marcado)':'○ Marcar como hecho';b.style.background=ok?'#16a34a':'#f1f5f9';b.style.color=ok?'#fff':'#475569';}
 function guardarCfg(){Object.keys(CFG).forEach(function(k){var el=document.getElementById('c_'+k);if(el)CFG[k]=el.value.trim();});
   try{localStorage.setItem(CK,JSON.stringify(CFG));}catch(e){}
   pintaSub();if(ACT)render(ACT);
@@ -292,9 +304,12 @@ var ACT=null;
 function pintaLista(){
   var cont=document.getElementById('lista-docs');var fases={};var orden=[];
   DOCS.forEach(function(d){if(!fases[d.f]){fases[d.f]=[];orden.push(d.f);}fases[d.f].push(d);});
-  var h='';orden.forEach(function(f){
-    h+='<details class="fase" open><summary><span class="n">'+f.split(' · ')[0]+'</span> · '+f.split(' · ')[1]+'</summary>';
-    fases[f].forEach(function(d){h+='<button class="doc-btn" data-n="'+d.n+'" onclick="sel('+d.n+')">'+esc(d.t)+'<small>'+esc(d.sub)+'</small></button>';});
+  var totd=DOCS.length,done=DOCS.filter(function(d){return CFG.estado[d.n];}).length;
+  var h='<div style="font-size:.74rem;color:#64748b;margin:4px 2px 10px"><b>'+done+'/'+totd+'</b> documentos marcados como hechos</div>';
+  orden.forEach(function(f){
+    var arr=fases[f];var dn=arr.filter(function(d){return CFG.estado[d.n];}).length;
+    h+='<details class="fase" open><summary><span class="n">'+f.split(' · ')[0]+'</span> · '+f.split(' · ')[1]+' <span style="float:right;color:#64748b;font-weight:600">'+dn+'/'+arr.length+'</span></summary>';
+    arr.forEach(function(d){var ok=CFG.estado[d.n]?' ok':'';h+='<button class="doc-btn'+(ACT&&ACT.n===d.n?' on':'')+'" data-n="'+d.n+'" onclick="sel('+d.n+')"><span class="dot'+ok+'"></span>'+esc(d.t)+'<small>'+esc(d.sub)+'</small></button>';});
     h+='</details>';
   });
   cont.innerHTML=h;
@@ -304,10 +319,12 @@ function sel(n){ACT=DOCS.filter(function(d){return d.n===n;})[0];
   render(ACT);}
 function render(d){if(!d)return;
   var esc2=CFG.codigo?(' · Cód. '+esc(CFG.codigo)):'';
-  var membrete='<div class="membrete"><div class="esc">CEIP</div><div><div class="c1">'+(esc(CFG.centro)||'CEIP __________')+'</div><div class="c2">'+(esc(CFG.loc)||'Localidad')+esc2+' · Curso '+esc(CFG.curso||'2026/2027')+'</div></div></div>';
+  var escudo=CFG.logo?('<img src="'+CFG.logo+'" style="height:52px;width:auto;border-radius:8px">'):'<div class="esc">CEIP</div>';
+  var membrete='<div class="membrete">'+escudo+'<div><div class="c1">'+(esc(CFG.centro)||'CEIP __________')+'</div><div class="c2">'+(esc(CFG.loc)||'Localidad')+esc2+' · Curso '+esc(CFG.curso||'2026/2027')+'</div></div></div>';
   document.getElementById('hoja').innerHTML=membrete+'<h2 class="tt">'+esc(d.t)+'</h2>'+d.body();
   document.getElementById('hoja').setAttribute('contenteditable','true');
   document.getElementById('aviso').style.display='none';
+  actualizaHecho();
   window.scrollTo(0,0);
 }
 cargarCfg();pintaLista();
