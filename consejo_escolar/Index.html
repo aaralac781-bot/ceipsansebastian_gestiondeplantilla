@@ -831,9 +831,17 @@ function guardarLd(nom){
 }
 
 /* sorteo */
+function presetSorteo(t){
+  if(t==='je'){ SECTORES=[{nombre:'Familias',titulares:1,suplentes:3,listado:'Familias'},{nombre:'Profesorado',titulares:1,suplentes:3,listado:'Profesorado'},{nombre:'PAS',titulares:1,suplentes:2,listado:''}]; var e=el('soTit'); if(e)e.value='Sorteo de la Junta Electoral'; }
+  else if(t==='familias'){ SECTORES=[{nombre:'Familias',titulares:4,suplentes:4,listado:'Familias'}]; var e2=el('soTit'); if(e2)e2.value='Sorteo de la Mesa Electoral de familias'; }
+  else if(t==='alumnado'){ SECTORES=[{nombre:'Alumnado',titulares:4,suplentes:4,listado:'Alumnado'}]; var e3=el('soTit'); if(e3)e3.value='Sorteo de la Mesa Electoral del alumnado'; }
+  pintarSectoresSelects();
+}
 function renderSorteo(){
-  if(!SECTORES)SECTORES=[{nombre:'Familias',titulares:1,suplentes:3,listado:'Familias'},{nombre:'Profesorado',titulares:1,suplentes:2,listado:'Profesorado'},{nombre:'PAS',titulares:1,suplentes:1,listado:''}];
+  if(!SECTORES)SECTORES=[{nombre:'Familias',titulares:1,suplentes:3,listado:'Familias'},{nombre:'Profesorado',titulares:1,suplentes:3,listado:'Profesorado'},{nombre:'PAS',titulares:1,suplentes:2,listado:''}];
   var h='<div class="card"><p class="lead">Ajusta los sectores y de qué listado sale cada uno. La semilla es un número que anuncias en voz alta; con la misma semilla y listado el resultado es idéntico (transparente).</p>';
+  h+='<label>Preajustes oficiales (Orden 7/10/2010)</label><div class="row" style="margin-bottom:6px"><button class="btn ghost sm" onclick="presetSorteo(\'je\')">Junta Electoral</button><button class="btn ghost sm" onclick="presetSorteo(\'familias\')">Mesa de familias</button><button class="btn ghost sm" onclick="presetSorteo(\'alumnado\')">Mesa de alumnado</button></div>';
+  h+='<p class="hint" style="margin-bottom:10px">Junta Electoral: 1 titular por sector (profesorado, familias, PAS) + suplentes. Mesa de familias / de alumnado: 4 vocales titulares + suplentes (el/la director/a preside, no se sortea).</p>';
   h+='<div id="secBox"></div><button class="btn ghost sm" onclick="addSector()">+ Añadir sector</button>';
   h+='<div class="row" style="margin-top:12px"><div class="grow"><label>Semilla</label><input type="text" id="soSeed" placeholder="p. ej. 47"></div><button class="btn ghost" onclick="el(\'soSeed\').value=String(Math.floor(1000+Math.random()*9000))">Al azar</button></div>';
   h+='<label style="margin-top:10px">Título del sorteo</label><input type="text" id="soTit" value="Sorteo de la Junta Electoral">';
