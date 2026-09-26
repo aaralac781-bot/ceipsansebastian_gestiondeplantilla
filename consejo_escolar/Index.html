@@ -134,9 +134,17 @@ footer{max-width:820px;margin:0 auto;padding:6px 16px 34px;color:var(--faint);fo
 <main class="wrap">
   <section id="p-cal"><div id="calNext"></div><div id="calList" class="center"><span class="spin"></span></div></section>
   <section id="p-doc" hidden>
-    <div id="docCfg"></div>
-    <div id="docList"></div>
-    <div id="docView" hidden></div>
+    <div id="docLogin" class="card">
+      <h2 class="serif">Documentos de la dirección</h2>
+      <p class="lead">Zona privada. Introduce la contraseña de administración.</p>
+      <div class="row"><div class="grow"><input type="password" id="docPw" placeholder="Contraseña" onkeydown="if(event.key==='Enter')docEntrar()"></div><button class="btn" onclick="docEntrar()">Entrar</button></div>
+      <div id="docLoginMsg"></div>
+    </div>
+    <div id="docBody" hidden>
+      <div id="docCfg"></div>
+      <div id="docList"></div>
+      <div id="docView" hidden></div>
+    </div>
   </section>
   <section id="p-vot" hidden><div id="votBox" class="center"><span class="spin"></span></div></section>
   <section id="p-adm" hidden>
@@ -164,8 +172,20 @@ function srv(fn){var a=[].slice.call(arguments,1);return google.script.run[fn].a
 
 function ir(t){
   ['cal','doc','vot','adm'].forEach(function(x){el('p-'+x).hidden=(x!==t);el('t-'+x).setAttribute('aria-selected',x===t);});
-  if(t==='doc'&&!DOCINIT){DOCINIT=true;renderDocCfg();renderDocList();}
+  if(t==='doc') gateDoc();
   window.scrollTo(0,0);
+}
+/* Documentos = zona privada (misma contraseña que Administración) */
+function gateDoc(){
+  if(ADMINPASS){ el('docLogin').hidden=true; el('docBody').hidden=false; if(!DOCINIT){DOCINIT=true;renderDocCfg();renderDocList();} }
+  else { el('docLogin').hidden=false; el('docBody').hidden=true; }
+}
+function docEntrar(){
+  var pw=el('docPw').value; el('docLoginMsg').innerHTML='<div class="center"><span class="spin"></span></div>';
+  google.script.run.withSuccessHandler(function(ok){
+    if(!ok){ el('docLoginMsg').innerHTML='<div class="msg err">Contraseña incorrecta.</div>'; return; }
+    ADMINPASS=pw; el('docLoginMsg').innerHTML=''; gateDoc();
+  }).withFailureHandler(function(e){ el('docLoginMsg').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>'; }).adminEntrar(pw);
 }
 
 /* ---------- arranque ---------- */
