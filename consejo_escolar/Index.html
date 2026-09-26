@@ -339,22 +339,30 @@ function pullFill(){
     el('pullMsg').innerHTML='<div class="msg ok">Acta rellena con «'+esc(v.titulo)+'» ('+r.total+' votos). Revisa la composición de la mesa y edita lo que necesites.</div>';
   }).withFailureHandler(function(e){el('pullMsg').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).getResultados(ADMINPASS, v.id);
 }
-function imprimirDoc(){
-  var node=el('docSheet'); if(!node)return;
-  var titulo=node.getAttribute('data-title')||'Documento';
-  var css='@page{size:A4 portrait;margin:22mm 20mm}body{font-family:Georgia,serif;color:#15231c;line-height:1.6;font-size:12.5px}'
+var DOC_CSS='@page{size:A4 portrait;margin:22mm 20mm}body{font-family:Georgia,serif;color:#15231c;line-height:1.6;font-size:12.5px}'
    +'h1{font-size:14px;margin:0 0 3px;text-transform:uppercase}h2{font-size:11px;color:#555;font-weight:400;margin:0 0 4px}'
+   +'h3{font-size:12px;color:#0f4d31;border-bottom:1.5px solid #1c6b45;padding-bottom:2px;margin:16px 0 6px}'
    +'.memb{border-bottom:1.5px solid #0f4d31;padding-bottom:8px;margin-bottom:16px}.memb .c{font-weight:700;font-size:14px;color:#0f4d31}.memb .s{font-size:10.5px;color:#555}'
    +'p{margin:0 0 10px;text-align:justify}ol,ul{margin:0 0 10px;padding-left:22px}li{margin-bottom:4px;text-align:justify}'
    +'.od{background:#f6f9f5;border:1px solid #dde5dd;border-radius:6px;padding:9px 13px;margin:0 0 12px}'
+   +'.seed{background:#f6edd8;border:1px solid #d9c58a;border-radius:6px;padding:9px 13px;margin:0 0 12px;font-size:11.5px}'
    +'.fecha{margin:22px 0 26px;text-align:right}.firma{text-align:center;margin-top:6px;font-weight:700;text-transform:uppercase;font-size:11.5px}'
    +'.firmas{display:flex;justify-content:space-between;gap:24px;margin-top:38px}.firmas .fb{flex:1;text-align:center;font-size:11.5px}'
    +'.rule{border:none;border-top:1px solid #444;margin:34px auto 4px;max-width:220px}'
    +'.bl{display:inline-block;border-bottom:1px solid #555;min-width:120px}.bl.sm{min-width:52px}.bl.lg{min-width:230px}';
+function imprimirOficial(titulo,cuerpo){
   var w=window.open('','_blank'); if(!w){alert('Permite las ventanas emergentes para imprimir o guardar en PDF.');return;}
   w.document.open();
-  w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>'+esc(titulo)+'</title><style>'+css+'</style></head><body>'+node.innerHTML+'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},350);};</scr'+'ipt></body></html>');
+  w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>'+esc(titulo)+'</title><style>'+DOC_CSS+'</style></head><body>'+cuerpo+'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},350);};</scr'+'ipt></body></html>');
   w.document.close();
+}
+function imprimirDoc(){
+  var node=el('docSheet'); if(!node)return;
+  imprimirOficial(node.getAttribute('data-title')||'Documento', node.innerHTML);
+}
+function firmasOficial(c){
+  return '<div class="firmas"><div class="fb">Vº.Bº. EL/LA PRESIDENTE/A (DIRECCIÓN)'+(c.director?'<div style="font-weight:400;margin-top:22px">Fdo.: '+esc(c.director)+'</div>':'<hr class="rule">')
+    +'</div><div class="fb">EL/LA SECRETARIO/A'+(c.secretario?'<div style="font-weight:400;margin-top:22px">Fdo.: '+esc(c.secretario)+'</div>':'<hr class="rule">')+'</div></div>';
 }
 
 /* ---- ayudantes de plantilla ---- */
@@ -717,13 +725,17 @@ function verRes(id,tit){
   }).withFailureHandler(function(e){box.innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).getResultados(ADMINPASS,id);
 }
 function actaVot(id,tit){
-  var r=window['_res_'+id]; if(!r)return;
-  var rows=r.opciones.map(function(o){return '<tr><td>'+esc(o.opcion)+'</td><td class="c">'+o.votos+'</td></tr>';}).join('');
-  imprimir('Acta de votación','<h1>Acta de votación del Claustro</h1><h2>CEIP San Sebastián · '+fLarga(new Date())+'</h2>'+
-    '<p><b>Asunto:</b> '+esc(tit)+'</p>'+
-    '<table><tr><th>Opción</th><th>Votos</th></tr>'+rows+'<tr><td><b>TOTAL</b></td><td class="c"><b>'+r.total+'</b></td></tr></table>'+
-    '<p class="nota">Votación anónima. El sistema garantiza un voto por persona sin registrar qué votó cada una.</p>'+
-    '<div class="firmas"><span>Presidencia (Dirección):<br><br>____________________</span><span>Secretaría:<br><br>____________________</span></div>');
+  var r=window['_res_'+id]; if(!r)return; var c=dcfgGet();
+  var filas=r.opciones.map(function(o){return esc(o.opcion)+' &mdash; <b>'+o.votos+'</b> voto'+(o.votos===1?'':'s');}).join('<br>');
+  var cuerpo=cab(c)
+   +'<h1>Acta de votación</h1>'
+   +'<p>En '+FV(c.localidad)+', a '+fLarga(new Date())+', bajo la presidencia del Sr./Sra. Director/a del Centro '+FV(c.centro)+', se somete a votación el siguiente asunto:</p>'
+   +'<div class="od"><b>Asunto:</b> '+esc(tit)+'</div>'
+   +'<p>Realizada la votación de forma <b>anónima</b> (el sistema garantiza un único voto por persona sin registrar el sentido de cada voto), se obtiene el siguiente resultado:</p>'
+   +'<p>'+filas+'<br><b>TOTAL votos emitidos: '+r.total+'</b></p>'
+   +'<p>Y sin más asuntos que tratar, se levanta la sesión, lo que como Secretario/a certifico, con el Vº.Bº. de la Presidencia.</p>'
+   +firmasOficial(c);
+  imprimirOficial('Acta de votación', cuerpo);
 }
 
 /* listados */
@@ -804,18 +816,25 @@ function hacerSorteo(){
   }).withFailureHandler(function(e){el('soMsg').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).realizarSorteo(ADMINPASS,tit,seed,sect);
 }
 function actaSorteo(){
-  var s=window._sorteo; if(!s)return;
-  var rows='';
+  var s=window._sorteo; if(!s)return; var c=dcfgGet();
+  var secs='';
   s.r.resultado.forEach(function(sec){
-    rows+='<h3>'+esc(sec.nombre)+'</h3><table><tr><th>Orden</th><th>Nombre</th><th>Condición</th></tr>';var k=0;
-    sec.titulares.forEach(function(p){k++;rows+='<tr><td class="c">'+k+'</td><td>'+esc(p)+'</td><td class="c"><b>Titular</b></td></tr>';});
-    sec.suplentes.forEach(function(p,j){k++;rows+='<tr><td class="c">'+k+'</td><td>'+esc(p)+'</td><td class="c">Suplente '+(j+1)+'º</td></tr>';});
-    rows+='</table>';
+    var lines=[];
+    sec.titulares.forEach(function(p){lines.push('D./D.ª '+esc(p)+' &mdash; <b>Titular</b>');});
+    sec.suplentes.forEach(function(p,j){lines.push('D./D.ª '+esc(p)+' &mdash; Suplente '+(j+1)+'º');});
+    if(!lines.length) return;
+    secs+='<h3>'+esc(sec.nombre)+'</h3><p>'+lines.join('<br>')+'</p>';
   });
-  imprimir('Acta de sorteo','<h1>Acta del sorteo — '+esc(s.tit)+'</h1><h2>CEIP San Sebastián · Elecciones al Consejo Escolar 2026/2027</h2>'+
-    '<p class="meta"><b>Semilla:</b> '+esc(s.r.semilla)+' &nbsp;·&nbsp; <b>Fecha:</b> '+esc(s.r.fecha)+'<br>Reproducible: misma semilla y listado producen idéntico resultado.</p>'+rows+
-    '<p class="nota">Documento de apoyo del centro conforme a la Orden de 7 de octubre de 2010 y la Resolución de 7 de septiembre de 2026 (BOJA núm. 177).</p>'+
-    '<div class="firmas"><span>Presidencia (Dirección):<br><br>____________________</span><span>Secretaría:<br><br>____________________</span></div>');
+  var cuerpo=cab(c)
+   +'<h1>Acta del sorteo público &mdash; '+esc(s.tit)+'</h1>'
+   +'<p>En '+FV(c.localidad)+', siendo las '+B('sm')+' horas del día '+esc(s.r.fecha)+', bajo la presidencia del Sr./Sra. Director/a del Centro '+FV(c.centro)+', se procede a la celebración del sorteo público, conforme a la Orden de 7 de octubre de 2010 y a la Resolución de 7 de septiembre de 2026 (BOJA núm. 177).</p>'
+   +'<div class="seed"><b>Número (semilla) del sorteo:</b> '+esc(s.r.semilla)+' &nbsp;·&nbsp; anunciado públicamente antes de su realización.<br>Con la misma semilla y el mismo listado el resultado es idéntico, por lo que es <b>reproducible y verificable</b> por cualquier persona interesada.</p></div>'
+   +'<p>Realizado el sorteo, resultan designadas las siguientes personas:</p>'
+   +secs
+   +'<p>El resultado se notificará personalmente a las personas designadas, a quienes se convocará, en su caso, para el acto de constitución correspondiente.</p>'
+   +'<p>Y sin más asuntos que tratar, se levanta la sesión a las '+B('sm')+' horas del día indicado.</p>'
+   +firmasOficial(c);
+  imprimirOficial('Acta de sorteo', cuerpo);
 }
 
 /* config */

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía de uso · Consejo Escolar · CEIP San Sebastián</title>
+<style>
+:root{--vino:#0f4d31;--verde:#1c6b45;--tinta:#15231c;--gris:#5b6b61;--linea:#dde5dd;--crema:#f6f9f5;--oro:#9a6b12;--oroSuave:#f6edd8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef2ed;color:var(--tinta);font-family:Georgia,"Times New Roman",serif;line-height:1.6}
+.hoja{max-width:820px;margin:22px auto;background:#fff;padding:40px 46px;box-shadow:0 6px 24px rgba(20,40,30,.1)}
+h1{font-size:1.7rem;margin:0;color:var(--vino)}
+.sub{color:var(--gris);font-size:.95rem;margin:2px 0 0}
+.memb{border-bottom:2px solid var(--vino);padding-bottom:12px;margin-bottom:20px}
+h2{font-size:1.15rem;color:var(--verde);border-bottom:1px solid var(--linea);padding-bottom:5px;margin:26px 0 10px}
+h3{font-size:1rem;color:var(--vino);margin:16px 0 4px}
+p,li{font-size:.96rem}
+ol,ul{padding-left:22px}
+li{margin-bottom:6px}
+.paso{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
+.num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--verde);color:#fff;font-family:Arial,sans-serif;font-weight:700;font-size:.85rem;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.nota{background:var(--crema);border-left:4px solid var(--verde);border-radius:0 8px 8px 0;padding:11px 15px;margin:12px 0;font-size:.9rem}
+.aviso{background:var(--oroSuave);border-left:4px solid var(--oro);border-radius:0 8px 8px 0;padding:11px 15px;margin:12px 0;font-size:.9rem}
+.tag{display:inline-block;background:var(--crema);border:1px solid var(--linea);border-radius:6px;padding:1px 7px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--vino);font-weight:700}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.9rem}
+th,td{border:1px solid var(--linea);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--vino);color:#fff;font-family:Arial,sans-serif}
+.foot{margin-top:26px;padding-top:12px;border-top:1px solid var(--linea);color:var(--gris);font-size:.8rem}
+@media print{body{background:#fff}.hoja{box-shadow:none;margin:0;max-width:none;padding:0}@page{size:A4;margin:16mm}}
+</style>
+</head>
+<body>
+<div class="hoja">
+  <div class="memb">
+    <h1>Guía de uso — Consejo Escolar</h1>
+    <p class="sub">CEIP San Sebastián · La Puebla del Río · App de la dirección · Curso 2026/2027</p>
+  </div>
+
+  <p>Esta app te acompaña en <b>todo el proceso de elección del Consejo Escolar</b>: te avisa de los plazos, hace los sorteos de forma transparente, recoge votaciones anónimas y te genera <b>todas las actas y comunicaciones oficiales</b> ya rellenas. Los <b>censos y las papeletas</b> se sacan de <b>Séneca</b>; de todo lo demás se encarga la app.</p>
+
+  <h2>Las cuatro pestañas</h2>
+  <table>
+    <tr><th>Pestaña</th><th>Para qué sirve</th><th>¿Privada?</th></tr>
+    <tr><td><b>📅 Calendario</b></td><td>Los plazos oficiales. Te marca «lo siguiente» y manda un correo de aviso.</td><td>No (la ve todo el mundo)</td></tr>
+    <tr><td><b>📄 Documentos</b></td><td>Todas las actas y comunicaciones oficiales, ya rellenas y editables.</td><td>Sí — pide contraseña</td></tr>
+    <tr><td><b>🗳️ Votar</b></td><td>Donde el claustro/sector vota, de forma anónima.</td><td>No</td></tr>
+    <tr><td><b>🔒 Administración</b></td><td>Crear votaciones, listados, sorteos y configuración.</td><td>Sí — pide contraseña</td></tr>
+  </table>
+
+  <h2>Antes de empezar (una sola vez)</h2>
+  <div class="paso"><div class="num">1</div><div>En Apps Script, ejecuta la función <span class="tag">setupInicial</span> una vez. Crea la hoja de datos, la contraseña provisional <b>cambia1234</b> y activa el aviso diario por correo.</div></div>
+  <div class="paso"><div class="num">2</div><div>Abre la app → <b>Administración</b> → entra con <b>cambia1234</b> → en <b>Configuración</b> pon <b>tu contraseña nueva</b> y los <b>correos</b> que recibirán los avisos. Guarda.</div></div>
+  <div class="paso"><div class="num">3</div><div>Ve a <b>Documentos</b> (te pedirá esa misma contraseña) → arriba, en <b>Datos del centro</b>, escribe el nombre del <b>director/a</b> y del <b>secretario/a</b>. Se rellenan solos en todos los documentos.</div></div>
+
+  <h2>El proceso, fase a fase</h2>
+
+  <h3>Fase A · Junta Electoral</h3>
+  <ol>
+    <li>En <b>Documentos</b>, abre el documento <b>1</b> (convocatoria del sorteo) y publícalo.</li>
+    <li>En <b>Administración → Sorteo</b>, elige los sectores y haz el <b>sorteo de la Junta Electoral</b> (ver «Cómo se hace un sorteo»). Pulsa <b>🖨️ Acta / PDF</b>: sale el acta con membrete.</li>
+    <li>Documentos <b>2, 3 y 4</b>: convocatoria de constitución, acta de constitución y credenciales.</li>
+  </ol>
+
+  <h3>Fase B · Convocar las elecciones</h3>
+  <p>En <b>Documentos</b>, abre la convocatoria de cada sector (familias, alumnado, profesorado, PAS…). Ya llevan puestas las fechas oficiales.</p>
+
+  <h3>Fase C · Supervisores/as</h3>
+  <p>Solicitudes y credenciales para las familias/alumnado que quieran vigilar la mesa (documentos 10, 11, 14, 15).</p>
+
+  <h3>Fase D · Votación y actas de mesa</h3>
+  <p>El día de cada elección, tras el recuento, abre el <b>acta de mesa</b> del sector. Si la votación la has llevado por la app, pulsa <b>«Rellenar con los votos de una votación»</b> y trae candidatos, votos y personas elegidas. Revisa y edita lo que haga falta.</p>
+
+  <h3>Fase E · Miembros de derecho</h3>
+  <p>Escritos para pedir el representante del <b>Ayuntamiento</b> y de la <b>AMPA</b> (documentos 23 y 24).</p>
+
+  <h2>Cómo se hace un sorteo (transparente)</h2>
+  <div class="paso"><div class="num">1</div><div>En <b>Listados para sorteos</b> pega la lista de cada sector (un nombre por línea) y guárdala.</div></div>
+  <div class="paso"><div class="num">2</div><div>En <b>Sorteo</b>, ajusta cada sector: <b>Titulares</b> (los que salen elegidos) y <b>Suplentes</b> (de reserva), y de qué <b>listado</b> sale.</div></div>
+  <div class="paso"><div class="num">3</div><div><b>Delante de la gente</b>, elige el número (<b>semilla</b>): que lo diga alguien del público o pulsa <b>«Al azar»</b>. Anótalo.</div></div>
+  <div class="paso"><div class="num">4</div><div>Pulsa <b>Realizar sorteo</b> → salen los nombres → <b>🖨️ Acta / PDF</b>.</div></div>
+  <div class="nota"><b>¿Por qué es comprobable?</b> Con la <b>misma lista</b> y la <b>misma semilla</b> el resultado es <b>siempre idéntico</b>. Como la semilla se elige en público y en el momento, tú no puedes amañarlo, y cualquiera puede repetir el sorteo con esos datos y comprobar que salen los mismos nombres. La semilla queda escrita en el acta.</div>
+
+  <h2>Cómo se hace una votación anónima</h2>
+  <div class="paso"><div class="num">1</div><div><b>Administración → Nueva votación anónima</b>: pon el título y las opciones (una por línea; para elegir personas, un candidato por línea). Crear y abrir.</div></div>
+  <div class="paso"><div class="num">2</div><div>La gente entra en la pestaña <b>Votar</b> con su cuenta <b>@g.educaand.es</b> y vota. Cada persona vota una vez; nadie puede saber qué votó.</div></div>
+  <div class="paso"><div class="num">3</div><div>Cuando termine, pulsa <b>Cerrar</b> → <b>Ver resultados</b> → <b>🖨️ Acta / PDF</b>. Y desde el acta de mesa puedes traer esos votos automáticamente.</div></div>
+
+  <h2>Practicar sin miedo</h2>
+  <p>Puedes crear votaciones y sorteos de <b>prueba</b> y borrarlos:</p>
+  <ul>
+    <li>Cada votación tiene un botón <b>Borrar</b>.</li>
+    <li>Al final de Administración, en <b>Pruebas</b>: <b>Vaciar registro de sorteos</b> y <b>Reiniciar TODO</b>.</li>
+  </ul>
+  <div class="aviso"><b>Tranquilo:</b> esos botones <b>no borran tus listados/censos</b>. Cuando termines de practicar, pulsa <b>Reiniciar TODO</b> para empezar el proceso real con la hoja limpia.</div>
+
+  <div class="aviso"><b>Recuerda:</b> el <b>censo electoral</b> y las <b>papeletas de voto</b> se descargan de <b>Séneca</b>. La app no los sustituye; te da el calendario y todas las actas y comunicaciones.</div>
+
+  <div class="foot">CEIP San Sebastián · La Puebla del Río · Elaborado conforme a la Orden de 7 de octubre de 2010 y la Resolución de 7 de septiembre de 2026 (BOJA núm. 177). Documento de apoyo interno; ante cualquier duda, prevalece la normativa y las instrucciones de la Junta Electoral.</div>
+</div>
+</body>
+</html>
