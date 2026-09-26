@@ -654,8 +654,26 @@ function renderAdmin(){
   h+='<div class="eyebrow">Sorteo</div><div id="admSorteo"></div>';
   /* config */
   h+='<div class="eyebrow">Configuración</div><div id="admConfig" class="center"><span class="spin"></span></div>';
+  /* pruebas */
+  h+='<div class="eyebrow">Pruebas</div><div class="card"><p class="lead">Practica sin miedo: crea votaciones y sorteos de prueba y bórralos cuando quieras. Estos botones <b>no borran tus listados/censos</b>.</p>';
+  h+='<div class="row"><button class="btn ghost" onclick="borrarSorteosBtn()">Vaciar registro de sorteos</button><button class="btn red" onclick="reiniciarBtn()">Reiniciar TODO (votaciones + votos + sorteos)</button></div><div id="pruMsg"></div></div>';
   el('admPanel').innerHTML=h;
   cargarVots(); cargarListados(); renderSorteo(); cargarConfig();
+}
+function borrarVot(id){
+  if(!confirm('¿Borrar esta votación y sus votos? No se puede deshacer.'))return;
+  google.script.run.withSuccessHandler(cargarVots).withFailureHandler(function(e){alert(e&&e.message);}).borrarVotacion(ADMINPASS,id);
+}
+function borrarSorteosBtn(){
+  if(!confirm('¿Vaciar el registro de sorteos? (No afecta a listados ni votaciones.)'))return;
+  el('pruMsg').innerHTML='<span class="spin"></span>';
+  google.script.run.withSuccessHandler(function(){el('pruMsg').innerHTML='<div class="msg ok">Registro de sorteos vaciado.</div>';}).withFailureHandler(function(e){el('pruMsg').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).borrarSorteos(ADMINPASS);
+}
+function reiniciarBtn(){
+  if(!confirm('Esto borra TODAS las votaciones, sus votos y los sorteos (los listados se conservan). ¿Continuar?'))return;
+  if(!confirm('Última confirmación: se borran votaciones, votos y sorteos. ¿Seguro?'))return;
+  el('pruMsg').innerHTML='<span class="spin"></span>';
+  google.script.run.withSuccessHandler(function(){el('pruMsg').innerHTML='<div class="msg ok">Listo. Datos de prueba borrados.</div>';cargarVots();}).withFailureHandler(function(e){el('pruMsg').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).reiniciarPruebas(ADMINPASS);
 }
 
 function crearVot(){
@@ -676,7 +694,8 @@ function cargarVots(){
       h+='<div class="row" style="margin-top:8px">';
       if(v.estado==='abierta')h+='<button class="btn ghost sm" onclick="estadoVot(\''+v.id+'\',\'cerrada\')">Cerrar</button>';
       else h+='<button class="btn ghost sm" onclick="estadoVot(\''+v.id+'\',\'abierta\')">Reabrir</button>';
-      h+='<button class="btn sm" onclick="verRes(\''+v.id+'\',\''+esc(v.titulo).replace(/\x27/g,"")+'\')">Ver resultados</button></div>';
+      h+='<button class="btn sm" onclick="verRes(\''+v.id+'\',\''+esc(v.titulo).replace(/\x27/g,"")+'\')">Ver resultados</button>';
+      h+='<button class="btn red sm" onclick="borrarVot(\''+v.id+'\')">Borrar</button></div>';
       h+='<div id="res-'+v.id+'"></div></div>';
     });
     el('admVots').innerHTML=h;

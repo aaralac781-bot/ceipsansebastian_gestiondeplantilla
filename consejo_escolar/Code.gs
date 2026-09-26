@@ -142,6 +142,31 @@ function cambiarEstadoVotacion(pass, id, estado){
   for(var i=1;i<v.length;i++){ if(String(v[i][0])===String(id)){ sh.getRange(i+1,4).setValue(estado); break; } }
   return true;
 }
+/* borrar una votación y sus votos (para pruebas). Deja HanVotado: son claves anónimas huérfanas e inofensivas. */
+function borrarVotacion(pass, id){
+  if(!_esAdmin(pass)) throw new Error('Contraseña incorrecta.');
+  var sh=_hoja('Votaciones'), v=sh.getDataRange().getValues();
+  for(var i=v.length-1;i>=1;i--){ if(String(v[i][0])===String(id)) sh.deleteRow(i+1); }
+  var vs=_hoja('Votos'), vv=vs.getDataRange().getValues();
+  for(var j=vv.length-1;j>=1;j--){ if(String(vv[j][0])===String(id)) vs.deleteRow(j+1); }
+  return true;
+}
+/* vaciar el registro de sorteos (no toca listados ni votaciones) */
+function borrarSorteos(pass){
+  if(!_esAdmin(pass)) throw new Error('Contraseña incorrecta.');
+  var sh=_hoja('Sorteos'), last=sh.getLastRow();
+  if(last>1) sh.deleteRows(2, last-1);
+  return true;
+}
+/* reiniciar TODO lo de pruebas: borra votaciones, votos, control de "ya votó" y sorteos. NO toca los listados/censos. */
+function reiniciarPruebas(pass){
+  if(!_esAdmin(pass)) throw new Error('Contraseña incorrecta.');
+  ['Votaciones','Votos','HanVotado','Sorteos'].forEach(function(n){
+    var sh=_hoja(n), last=sh.getLastRow();
+    if(last>1) sh.deleteRows(2, last-1);
+  });
+  return true;
+}
 
 /* voto anónimo: el email va SOLO a HanVotado (para no repetir); la opción va SOLO a Votos. Nunca juntos. */
 function emitirVoto(id, opcionIndex){
