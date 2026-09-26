@@ -246,7 +246,8 @@ function votar(i,k){
 /* Datos del centro (se rellenan solos en todos los documentos). Se guardan en este navegador. */
 var DCFG_KEY='consejo_doc_cfg_v1';
 function dcfgGet(){
-  var def={centro:'CEIP San Sebastián',localidad:'La Puebla del Río',curso:'2026/2027',director:'',secretario:''};
+  var def={centro:'CEIP San Sebastián',localidad:'La Puebla del Río',curso:'2026/2027',director:'',secretario:'',
+    composicion:'Composición del Consejo Escolar (14 unidades · confírmala en Séneca):\n· Dirección: 1 (preside)\n· Jefatura de estudios: 1\n· Profesorado: ___\n· Familias (incluye 1 de la AMPA): ___\n· PAS: ___\n· Ayuntamiento: 1\n· Secretaría: 1 (voz, sin voto)\nEn esta convocatoria se renuevan: ___ (Séneca lo indica).'};
   try{var s=JSON.parse(localStorage.getItem(DCFG_KEY)||'{}');for(var k in def){if(s[k]!=null&&s[k]!=='')def[k]=s[k];}}catch(e){}
   return def;
 }
@@ -313,12 +314,15 @@ function renderDocCfg(){
    +'<div style="width:120px"><label>Curso</label><input id="dcCurso" value="'+esc(c.curso)+'"></div></div>'
    +'<div class="row" style="margin-top:10px"><div class="grow"><label>Director/a (nombre y apellidos)</label><input id="dcDirector" value="'+esc(c.director)+'" placeholder="Se firma como Presidente/a de la Junta Electoral"></div>'
    +'<div class="grow"><label>Secretario/a</label><input id="dcSecretario" value="'+esc(c.secretario)+'" placeholder="Secretario/a de la Junta / Mesa"></div></div>'
+   +'<label style="margin-top:12px">Composición del Consejo Escolar (recordatorio · según Séneca)</label>'
+   +'<textarea id="dcComposicion" style="min-height:150px;font-size:.85rem">'+esc(c.composicion)+'</textarea>'
+   +'<p class="hint">Los números exactos y cuántos se renuevan esta convocatoria los calcula <b>Séneca</b> para tu centro. Anótalos aquí. Referencia: Decreto 328/2010 y el documento «Composición del Consejo Escolar según el tipo de centro» de la Junta.</p>'
    +'<div class="row" style="margin-top:10px"><button class="btn" onclick="dcfgSave()">Guardar datos</button></div><div id="dcMsg"></div></div>'
    +'<div class="msg info">Elige un documento: se abre <b>ya relleno</b> con estos datos y las fechas oficiales del calendario 2026/2027. Puedes <b>editar cualquier parte a mano</b> antes de imprimir o guardar en PDF.<br>En las <b>actas de mesa (fase D)</b> puedes pulsar «Rellenar con los votos de una votación» para traer <b>candidatos, votos y personas elegidas</b> directamente desde las votaciones de la app.<br>Las <b>actas del sorteo y de las votaciones internas</b> también se generan con datos reales en la pestaña <b>Administración</b>.</div>';
   el('docCfg').innerHTML=h;
 }
 function dcfgSave(){
-  var c={centro:el('dcCentro').value.trim(),localidad:el('dcLocalidad').value.trim(),curso:el('dcCurso').value.trim(),director:el('dcDirector').value.trim(),secretario:el('dcSecretario').value.trim()};
+  var c={centro:el('dcCentro').value.trim(),localidad:el('dcLocalidad').value.trim(),curso:el('dcCurso').value.trim(),director:el('dcDirector').value.trim(),secretario:el('dcSecretario').value.trim(),composicion:el('dcComposicion').value};
   try{localStorage.setItem(DCFG_KEY,JSON.stringify(c));}catch(e){}
   el('dcMsg').innerHTML='<div class="msg ok">Datos guardados.</div>';
   renderDocList();
