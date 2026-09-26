@@ -250,9 +250,63 @@ function dcfgGet(){
   try{var s=JSON.parse(localStorage.getItem(DCFG_KEY)||'{}');for(var k in def){if(s[k]!=null&&s[k]!=='')def[k]=s[k];}}catch(e){}
   return def;
 }
+var GUIA_HTML='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Guía de uso · Consejo Escolar</title>'
++'<style>:root{--vino:#0f4d31;--verde:#1c6b45;--tinta:#15231c;--gris:#5b6b61;--linea:#dde5dd;--crema:#f6f9f5;--oro:#9a6b12;--oroSuave:#f6edd8}'
++'*{box-sizing:border-box}body{margin:0;background:#eef2ed;color:var(--tinta);font-family:Georgia,serif;line-height:1.6}'
++'.hoja{max-width:820px;margin:22px auto;background:#fff;padding:36px 42px;box-shadow:0 6px 24px rgba(20,40,30,.1)}'
++'h1{font-size:1.6rem;margin:0;color:var(--vino)}.sub{color:var(--gris);font-size:.95rem;margin:2px 0 0}'
++'.memb{border-bottom:2px solid var(--vino);padding-bottom:12px;margin-bottom:18px}'
++'h2{font-size:1.12rem;color:var(--verde);border-bottom:1px solid var(--linea);padding-bottom:5px;margin:24px 0 10px}'
++'h3{font-size:1rem;color:var(--vino);margin:16px 0 4px}p,li{font-size:.95rem}ol,ul{padding-left:22px}li{margin-bottom:6px}'
++'.paso{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}.num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--verde);color:#fff;font-family:Arial,sans-serif;font-weight:700;font-size:.85rem;display:flex;align-items:center;justify-content:center;margin-top:1px}'
++'.nota{background:var(--crema);border-left:4px solid var(--verde);border-radius:0 8px 8px 0;padding:11px 15px;margin:12px 0;font-size:.9rem}'
++'.aviso{background:var(--oroSuave);border-left:4px solid var(--oro);border-radius:0 8px 8px 0;padding:11px 15px;margin:12px 0;font-size:.9rem}'
++'.tag{display:inline-block;background:var(--crema);border:1px solid var(--linea);border-radius:6px;padding:1px 7px;font-family:Arial,sans-serif;font-size:.82rem;color:var(--vino);font-weight:700}'
++'table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.9rem}th,td{border:1px solid var(--linea);padding:8px 10px;text-align:left;vertical-align:top}th{background:var(--vino);color:#fff;font-family:Arial,sans-serif}'
++'.foot{margin-top:24px;padding-top:12px;border-top:1px solid var(--linea);color:var(--gris);font-size:.8rem}'
++'.pr{position:fixed;top:12px;right:12px}.pr button{font:inherit;font-weight:700;border:none;border-radius:8px;padding:9px 15px;background:var(--verde);color:#fff;cursor:pointer}'
++'@media print{body{background:#fff}.hoja{box-shadow:none;margin:0;max-width:none;padding:0}.pr{display:none}@page{size:A4;margin:16mm}}</style></head><body>'
++'<div class="pr"><button onclick="window.print()">🖨️ Imprimir / PDF</button></div><div class="hoja">'
++'<div class="memb"><h1>Guía de uso — Consejo Escolar</h1><p class="sub">CEIP San Sebastián · La Puebla del Río · App de la dirección · Curso 2026/2027</p></div>'
++'<p>Esta app te acompaña en <b>todo el proceso de elección del Consejo Escolar</b>: te avisa de los plazos, hace los sorteos de forma transparente, recoge votaciones anónimas y te genera <b>todas las actas y comunicaciones oficiales</b> ya rellenas. Los <b>censos y las papeletas</b> se sacan de <b>Séneca</b>; de todo lo demás se encarga la app.</p>'
++'<h2>Las cuatro pestañas</h2><table><tr><th>Pestaña</th><th>Para qué sirve</th><th>¿Privada?</th></tr>'
++'<tr><td><b>📅 Calendario</b></td><td>Los plazos oficiales. Marca «lo siguiente» y manda un correo de aviso.</td><td>No</td></tr>'
++'<tr><td><b>📄 Documentos</b></td><td>Todas las actas y comunicaciones oficiales, ya rellenas y editables.</td><td>Sí — contraseña</td></tr>'
++'<tr><td><b>🗳️ Votar</b></td><td>Donde el claustro/sector vota, de forma anónima.</td><td>No</td></tr>'
++'<tr><td><b>🔒 Administración</b></td><td>Crear votaciones, listados, sorteos y configuración.</td><td>Sí — contraseña</td></tr></table>'
++'<h2>Antes de empezar (una sola vez)</h2>'
++'<div class="paso"><div class="num">1</div><div>En Apps Script ejecuta la función <span class="tag">setupInicial</span> una vez. Crea la hoja de datos, la contraseña provisional <b>cambia1234</b> y activa el aviso diario por correo.</div></div>'
++'<div class="paso"><div class="num">2</div><div>Abre la app → <b>Administración</b> → entra con <b>cambia1234</b> → en <b>Configuración</b> pon <b>tu contraseña nueva</b> y los <b>correos</b> de aviso. Guarda.</div></div>'
++'<div class="paso"><div class="num">3</div><div>Ve a <b>Documentos</b> → arriba, en <b>Datos del centro</b>, escribe el <b>director/a</b> y el <b>secretario/a</b>. Se rellenan solos en todos los documentos y actas.</div></div>'
++'<h2>El proceso, fase a fase</h2>'
++'<h3>Fase A · Junta Electoral</h3><ol><li>Documento <b>1</b>: convocatoria del sorteo.</li><li><b>Administración → Sorteo</b>: haz el sorteo de la Junta Electoral y saca su acta.</li><li>Documentos <b>2, 3 y 4</b>: convocatoria de constitución, acta de constitución y credenciales.</li></ol>'
++'<h3>Fase B · Convocar las elecciones</h3><p>Abre la convocatoria de cada sector (familias, alumnado, profesorado, PAS…). Ya llevan las fechas oficiales.</p>'
++'<h3>Fase C · Supervisores/as</h3><p>Solicitudes y credenciales para familias/alumnado que vigilen la mesa (documentos 10, 11, 14, 15).</p>'
++'<h3>Fase D · Votación y actas de mesa</h3><p>Tras el recuento, abre el <b>acta de mesa</b> del sector. Si la votación la llevas por la app, pulsa <b>«Rellenar con los votos de una votación»</b>: trae candidatos, votos y personas elegidas. Revisa y edita.</p>'
++'<h3>Fase E · Miembros de derecho</h3><p>Escritos para pedir el representante del <b>Ayuntamiento</b> y de la <b>AMPA</b> (documentos 23 y 24).</p>'
++'<h2>Cómo se hace un sorteo (transparente)</h2>'
++'<div class="paso"><div class="num">1</div><div>En <b>Listados para sorteos</b> pega la lista de cada sector (un nombre por línea) y guárdala.</div></div>'
++'<div class="paso"><div class="num">2</div><div>En <b>Sorteo</b> ajusta cada sector: <b>Titulares</b> (elegidos) y <b>Suplentes</b> (reserva), y de qué <b>listado</b> sale.</div></div>'
++'<div class="paso"><div class="num">3</div><div><b>Delante de la gente</b>, elige el número (<b>semilla</b>): que lo diga el público o pulsa <b>«Al azar»</b>.</div></div>'
++'<div class="paso"><div class="num">4</div><div>Pulsa <b>Realizar sorteo</b> → sale el <b>acta editable</b> con la hora puesta → <b>🖨️ Imprimir / PDF</b>.</div></div>'
++'<div class="nota"><b>¿Por qué es comprobable?</b> Con la misma lista y la misma semilla el resultado es siempre idéntico. Como la semilla se elige en público y en el momento, no se puede amañar, y cualquiera puede repetir el sorteo y comprobar que salen los mismos nombres. La semilla queda escrita en el acta.</div>'
++'<h2>Cómo se hace una votación anónima</h2>'
++'<div class="paso"><div class="num">1</div><div><b>Administración → Nueva votación anónima</b>: título y opciones (una por línea; para elegir personas, un candidato por línea). Crear y abrir.</div></div>'
++'<div class="paso"><div class="num">2</div><div>La gente entra en <b>Votar</b> con su cuenta <b>@g.educaand.es</b> y vota. Una vez por persona; nadie sabe qué votó.</div></div>'
++'<div class="paso"><div class="num">3</div><div>Al terminar: <b>Cerrar</b> → <b>Ver resultados</b> → <b>Acta editable / PDF</b>. Desde el acta de mesa puedes traer esos votos.</div></div>'
++'<h2>Practicar sin miedo</h2><ul><li>Cada votación tiene un botón <b>Borrar</b>.</li><li>En <b>Administración → Pruebas</b>: <b>Vaciar registro de sorteos</b> y <b>Reiniciar TODO</b>.</li></ul>'
++'<div class="aviso"><b>Tranquilo:</b> esos botones <b>no borran tus listados/censos</b>. Cuando termines de practicar, pulsa <b>Reiniciar TODO</b> para empezar el proceso real con la hoja limpia.</div>'
++'<div class="aviso"><b>Recuerda:</b> el <b>censo electoral</b> y las <b>papeletas de voto</b> se descargan de <b>Séneca</b>. La app te da el calendario y todas las actas y comunicaciones.</div>'
++'<div class="foot">CEIP San Sebastián · La Puebla del Río · Conforme a la Orden de 7/10/2010 y la Resolución de 7/9/2026 (BOJA núm. 177). Documento de apoyo interno; ante cualquier duda prevalece la normativa y la Junta Electoral.</div>'
++'</div></body></html>';
+function abrirGuia(){
+  var w=window.open('','_blank'); if(!w){alert('Permite las ventanas emergentes para ver la guía.');return;}
+  w.document.open(); w.document.write(GUIA_HTML); w.document.close();
+}
 function renderDocCfg(){
   var c=dcfgGet();
-  var h='<div class="card"><h2 class="serif">Datos del centro</h2>'
+  var h='<div class="row" style="margin-bottom:12px"><button class="btn ghost" onclick="abrirGuia()">📘 Guía de uso</button></div>'
+   +'<div class="card"><h2 class="serif">Datos del centro</h2>'
    +'<p class="lead">Se rellenan automáticamente en todos los documentos. Cámbialos una vez y quedan guardados en este dispositivo.</p>'
    +'<div class="row"><div class="grow"><label>Centro</label><input id="dcCentro" value="'+esc(c.centro)+'"></div>'
    +'<div class="grow"><label>Localidad</label><input id="dcLocalidad" value="'+esc(c.localidad)+'"></div>'
@@ -364,6 +418,17 @@ function firmasOficial(c){
   return '<div class="firmas"><div class="fb">Vº.Bº. EL/LA PRESIDENTE/A (DIRECCIÓN)'+(c.director?'<div style="font-weight:400;margin-top:22px">Fdo.: '+esc(c.director)+'</div>':'<hr class="rule">')
     +'</div><div class="fb">EL/LA SECRETARIO/A'+(c.secretario?'<div style="font-weight:400;margin-top:22px">Fdo.: '+esc(c.secretario)+'</div>':'<hr class="rule">')+'</div></div>';
 }
+function horaAhora(){ var d=new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+/* muestra un acta EDITABLE en la propia app (con la hora ya puesta) y un botón para imprimir lo editado */
+function mostrarActaEditable(contId, titulo, cuerpo){
+  var c=el(contId); if(!c)return;
+  c.innerHTML='<div class="card" style="margin-top:12px"><div class="row" style="margin-bottom:10px;align-items:center">'
+    +'<button class="btn sm" onclick="imprimirActa(\''+contId+'\')">🖨️ Imprimir / PDF</button>'
+    +'<span class="small">Rellena o corrige lo que quieras (hora, etc.) tocando el texto. Luego imprime o guarda en PDF.</span></div>'
+    +'<div class="sheet" id="sheet-'+contId+'" contenteditable="true" spellcheck="false" data-title="'+esc(titulo)+'">'+cuerpo+'</div></div>';
+  try{ el('sheet-'+contId).scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){}
+}
+function imprimirActa(contId){ var n=el('sheet-'+contId); if(n) imprimirOficial(n.getAttribute('data-title')||'Acta', n.innerHTML); }
 
 /* ---- ayudantes de plantilla ---- */
 function B(cl){return '<span class="bl'+(cl?' '+cl:'')+'"></span>';}          /* hueco vacío para rellenar a mano */
@@ -719,7 +784,7 @@ function verRes(id,tit){
       h+='<div class="res-row"><span class="nm">'+esc(o.opcion)+'</span><span class="track"><span class="bar-res" style="width:'+pct+'%"></span></span><span class="n">'+o.votos+'</span></div>';
     });
     h+='<div class="small" style="margin-top:4px">Total: '+r.total+' votos</div>';
-    h+='<button class="btn ghost sm" style="margin-top:8px" onclick="actaVot(\''+id+'\',\''+esc(tit)+'\')">🖨️ Acta / PDF</button></div>';
+    h+='<button class="btn ghost sm" style="margin-top:8px" onclick="actaVot(\''+id+'\',\''+esc(tit)+'\')">📄 Acta editable / PDF</button><div id="acta-'+id+'"></div></div>';
     box.innerHTML=h; box._data={tit:tit,r:r};
     window['_res_'+id]=r;
   }).withFailureHandler(function(e){box.innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).getResultados(ADMINPASS,id);
@@ -727,15 +792,16 @@ function verRes(id,tit){
 function actaVot(id,tit){
   var r=window['_res_'+id]; if(!r)return; var c=dcfgGet();
   var filas=r.opciones.map(function(o){return esc(o.opcion)+' &mdash; <b>'+o.votos+'</b> voto'+(o.votos===1?'':'s');}).join('<br>');
+  var hora=horaAhora();
   var cuerpo=cab(c)
    +'<h1>Acta de votación</h1>'
-   +'<p>En '+FV(c.localidad)+', a '+fLarga(new Date())+', bajo la presidencia del Sr./Sra. Director/a del Centro '+FV(c.centro)+', se somete a votación el siguiente asunto:</p>'
+   +'<p>En '+FV(c.localidad)+', siendo las '+hora+' horas del día '+fLarga(new Date())+', bajo la presidencia del Sr./Sra. Director/a del Centro '+FV(c.centro)+', se somete a votación el siguiente asunto:</p>'
    +'<div class="od"><b>Asunto:</b> '+esc(tit)+'</div>'
    +'<p>Realizada la votación de forma <b>anónima</b> (el sistema garantiza un único voto por persona sin registrar el sentido de cada voto), se obtiene el siguiente resultado:</p>'
    +'<p>'+filas+'<br><b>TOTAL votos emitidos: '+r.total+'</b></p>'
-   +'<p>Y sin más asuntos que tratar, se levanta la sesión, lo que como Secretario/a certifico, con el Vº.Bº. de la Presidencia.</p>'
+   +'<p>Y sin más asuntos que tratar, se levanta la sesión a las '+hora+' horas, lo que como Secretario/a certifico, con el Vº.Bº. de la Presidencia.</p>'
    +firmasOficial(c);
-  imprimirOficial('Acta de votación', cuerpo);
+  mostrarActaEditable('acta-'+id, 'Acta de votación', cuerpo);
 }
 
 /* listados */
@@ -811,7 +877,7 @@ function hacerSorteo(){
       s.suplentes.forEach(function(p,k){h+='<li>'+esc(p)+' <span class="small">— suplente '+(k+1)+'º</span></li>';});
       h+='</ol></div>';
     });
-    h+='<button class="btn ghost sm" style="margin-top:6px" onclick="actaSorteo()">🖨️ Acta / PDF</button>';
+    h+='<button class="btn ghost sm" style="margin-top:6px" onclick="actaSorteo()">📄 Acta editable / PDF</button><div id="soActa"></div>';
     el('soRes').innerHTML=h; window._sorteo={tit:tit,r:r};
   }).withFailureHandler(function(e){el('soMsg').innerHTML='<div class="msg err">'+esc(e&&e.message)+'</div>';}).realizarSorteo(ADMINPASS,tit,seed,sect);
 }
@@ -825,16 +891,17 @@ function actaSorteo(){
     if(!lines.length) return;
     secs+='<h3>'+esc(sec.nombre)+'</h3><p>'+lines.join('<br>')+'</p>';
   });
+  var hora=horaAhora();
   var cuerpo=cab(c)
    +'<h1>Acta del sorteo público &mdash; '+esc(s.tit)+'</h1>'
-   +'<p>En '+FV(c.localidad)+', siendo las '+B('sm')+' horas del día '+esc(s.r.fecha)+', bajo la presidencia del Sr./Sra. Director/a del Centro '+FV(c.centro)+', se procede a la celebración del sorteo público, conforme a la Orden de 7 de octubre de 2010 y a la Resolución de 7 de septiembre de 2026 (BOJA núm. 177).</p>'
+   +'<p>En '+FV(c.localidad)+', siendo las '+hora+' horas del día '+esc(s.r.fecha)+', bajo la presidencia del Sr./Sra. Director/a del Centro '+FV(c.centro)+', se procede a la celebración del sorteo público, conforme a la Orden de 7 de octubre de 2010 y a la Resolución de 7 de septiembre de 2026 (BOJA núm. 177).</p>'
    +'<div class="seed"><b>Número (semilla) del sorteo:</b> '+esc(s.r.semilla)+' &nbsp;·&nbsp; anunciado públicamente antes de su realización.<br>Con la misma semilla y el mismo listado el resultado es idéntico, por lo que es <b>reproducible y verificable</b> por cualquier persona interesada.</p></div>'
    +'<p>Realizado el sorteo, resultan designadas las siguientes personas:</p>'
    +secs
    +'<p>El resultado se notificará personalmente a las personas designadas, a quienes se convocará, en su caso, para el acto de constitución correspondiente.</p>'
-   +'<p>Y sin más asuntos que tratar, se levanta la sesión a las '+B('sm')+' horas del día indicado.</p>'
+   +'<p>Y sin más asuntos que tratar, se levanta la sesión a las '+hora+' horas del día indicado.</p>'
    +firmasOficial(c);
-  imprimirOficial('Acta de sorteo', cuerpo);
+  mostrarActaEditable('soActa', 'Acta de sorteo', cuerpo);
 }
 
 /* config */
