@@ -5948,18 +5948,23 @@ function publicarCuadranteSSN(){
   var cab=['Fecha','Dia'].concat(prim.puestos).concat(inf.puestos.map(function(p){return 'Inf · '+p;}));
   var filas=[cab];
   var pp=mes.split('-'), anio=parseInt(pp[0],10), mm=parseInt(pp[1],10)-1;
-  var d=new Date(anio,mm,1);
-  while(d.getMonth()===mm){
-    var dow=d.getDay();
-    if(dow>=1&&dow<=5){
-      var di=dow-1;
-      var fecha=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      var row=[fecha, diasNom[dow]];
+  // Recorremos por SEMANAS cuyo LUNES cae en este mes: así una semana a caballo entre
+  // dos meses (p. ej. Lun 28-sep a Vie 2-oct) se publica ENTERA con el cuadrante del mes
+  // en que empieza. En «Al Día», el docente ve el mismo puesto toda la semana, sin cambios
+  // a mitad de semana (los días 1-2 de octubre usan el cuadrante de septiembre).
+  var _d1=new Date(anio,mm,1), _dow1=_d1.getDay();
+  var _off=(_dow1===1)?0:((8-_dow1)%7);           // primer lunes que pertenece a este mes
+  var lun=new Date(anio,mm,1+_off);
+  while(lun.getMonth()===mm){
+    for(var di=0; di<5; di++){                     // Lunes..Viernes de esa semana
+      var dd=new Date(lun.getFullYear(),lun.getMonth(),lun.getDate()+di);
+      var fecha=dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')+'-'+String(dd.getDate()).padStart(2,'0');
+      var row=[fecha, diasNom[dd.getDay()]];
       prim.puestos.forEach(function(p){ row.push(_recCellNames((prim.filas[p]||[])[di]||'')); });
       inf.puestos.forEach(function(p){ row.push(_recCellNames((inf.filas[p]||[])[di]||'')); });
       filas.push(row);
     }
-    d.setDate(d.getDate()+1);
+    lun.setDate(lun.getDate()+7);
   }
   if(filas.length<2){alert('No hay dias laborables en '+getMesLabel2(mes)+'.');return;}
   var eventos={mes:mes,mesLabel:getMesLabel2(mes),filas:filas};
