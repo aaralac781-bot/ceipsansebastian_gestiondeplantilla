@@ -5536,6 +5536,7 @@ function initCuadrante(){
     DB.recreo.cuad=_recCuadSeed(); save();
   }
   if(!Array.isArray(DB.recreo.ptis))DB.recreo.ptis=[];
+  if(!DB.recreo.alias||typeof DB.recreo.alias!=='object')DB.recreo.alias={};
 }
 // Conjunto de personas disponibles para el recreo: plantilla + PTIS (no docentes).
 function _recPersonas(){
@@ -5550,6 +5551,9 @@ function _recTok(s){return _recNorm(s).split(' ').filter(function(w){return w.le
 function _recResolve(w){
   w=(w||'').trim(); if(!w)return '';
   var pool=_recPersonas(), nw=_recNorm(w), i;
+  // 0) Alias definido a mano ("este nombre = esta persona"): manda sobre todo.
+  var alias=(DB.recreo&&DB.recreo.alias)||{};
+  if(alias[nw]) return alias[nw];
   for(i=0;i<pool.length;i++){ if(_recNorm(pool[i])===nw) return pool[i]; }   // exacto
   var wt=_recTok(w), best=null,bestScore=0,empate=false;
   pool.forEach(function(p){
@@ -5658,6 +5662,18 @@ function _recShowModal(inner){
   box.innerHTML=inner;
   ov.appendChild(box); document.body.appendChild(ov);
 }
+// Une un nombre "suelto" del cuadrante con una persona de la plantilla (alias).
+// Queda guardado, así ese nombre siempre cuenta para esa persona (y no reaparece como "otro").
+function _recAsignar(normKey, target){
+  if(!DB.recreo)DB.recreo={};
+  if(!DB.recreo.alias||typeof DB.recreo.alias!=='object')DB.recreo.alias={};
+  normKey=(normKey||'').trim();
+  if(!normKey)return;
+  if(target){ DB.recreo.alias[normKey]=target; }
+  else { delete DB.recreo.alias[normKey]; }
+  try{ save(); }catch(e){}
+  recuentoRecreoBtn();   // vuelve a calcular y a pintar con el cambio ya aplicado
+}
 function recuentoRecreoBtn(){
   var mes=RECREO_MES_ACTUAL;
   initCuadrante();
@@ -5712,7 +5728,11 @@ function recuentoRecreoBtn(){
       h+=numCol(f.c,alto);
       if(tipo==='doc') h+='<td style="padding:6px 8px;border-top:1px solid #eef2f7;text-align:right">'+estadoDoc(f.c)+'</td>';
       else if(tipo==='ptis') h+='<td style="padding:6px 8px;border-top:1px solid #eef2f7;text-align:right">'+badge('#ede9fe','#6d28d9','no docente')+'</td>';
-      else h+='<td style="padding:6px 8px;border-top:1px solid #eef2f7;text-align:right">'+badge('#fee2e2','#b91c1c','revisar: no está en plantilla')+'</td>';
+      else {
+        var opsAsig='<option value="">— es… (elige persona) —</option>';
+        _recPersonas().slice().sort(function(a,b){return a.localeCompare(b,'es');}).forEach(function(p){ opsAsig+='<option value="'+esc(p)+'">'+esc(p)+'</option>'; });
+        h+='<td style="padding:6px 8px;border-top:1px solid #eef2f7;text-align:right"><select onchange="_recAsignar(\''+_recNorm(f.n)+'\',this.value)" style="max-width:180px;font-size:11px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:7px;padding:3px 5px;font-weight:700">'+opsAsig+'</select></td>';
+      }
       h+='</tr>';
     });
     h+='</table></div>';
@@ -5729,7 +5749,10 @@ function recuentoRecreoBtn(){
   if(docConMas) inner+='<div class="al i" style="margin-bottom:4px"><span>i</span><span>'+docConMas+' docente(s) con más de 2 recreos (en ámbar). Repásalos por si alguno no es voluntario.</span></div>';
   inner+=tabla('Maestros/as',' #15803d',filasDoc,'doc');
   inner+=tabla('Personal no docente / PTIS','#6d28d9',filasPtis,'ptis');
-  if(otros.length) inner+=tabla('Otros nombres del cuadrante','#b91c1c',otros,'otros');
+  if(otros.length){
+    inner+='<div style="margin-top:12px;font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:7px 9px">Estos nombres del cuadrante no coinciden con la plantilla (un error al escribir, un apellido, una variante…). <b>Elige a quién corresponde cada uno</b> y sus turnos se sumarán a esa persona. Se recuerda para las próximas veces.</div>';
+    inner+=tabla('Otros nombres del cuadrante','#b91c1c',otros,'otros');
+  }
   inner+='<div style="text-align:center;color:#94a3b8;font-size:11px;margin-top:12px">Total de turnos cubiertos en la semana: <b>'+totalTurnos+'</b></div>';
   inner+='</div>';
   _recShowModal(inner);
