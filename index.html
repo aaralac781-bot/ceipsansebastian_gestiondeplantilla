@@ -5057,10 +5057,19 @@ function setVistaRecreo(el){
   renderRecreo();
 }
 
+// Mes al que pertenece la SEMANA actual: el del LUNES de esta semana.
+// Así una semana a caballo entre dos meses (p. ej. Lun 30-sep a Vie 4-oct) cuenta
+// entera como el mes en que EMPIEZA, y el cuadrante no cambia a mitad de semana.
+function _recMesDeLaSemana(){
+  var d=new Date();
+  var dow=d.getDay();                 // 0=Domingo, 1=Lunes … 6=Sábado
+  var diffLun=(dow===0? -6 : 1-dow);  // retrocede hasta el lunes (domingo → lunes anterior)
+  var lun=new Date(d.getFullYear(),d.getMonth(),d.getDate()+diffLun);
+  return lun.getFullYear()+'-'+(lun.getMonth()<9?'0':'')+(lun.getMonth()+1);
+}
 function initRecreo(){
   if(!RECREO_MES_ACTUAL){
-    var d=new Date();
-    RECREO_MES_ACTUAL=d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);
+    RECREO_MES_ACTUAL=_recMesDeLaSemana();
   }
   if(!DB.recreo)DB.recreo={};
   // Migrar zonas antiguas al nuevo formato con id y color
