@@ -9,7 +9,7 @@ Es una **app externa a SSNet**: tiene su propio proyecto de Google Apps Script, 
 - Cada **tutor o tutora** abre la app desde el canal del curso en SSNet, **en la pizarra digital de su clase**, con su cuenta `@g.educaand.es`.
 - Todos los votos van a un mismo sitio, **en el Drive de la dirección**, y todas las pizarras ven lo mismo. Las pantallas de Seguimiento y Resultados se actualizan solas cada 12 segundos.
 - El **servidor comprueba cada voto**: que la clase no haya votado ya, que la votación esté abierta, que la propuesta sea de su ciclo y que el código sea correcto. Si dos pizarras votan a la vez por la misma clase, solo cuenta un voto.
-- El **panel de dirección** no tiene contraseña: entran las cuentas de la dirección (la de quien publica la app y las que se añadan en Ajustes).
+- El **panel de dirección** se abre con la **clave de dirección**, que se crea la primera vez que se abre la app. También entran sin clave las cuentas de dirección que Google identifique, aunque en algunos dominios educativos Google no informa del correo; por eso existe la clave.
 - El profesorado **no ve los códigos de voto** de las clases. Si en Panel → Clases se escribe la cuenta del tutor o la tutora, esa persona vota sin código.
 - Todo queda en la **Hoja «Registro de la votación»** con fecha, hora y la cuenta que hizo cada cosa: votos, anulaciones, desempates, aperturas y cierres.
 

@@ -19,6 +19,9 @@ const TYPES = {
 const CAT_ICON = { dibujo: '🎨', nombre: '🏷️', texto: '💬', finalista: '⭐' };
 const NOTA_DESEMPATE_CICLO = 'Desempate decidido por el equipo docente del ciclo';
 
+/* Acciones de la interfaz (se rellenan en cada sección) */
+const ACT = {}, CHG = {}, FORMS = {};
+
 /* ================= Utilidades ================= */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -170,11 +173,16 @@ function addLog(type, text) { S.log.push({ id: uid(), ts: nowISO(), type, text }
 const REMOTE = !!(window.google && google.script && google.script.run);
 let USER = { email: '', admin: false };
 let REV = 0, BUSY = 0;
+/* Clave de dirección: se recuerda en este navegador y acompaña a cada petición. */
+let CLAVE = '';
+try { CLAVE = localStorage.getItem('adi-clave') || ''; } catch (e) { /* sin almacenamiento */ }
+function guardarClave(c) { CLAVE = c; try { c ? localStorage.setItem('adi-clave', c) : localStorage.removeItem('adi-clave'); } catch (e) { /* solo en memoria */ } }
 function gsCall(fn, arg) {
+  const datos = Object.assign({}, arg || {}, CLAVE ? { clave: CLAVE } : {});
   return new Promise((res, rej) => {
     google.script.run
       .withSuccessHandler(r => { try { const o = typeof r === 'string' ? JSON.parse(r) : r; setOnline(true); res(o); } catch (e) { rej(e); } })
-      .withFailureHandler(e => { setOnline(false); rej(new Error(e?.message || String(e))); })[fn](arg === undefined ? '' : JSON.stringify(arg));
+      .withFailureHandler(e => { setOnline(false); rej(new Error(e?.message || String(e))); })[fn](JSON.stringify(datos));
   });
 }
 function applyServer(r) {
@@ -184,7 +192,7 @@ function applyServer(r) {
 }
 function setOnline(ok) {
   const el = $('#estado'); if (!el || !REMOTE) return;
-  el.innerHTML = ok ? `<span class="dot-ok" aria-hidden="true"></span> En línea${USER.email ? ' · ' + esc(USER.email) : ''}${USER.admin ? ' · <b>Dirección</b>' : ''}`
+  el.innerHTML = ok ? `<span class="dot-ok" aria-hidden="true"></span> En línea${USER.email ? ' · ' + esc(USER.email) : ''}${USER.admin ? ' · <b>Dirección</b>' : ''}${USER.admin && CLAVE ? ' · <button class="btn-link" data-act="salir-clave">salir</button>' : ''}`
     : '<span class="dot-err" aria-hidden="true"></span> Sin conexión: reintentando…';
   el.className = 'estado ' + (ok ? 'ok' : 'err');
 }
@@ -290,6 +298,60 @@ function canAutoRender() {
   if ((name === 'votar' || name === 'centro') && V && !['clase', 'hecho'].includes(V.step)) return false;
   return true;
 }
+
+function claveHtml() {
+  if (!USER.claveCreada) return `<div class="card" style="max-width:560px;margin:1.5rem auto"><h2>Primera puesta en marcha</h2>
+    <p>Crea la <b>clave de dirección</b>. Con ella entrarás al panel desde cualquier ordenador o pizarra. Guárdala bien y no la compartas con el profesorado.</p>
+    <form data-form="clave-crear" class="stack"><label for="cl1">Nueva clave (mínimo 6 caracteres)</label><input id="cl1" type="password" minlength="6" required autocomplete="new-password">
+    <label for="cl2">Repite la clave</label><input id="cl2" type="password" minlength="6" required autocomplete="new-password">
+    <button class="btn-primary btn-grande" type="submit">Crear la clave y entrar</button></form></div>`;
+  return `<div class="card" style="max-width:560px;margin:1.5rem auto"><h2>Entrar como dirección</h2>
+    <form data-form="clave-entrar" class="stack"><label for="cl0">Clave de dirección</label><input id="cl0" type="password" required autocomplete="current-password">
+    <button class="btn-primary btn-grande" type="submit">Entrar</button></form>
+    <p class="small muted">El profesorado no necesita clave: vota con el código de su clase.</p></div>`;
+}
+async function entrarComoDireccion() {
+  const r = await gsCall('mascApiEstado');
+  if (!r.user?.admin) return false;
+  applyServer(r);
+  if (!r.state) {
+    S = emptyState();
+    addLog('datos', 'Puesta en marcha de la app en línea.');
+    const ini = await gsCall('mascApiGuardar', { baseRev: 0, state: S });
+    if (!ini.ok) throw new Error(ini.error || 'No se ha podido iniciar');
+    applyServer(ini);
+  }
+  setOnline(true);
+  if (!arrancado) arrancar();
+  location.hash = '#/panel/carga'; render();
+  return true;
+}
+FORMS['clave-entrar'] = async f => {
+  const c = $('#cl0', f).value;
+  guardarClave(c); setBusy('Comprobando la clave…');
+  try { if (await entrarComoDireccion()) toast('Has entrado como dirección.'); else { guardarClave(''); toast('Clave incorrecta.', 'error'); $('#cl0', f).value = ''; } }
+  finally { setBusy(''); }
+};
+FORMS['clave-crear'] = async f => {
+  const a = $('#cl1', f).value, b = $('#cl2', f).value;
+  if (a !== b) return toast('Las claves no coinciden.', 'error');
+  setBusy('Creando la clave…');
+  try {
+    const r = await gsCall('mascApiClave', { nueva: a });
+    if (!r.ok) return toast(r.error || 'No se ha podido crear la clave.', 'error');
+    guardarClave(a);
+    await entrarComoDireccion();
+    toast('Clave creada. Ya puedes cargar las propuestas.');
+  } finally { setBusy(''); }
+};
+FORMS['clave-cambiar'] = async f => {
+  const a = $('#cl1', f).value, b = $('#cl2', f).value;
+  if (a !== b) return toast('Las claves no coinciden.', 'error');
+  const r = await gsCall('mascApiClave', { nueva: a });
+  if (!r.ok) return toast(r.error || 'No se ha podido cambiar.', 'error');
+  guardarClave(a); f.reset(); toast('Clave de dirección cambiada.');
+};
+ACT['salir-clave'] = () => { guardarClave(''); location.hash = '#/inicio'; location.reload(); };
 
 /* ================= Sesión docente ================= */
 const isAdmin = () => { if (REMOTE) return !!USER.admin; try { return sessionStorage.getItem('adi-admin') === '1'; } catch (e) { return window.__adm === true; } };
@@ -503,7 +565,7 @@ window.addEventListener('hashchange', () => {
 });
 
 /* Acciones por delegación: data-act (clic) y data-chg (cambio en formularios) */
-const ACT = {}, CHG = {};
+
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el || el.closest('[disabled]')) return;
@@ -748,7 +810,6 @@ document.addEventListener('submit', e => {
   const fn = FORMS[f.dataset.form];
   if (fn) Promise.resolve(fn(f, e)).catch(err => { console.error(err); toast('Error: ' + (err?.message || err), 'error'); });
 });
-const FORMS = {};
 function esTutor(k) { return !!(USER.email && k && (k.tutors || []).some(t => String(t).toLowerCase() === USER.email.toLowerCase())); }
 FORMS['v-code'] = async f => {
   const val = $('#vcode', f).value.trim();
@@ -1056,9 +1117,7 @@ VIEWS.ayuda = () => `<h1>Ayuda para el profesorado</h1>
 /* ================= PANEL DOCENTE ================= */
 const PANEL_TABS = [['carga', '📸 Carga rápida'], ['fases', '🚦 Fases'], ['propuestas', '🖼️ Propuestas'], ['clases', '🏫 Clases'], ['votos', '🗳️ Votos e historial'], ['ajustes', '⚙️ Ajustes'], ['datos', '💾 Datos']];
 VIEWS.panel = args => {
-  if (REMOTE && !isAdmin()) return `<div class="card" style="max-width:620px;margin:2rem auto"><h1>Panel de dirección</h1>
-    <p>Has entrado con la cuenta <b>${esc(USER.email || 'desconocida')}</b>, que no tiene acceso al panel.</p>
-    <p class="small muted">El panel es solo para la dirección. Si debes tener acceso, pide que añadan tu cuenta en Panel → Ajustes.</p></div>`;
+  if (REMOTE && !isAdmin()) return `<h1>Panel de dirección</h1>${claveHtml()}`;
   if (!isAdmin()) return `<div class="card" style="max-width:520px;margin:2rem auto"><h1>Panel docente</h1>
     <form data-form="login" class="stack"><label for="pw">Contraseña del profesorado</label><input id="pw" type="password" autocomplete="current-password" required autofocus>
     <button class="btn-primary btn-grande" type="submit">Entrar</button></form>
@@ -1580,7 +1639,12 @@ PANEL.ajustes = () => `<div class="grid g2">
   <div class="card"><h2>Protección de datos</h2>
     <label class="check"><input type="checkbox" data-chg="cfg" data-f="initials" ${S.config.initials ? 'checked' : ''}> <span>Mostrar solo el <b>nombre y la inicial del primer apellido</b> (por ejemplo, «Lucía M.»)</span></label>
     <p class="small muted">Solo se guarda el nombre y el curso de cada autor o autora. Mostrad nombres y dibujos únicamente con la autorización de las familias.</p></div>
-  ${REMOTE ? `<div class="card"><h2>Cuentas de la dirección</h2>
+  ${REMOTE ? `<div class="card"><h2>Clave de dirección</h2>
+    <p class="small">Sirve para entrar al panel desde cualquier ordenador. Cámbiala si crees que la conoce alguien más.</p>
+    <form data-form="clave-cambiar" class="stack"><label for="cl1">Nueva clave</label><input id="cl1" type="password" minlength="6" required autocomplete="new-password">
+    <label for="cl2">Repite la clave</label><input id="cl2" type="password" minlength="6" required autocomplete="new-password">
+    <button class="btn-primary" type="submit">Cambiar la clave</button></form></div>
+  <div class="card"><h2>Cuentas de la dirección</h2>
     <p class="small">Estas cuentas pueden entrar en el panel. La cuenta de quien publicó la app siempre tiene acceso.</p>
     <form data-form="admins" class="stack"><label for="admins">Una cuenta por línea</label><textarea id="admins" style="min-height:100px" placeholder="nombre@g.educaand.es">${esc((S.config.admins || []).join('\n'))}</textarea>
     <button class="btn-primary" type="submit">Guardar cuentas</button></form></div>` : `<div class="card"><h2>Contraseña del profesorado</h2>
@@ -1770,6 +1834,12 @@ async function boot() {
   try { navigator.storage?.persist?.(); } catch (e) { /* opcional */ }
   render();
 }
+let arrancado = false;
+function arrancar() {
+  arrancado = true;
+  setInterval(poll, 12000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+}
 async function bootRemote() {
   setBusy('Conectando…');
   let r;
@@ -1778,24 +1848,17 @@ async function bootRemote() {
     $('#main').innerHTML = `<div class="oculto"><div class="ico">📡</div><h2>No se ha podido conectar</h2><p>${esc(e.message)}</p><button data-act="reload">Reintentar</button></div>`;
     return;
   } finally { setBusy(''); }
+  if (CLAVE && !r.user?.admin) guardarClave('');
   applyServer(r);
-  if (!r.state) {
-    if (!USER.admin) {
-      $('#main').innerHTML = `<div class="oculto"><div class="ico">🪺</div><h2>La votación todavía no está preparada</h2><p>La dirección está dando de alta las propuestas. Vuelve a entrar más tarde.</p></div>`;
-      setTimeout(() => location.reload(), 60000);
-      return;
-    }
-    S = emptyState();
-    addLog('datos', 'Puesta en marcha de la app en línea.');
-    const ini = await gsCall('mascApiGuardar', { baseRev: 0, state: S });
-    if (!ini.ok) { $('#main').innerHTML = `<div class="oculto"><h2>${esc(ini.error || 'No se ha podido iniciar')}</h2></div>`; return; }
-    applyServer(ini);
-    toast('App preparada. Empieza por Panel → Carga rápida.');
-  }
   setOnline(true);
+  if (!r.state) {
+    if (USER.admin) { await entrarComoDireccion(); return; }
+    // Todavía no hay datos: solo la dirección puede ponerla en marcha.
+    $('#main').innerHTML = `<div class="oculto"><div class="ico">🪺</div><h2>La votación todavía no está preparada</h2><p>La dirección está dando de alta las propuestas. Vuelve a entrar más tarde.</p></div>${claveHtml()}`;
+    return;
+  }
   render();
-  setInterval(poll, 12000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  arrancar();
 }
 ACT.reload = () => location.reload();
 boot().catch(e => window.__falloArranque?.(e?.message || String(e)));

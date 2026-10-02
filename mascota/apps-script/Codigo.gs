@@ -113,7 +113,20 @@ function mascRev_() { return Number(mascProps_().getProperty('MASC_REV')) || 0; 
 function mascEmail_() {
   try { return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase(); } catch (e) { return ''; }
 }
+/* Clave de dirección: permite entrar al panel aunque Google no informe del correo
+   (pasa en algunos dominios educativos con «Ejecutar como: yo»). Se guarda solo su huella. */
+var MASC_CLAVE_PETICION = '';
+function mascReq_(json) { var req = JSON.parse(json || '{}'); MASC_CLAVE_PETICION = String(req.clave || ''); return req; }
+function mascHash_(t) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'alas-de-igualdad|' + t, Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
+}
+function mascClaveOk_() {
+  var h = mascProps_().getProperty('MASC_CLAVE');
+  return !!(h && MASC_CLAVE_PETICION && mascHash_(MASC_CLAVE_PETICION) === h);
+}
 function mascEsAdmin_(st, email) {
+  if (mascClaveOk_()) return true;
   if (!email) return false;
   var lista = MASC_ADMINS_FIJOS.concat((st && st.config && st.config.admins) || [])
     .map(function (x) { return String(x).trim().toLowerCase(); });
@@ -210,7 +223,7 @@ function mascRespuesta_(st, email, extra) {
     (pub.classes || []).forEach(function (k) { delete k.code; });
     if (pub.config) delete pub.config.adminHash;
   }
-  var r = { state: pub, rev: mascRev_(), user: { email: email, admin: admin } };
+  var r = { state: pub, rev: mascRev_(), user: { email: email, admin: admin, claveCreada: !!mascProps_().getProperty('MASC_CLAVE') } };
   if (admin) {
     var p = mascProps_();
     if (p.getProperty('MASC_CARPETA')) r.user.carpetaUrl = 'https://drive.google.com/drive/folders/' + p.getProperty('MASC_CARPETA');
@@ -224,21 +237,37 @@ function mascError_(msg) { return JSON.stringify({ error: msg }); }
 /* ---------- API para la app (google.script.run) ---------- */
 
 /** Estado completo y cuenta que lo pide. */
-function mascApiEstado() { return mascRespuesta_(mascLeer_(), mascEmail_()); }
+function mascApiEstado(json) { mascReq_(json); return mascRespuesta_(mascLeer_(), mascEmail_()); }
+
+/** Crea la clave de dirección (la primera vez) o la cambia (solo la dirección). */
+function mascApiClave(json) {
+  var req = mascReq_(json), email = mascEmail_(), lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    var st = mascLeer_(), p = mascProps_(), existe = !!p.getProperty('MASC_CLAVE');
+    if (existe && !mascEsAdmin_(st, email)) return mascError_('Ya existe una clave de dirección. Para cambiarla, entra antes con la clave actual.');
+    var nueva = String(req.nueva || '');
+    if (nueva.length < 6) return mascError_('La clave debe tener al menos 6 caracteres.');
+    p.setProperty('MASC_CLAVE', mascHash_(nueva));
+    mascRegistrar_([{ ts: new Date().toISOString(), by: email || 'dirección (clave)', type: 'ajuste', text: existe ? 'Se cambia la clave de dirección.' : 'Se crea la clave de dirección.' }]);
+    MASC_CLAVE_PETICION = nueva;
+    return mascRespuesta_(st, email, { ok: true });
+  } finally { lock.releaseLock(); }
+}
 
 /** Solo el número de versión: sirve para refrescar las pizarras sin descargar todo. */
 function mascApiRev() { return JSON.stringify({ rev: mascRev_() }); }
 
 /** Comprueba el código de una clase antes de empezar a votar. */
 function mascApiCodigo(json) {
-  var req = JSON.parse(json || '{}'), st = mascLeer_();
+  var req = mascReq_(json), st = mascLeer_();
   var k = st && mascFind(st.classes, req.classId);
   return JSON.stringify({ ok: !!k && String(k.code) === String(req.code || '').trim() });
 }
 
 /** Registra el voto de una clase. Las reglas se comprueban aquí, con bloqueo, aunque voten varias clases a la vez. */
 function mascApiVotar(json) {
-  var req = JSON.parse(json || '{}'), email = mascEmail_(), lock = LockService.getScriptLock();
+  var req = mascReq_(json), email = mascEmail_(), lock = LockService.getScriptLock();
   lock.waitLock(25000);
   try {
     var st = mascLeer_();
@@ -246,7 +275,7 @@ function mascApiVotar(json) {
     var err = mascValidarVoto(st, req, { admin: mascEsAdmin_(st, email), email: email });
     if (err) return mascRespuesta_(st, email, { error: err });
     var antes = st.log.length;
-    var ts = mascAplicarVoto(st, req, { ts: new Date().toISOString(), by: email, uid: function () { return Utilities.getUuid(); } });
+    var ts = mascAplicarVoto(st, req, { ts: new Date().toISOString(), by: email || (mascClaveOk_() ? 'dirección (clave)' : ''), uid: function () { return Utilities.getUuid(); } });
     mascGuardar_(st);
     mascRegistrar_(st.log.slice(antes));
     return mascRespuesta_(st, email, { ok: true, ts: ts });
@@ -256,7 +285,7 @@ function mascApiVotar(json) {
 /** Guarda los cambios de la dirección (propuestas, fases, desempates, anulaciones…).
  *  Si otra persona ha guardado antes, devuelve conflict y la app lo reintenta sobre los datos nuevos. */
 function mascApiGuardar(json) {
-  var req = JSON.parse(json || '{}'), email = mascEmail_(), lock = LockService.getScriptLock();
+  var req = mascReq_(json), email = mascEmail_(), lock = LockService.getScriptLock();
   lock.waitLock(25000);
   try {
     var cur = mascLeer_();
@@ -267,7 +296,7 @@ function mascApiGuardar(json) {
     var vistos = {};
     ((cur && cur.log) || []).forEach(function (l) { vistos[l.id] = 1; });
     var nuevas = (st.log || []).filter(function (l) { return !vistos[l.id]; });
-    nuevas.forEach(function (l) { if (!l.by) l.by = email; });
+    nuevas.forEach(function (l) { if (!l.by) l.by = email || 'dirección (clave)'; });
     mascGuardar_(st);
     mascRegistrar_(nuevas);
     return mascRespuesta_(st, email, { ok: true });
@@ -276,7 +305,7 @@ function mascApiGuardar(json) {
 
 /** Sube una imagen (ya reducida en el navegador) a la carpeta de imágenes. */
 function mascApiSubirImagen(json) {
-  var req = JSON.parse(json || '{}'), email = mascEmail_();
+  var req = mascReq_(json), email = mascEmail_();
   if (!mascEsAdmin_(mascLeer_(), email)) return mascError_('Solo la dirección puede subir imágenes.');
   var m = /^data:(image\/[a-z+.-]+);base64,(.+)$/.exec(req.dataUrl || '');
   if (!m) return mascError_('Imagen no válida.');
@@ -287,7 +316,7 @@ function mascApiSubirImagen(json) {
 
 /** Devuelve una imagen de la carpeta del concurso (y solo de esa carpeta). */
 function mascApiImagen(json) {
-  var req = JSON.parse(json || '{}');
+  var req = mascReq_(json);
   try {
     var f = DriveApp.getFileById(String(req.id)), idCarpeta = mascCarpetaImagenes_().getId(), ok = false, it = f.getParents();
     while (it.hasNext()) if (it.next().getId() === idCarpeta) ok = true;
@@ -298,7 +327,8 @@ function mascApiImagen(json) {
 }
 
 /** Manda a la papelera las imágenes que ya no usa ninguna propuesta (al borrar datos). */
-function mascApiLimpiarImagenes() {
+function mascApiLimpiarImagenes(json) {
+  mascReq_(json);
   var email = mascEmail_(), st = mascLeer_();
   if (!mascEsAdmin_(st, email)) return mascError_('Solo la dirección puede borrar imágenes.');
   var usadas = {};
