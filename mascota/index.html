@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Alas de Igualdad · Votación de la Mascota</title>
+<meta name="description" content="Votación transparente de la mascota del CEIP San Sebastián (La Puebla del Río)">
+<meta name="theme-color" content="#3F7A5B">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FBF6EA'/%3E%3Cpath d='M26 44c-6-8 2-14-4-22' stroke='%2326352C' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='22' cy='18' r='7' fill='%23fff' stroke='%2326352C' stroke-width='2.5'/%3E%3Cpath d='M16 17L4 20l12 2z' fill='%23D89A3C'/%3E%3Cellipse cx='38' cy='44' rx='16' ry='10' fill='%23fff' stroke='%2326352C' stroke-width='2.5'/%3E%3Cpath d='M30 42q8-7 18 1' stroke='%237A4E8E' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Newsreader:opsz,wght@6..72,500;6..72,700;6..72,800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<header class="top">
+  <a class="brand" href="#/inicio" aria-label="Alas de Igualdad, inicio">
+    <span class="brand-logo" aria-hidden="true"></span>
+    <span class="brand-txt"><b>Alas de Igualdad</b><small>Diseñando la Mascota de Nuestro Cole</small></span>
+  </a>
+  <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="nav">☰ Menú</button>
+  <nav id="nav" aria-label="Secciones"></nav>
+</header>
+<div id="banner"></div>
+<main id="main" tabindex="-1"><p class="loading">Cargando…</p></main>
+<footer class="foot">
+  <span>CEIP San Sebastián · La Puebla del Río (Sevilla)</span>
+  <span class="note">igualdad · corresponsabilidad · respeto · naturaleza · convivencia</span>
+</footer>
+<dialog id="dlg" aria-modal="true"></dialog>
+<div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Vista ampliada"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="print-area"></div>
+<noscript><p style="padding:2rem;font-size:1.4rem">Esta aplicación necesita JavaScript activado.</p></noscript>
+<script src="muestras.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
