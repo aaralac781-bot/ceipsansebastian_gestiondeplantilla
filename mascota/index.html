@@ -35,6 +35,25 @@
 <div id="busy" role="status" aria-live="polite" hidden></div>
 <div id="print-area"></div>
 <noscript><p style="padding:2rem;font-size:1.4rem">Esta aplicación necesita JavaScript activado.</p></noscript>
+<script>
+/* Si algo impide arrancar, se explica en pantalla en lugar de quedarse en «Cargando…». */
+(function () {
+  function fallo(msg) {
+    var m = document.getElementById('main');
+    if (!m || !m.querySelector('.loading')) return;
+    var t = document.createElement('div'); t.className = 'oculto';
+    t.innerHTML = '<div class="ico">⚠️</div><h2>La app no ha podido arrancar</h2><p class="muted"></p>'
+      + '<p>Prueba a recargar. Si sigue igual, abre el enlace en una pestaña nueva de Chrome con tu cuenta del cole y envía una captura de esta pantalla a la dirección.</p>'
+      + '<button type="button" onclick="location.reload()">↻ Recargar</button>';
+    t.querySelector('p').textContent = 'Detalle: ' + msg;
+    m.innerHTML = ''; m.appendChild(t);
+  }
+  window.__falloArranque = fallo;
+  window.addEventListener('error', function (e) { fallo((e.message || 'error') + (e.lineno ? ' (línea ' + e.lineno + ')' : '')); });
+  window.addEventListener('unhandledrejection', function (e) { fallo(String(e.reason && e.reason.message || e.reason)); });
+  setTimeout(function () { fallo('tarda demasiado en responder (más de 25 segundos).'); }, 25000);
+})();
+</script>
 <script src="comun.js"></script>
 <script src="muestras.js"></script>
 <script src="app.js"></script>

@@ -56,31 +56,50 @@ async function hashPw(pw) {
 }
 
 /* ================= Almacenamiento ================= */
+/* IndexedDB, con plan B: localStorage y, si tampoco está permitido (algunos iframes de
+   terceros lo bloquean y la petición no responde nunca), memoria. Nada puede dejar la
+   app esperando: cada operación tiene un tiempo máximo. */
+const conLimite = (p, ms, siVence) => Promise.race([p, new Promise((res, rej) => setTimeout(() => siVence instanceof Error ? rej(siVence) : res(siVence), ms))]);
 const Store = {
-  db: null,
+  db: null, mem: new Map(), ls: null,
   async open() {
+    try { localStorage.setItem('adi-prueba', '1'); localStorage.removeItem('adi-prueba'); this.ls = localStorage; } catch (e) { this.ls = null; }
     if (!('indexedDB' in window)) return;
-    this.db = await new Promise((res, rej) => {
-      const r = indexedDB.open('alas-de-igualdad', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('kv');
-      r.onsuccess = () => res(r.result);
-      r.onerror = () => rej(r.error);
-    });
+    try {
+      this.db = await conLimite(new Promise((res, rej) => {
+        const r = indexedDB.open('alas-de-igualdad', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+        r.onblocked = () => rej(new Error('IndexedDB bloqueado'));
+      }), 2500, null);
+    } catch (e) { this.db = null; }
   },
   async get(k) {
-    if (!this.db) { try { return JSON.parse(localStorage.getItem('adi-' + k)); } catch (e) { return null; } }
-    return new Promise((res, rej) => {
-      const q = this.db.transaction('kv').objectStore('kv').get(k);
-      q.onsuccess = () => res(q.result ?? null); q.onerror = () => rej(q.error);
-    });
+    if (this.db) {
+      try {
+        return await conLimite(new Promise((res, rej) => {
+          const q = this.db.transaction('kv').objectStore('kv').get(k);
+          q.onsuccess = () => res(q.result ?? null); q.onerror = () => rej(q.error);
+        }), 3000, null);
+      } catch (e) { return null; }
+    }
+    if (this.mem.has(k)) return this.mem.get(k);
+    if (this.ls && !k.startsWith('img:')) { try { return JSON.parse(this.ls.getItem('adi-' + k)); } catch (e) { return null; } }
+    return null;
   },
   async set(k, v) {
-    if (!this.db) { localStorage.setItem('adi-' + k, JSON.stringify(v)); return; }
-    return new Promise((res, rej) => {
-      const t = this.db.transaction('kv', 'readwrite');
-      t.objectStore('kv').put(JSON.parse(JSON.stringify(v)), k);
-      t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
-    });
+    if (this.db) {
+      return conLimite(new Promise((res, rej) => {
+        const t = this.db.transaction('kv', 'readwrite');
+        t.objectStore('kv').put(JSON.parse(JSON.stringify(v)), k);
+        t.oncomplete = () => res(); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+      }), 5000, new Error('el navegador no responde al guardar'));
+    }
+    if (k.startsWith('img:')) { this.mem.set(k, v); return; }
+    if (this.ls) { try { this.ls.setItem('adi-' + k, JSON.stringify(v)); return; } catch (e) { /* sin espacio: memoria */ } }
+    this.mem.set(k, JSON.parse(JSON.stringify(v)));
+    if (!REMOTE && !Store.avisado) { Store.avisado = true; toast('⚠️ Este navegador no deja guardar datos: lo que hagas se perderá al cerrar la página.', 'error'); }
   }
 };
 
@@ -1737,8 +1756,9 @@ ACT['print-acta'] = () => {
 
 /* ================= Arranque ================= */
 async function boot() {
-  try { await Store.open(); } catch (e) { console.warn('IndexedDB no disponible', e); Store.db = null; }
-  if (REMOTE) return bootRemote();
+  // En línea los datos vienen del servidor: el almacenamiento local solo guarda imágenes, no se espera por él.
+  if (REMOTE) { Store.open().catch(() => {}); return bootRemote(); }
+  try { await Store.open(); } catch (e) { console.warn('Almacenamiento no disponible', e); Store.db = null; }
   let st = null;
   try { st = await Store.get('state'); } catch (e) { console.warn(e); }
   if (!st) {
@@ -1778,4 +1798,4 @@ async function bootRemote() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 }
 ACT.reload = () => location.reload();
-boot();
+boot().catch(e => window.__falloArranque?.(e?.message || String(e)));
