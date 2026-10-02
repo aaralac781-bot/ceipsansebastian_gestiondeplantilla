@@ -1,3 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Alas de Igualdad · Votación de la Mascota</title>
+<meta name="description" content="Votación transparente de la mascota del CEIP San Sebastián (La Puebla del Río)">
+<meta name="theme-color" content="#3F7A5B">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23FBF6EA'/%3E%3Cpath d='M26 44c-6-8 2-14-4-22' stroke='%2326352C' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='22' cy='18' r='7' fill='%23fff' stroke='%2326352C' stroke-width='2.5'/%3E%3Cpath d='M16 17L4 20l12 2z' fill='%23D89A3C'/%3E%3Cellipse cx='38' cy='44' rx='16' ry='10' fill='%23fff' stroke='%2326352C' stroke-width='2.5'/%3E%3Cpath d='M30 42q8-7 18 1' stroke='%237A4E8E' stroke-width='3' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Newsreader:opsz,wght@6..72,500;6..72,700;6..72,800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Alas de Igualdad · estilo «cuaderno de campo» */
+:root{
+  --crema:#FBF6EA; --papel:#FFFDF7; --tinta:#26352C; --tinta-suave:#4C5D52;
+  --verde:#3F7A5B; --azul:#2F6C8F; --morado:#7A4E8E; --dorado:#D89A3C; --rosa:#B8546F;
+  --linea:#E6DCC4; --linea-fuerte:#CDBF9F; --ok:#2E7D4F; --error:#B23A3A;
+  --radio:18px; --sombra:0 2px 0 rgba(38,53,44,.08),0 8px 24px rgba(38,53,44,.08);
+  --f-titulo:'Newsreader',Georgia,'Times New Roman',serif;
+  --f-texto:'Nunito','Segoe UI',system-ui,sans-serif;
+  --f-mano:'Caveat','Comic Sans MS','Segoe Print',cursive;
+}
+*{box-sizing:border-box}
+html{font-size:19px;-webkit-text-size-adjust:100%}
+@media (min-width:1200px){html{font-size:21px}}
+body{margin:0;background:var(--crema);color:var(--tinta);font-family:var(--f-texto);line-height:1.45;min-height:100vh;display:flex;flex-direction:column;
+  background-image:linear-gradient(rgba(63,122,91,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(63,122,91,.06) 1px,transparent 1px);background-size:28px 28px}
+img{max-width:100%}
+h1,h2,h3{font-family:var(--f-titulo);line-height:1.15;margin:.2em 0 .45em;color:var(--tinta)}
+h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:800}
+h2{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:700}
+h3{font-size:1.3rem;font-weight:700}
+a{color:var(--azul)}
+p{margin:.4em 0 .8em}
+.skip{position:absolute;left:-9999px;top:0}.skip:focus{left:1rem;z-index:99;background:#fff;padding:.5rem 1rem}
+:focus-visible{outline:4px solid var(--dorado);outline-offset:3px;border-radius:6px}
+.note,.mano{font-family:var(--f-mano);font-size:1.35em;color:var(--morado);line-height:1.15}
+.muted{color:var(--tinta-suave)}
+.small{font-size:.85rem}
+.center{text-align:center}
+.hidden{display:none!important}
+
+/* Cabecera */
+.top{position:sticky;top:0;z-index:20;background:rgba(251,246,234,.96);backdrop-filter:blur(6px);border-bottom:2px solid var(--linea);display:flex;flex-wrap:wrap;align-items:center;gap:.4rem 1rem;padding:.5rem 1rem}
+.brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;color:var(--tinta)}
+.brand-logo{width:52px;height:52px;flex:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='31' fill='%23fff' stroke='%233F7A5B' stroke-width='2'/%3E%3Cpath d='M26 46c-6-8 2-14-4-22' stroke='%2326352C' stroke-width='7' fill='none' stroke-linecap='round'/%3E%3Cpath d='M26 46c-6-8 2-14-4-22' stroke='%23fff' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='22' cy='20' r='7' fill='%23fff' stroke='%2326352C' stroke-width='2.5'/%3E%3Ccircle cx='20' cy='19' r='1.6' fill='%2326352C'/%3E%3Cpath d='M16 18L4 21l12 2z' fill='%23D89A3C' stroke='%2326352C' stroke-width='1'/%3E%3Cpath d='M27 16q7-4 12-2' stroke='%2326352C' stroke-width='1.6' fill='none'/%3E%3Cellipse cx='38' cy='44' rx='15' ry='9' fill='%23fff' stroke='%2326352C' stroke-width='2.5'/%3E%3Cpath d='M31 43q8-7 17 1' stroke='%237A4E8E' stroke-width='3' fill='none'/%3E%3C/svg%3E") center/contain no-repeat}
+.brand-txt{display:flex;flex-direction:column;line-height:1.05}
+.brand-txt b{font-family:var(--f-titulo);font-size:1.4rem}
+.brand-txt small{font-family:var(--f-mano);font-size:1.1rem;color:var(--verde)}
+.nav-toggle{display:none;margin-left:auto}
+#nav{display:flex;flex-wrap:wrap;gap:.3rem;margin-left:auto}
+#nav a{display:inline-flex;align-items:center;gap:.3rem;padding:.4rem .7rem;border-radius:999px;text-decoration:none;color:var(--tinta);font-weight:700;font-size:.88rem;border:2px solid transparent}
+#nav a:hover{background:#fff;border-color:var(--linea)}
+#nav a[aria-current=page]{background:var(--verde);color:#fff}
+@media (max-width:900px){
+  .nav-toggle{display:inline-flex}
+  #nav{display:none;width:100%;margin:0}
+  #nav.open{display:flex}
+}
+#banner:empty{display:none}
+.banner{background:#FFF3D6;border-bottom:2px dashed var(--dorado);padding:.5rem 1rem;text-align:center;font-weight:700}
+main{flex:1;width:100%;max-width:1280px;margin:0 auto;padding:1.2rem 1rem 3rem}
+main:focus{outline:none}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.5rem;padding:1rem;border-top:2px solid var(--linea);font-size:.85rem;color:var(--tinta-suave)}
+.loading{font-size:1.5rem;text-align:center;padding:4rem 0}
+
+/* Botones */
+button,.btn{font:inherit;font-weight:800;cursor:pointer;border:3px solid var(--tinta);background:#fff;color:var(--tinta);border-radius:14px;padding:.6rem 1.1rem;display:inline-flex;align-items:center;justify-content:center;gap:.45rem;text-decoration:none;box-shadow:0 3px 0 var(--tinta);transition:transform .08s,box-shadow .08s;min-height:48px}
+button:hover,.btn:hover{transform:translateY(-1px)}
+button:active,.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--tinta)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--verde);color:#fff}
+.btn-azul{background:var(--azul);color:#fff}
+.btn-morado{background:var(--morado);color:#fff}
+.btn-dorado{background:var(--dorado);color:var(--tinta)}
+.btn-peligro{background:#fff;color:var(--error);border-color:var(--error);box-shadow:0 3px 0 var(--error)}
+.btn-grande{font-size:1.35rem;padding:.9rem 1.6rem;min-height:68px;border-radius:20px}
+.btn-sm{font-size:.82rem;padding:.3rem .7rem;min-height:38px;border-width:2px;box-shadow:0 2px 0 var(--tinta)}
+.btn-link{border:none;box-shadow:none;background:none;color:var(--azul);text-decoration:underline;padding:.2rem;min-height:0}
+.row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+.row.end{justify-content:flex-end}.row.between{justify-content:space-between}.row.centro{justify-content:center}
+.stack>*+*{margin-top:1rem}
+
+/* Tarjetas y papel */
+.card{background:var(--papel);border:2px solid var(--linea);border-radius:var(--radio);padding:1.1rem 1.2rem;box-shadow:var(--sombra);position:relative}
+.card.tape::before{content:"";position:absolute;top:-12px;left:50%;width:90px;height:24px;transform:translateX(-50%) rotate(-3deg);background:rgba(216,154,60,.45);border-radius:3px}
+.grid{display:grid;gap:1rem}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
+.g4{grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr))}
+.g5{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.chip{display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;padding:.15rem .65rem;font-size:.8rem;font-weight:800;background:#fff;border:2px solid var(--linea-fuerte);white-space:nowrap}
+.chip.code{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.02em}
+.chip.ok{background:#E3F2E8;border-color:var(--ok);color:var(--ok)}
+.chip.pend{background:#FFF3D6;border-color:var(--dorado);color:#8a5a12}
+.chip.err{background:#FBE6E6;border-color:var(--error);color:var(--error)}
+.chip.cyc{color:#fff;border-color:transparent}
+.tabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 1.2rem}
+.tabs a,.tabs button{padding:.45rem 1rem;border-radius:999px;border:2px solid var(--linea-fuerte);background:#fff;text-decoration:none;color:var(--tinta);font-weight:800;box-shadow:none;min-height:44px}
+.tabs a[aria-current=page],.tabs button[aria-pressed=true]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.section-title{display:flex;align-items:center;gap:.6rem;margin-top:1.6rem}
+.section-title .bar{flex:1;height:2px;background:repeating-linear-gradient(90deg,var(--linea-fuerte) 0 8px,transparent 8px 14px)}
+
+/* Inicio */
+.hero{display:grid;grid-template-columns:1.4fr 1fr;gap:1.5rem;align-items:center}
+@media (max-width:800px){.hero{grid-template-columns:1fr}}
+.hero .kicker{font-weight:800;color:var(--verde);text-transform:uppercase;letter-spacing:.08em;font-size:.85rem}
+.hero-art{max-width:380px;margin:auto;width:100%}
+.valores{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:.8rem}
+.valor{text-align:center;padding:1rem .6rem}
+.valor .ico{font-size:2.2rem;display:block}
+.valor b{font-family:var(--f-titulo);font-size:1.2rem}
+.cal{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:1rem}
+.cal .fecha{font-family:var(--f-titulo);font-size:1.7rem;font-weight:800;color:var(--azul)}
+.fase-activa{border:3px solid var(--verde);background:#F0F7F2}
+
+/* Propuestas */
+.prop{display:flex;flex-direction:column;gap:.5rem;padding:.8rem;text-align:left;width:100%;height:100%}
+.prop .img-wrap{aspect-ratio:1/1;background:#fff;border-radius:12px;border:2px solid var(--linea);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:zoom-in}
+.prop .img-wrap img{width:100%;height:100%;object-fit:contain}
+.prop .nombre{font-family:var(--f-titulo);font-size:clamp(1.6rem,3vw,2.2rem);font-weight:800;text-align:center;padding:1rem .3rem;color:var(--azul);word-break:break-word}
+.prop .lema{font-family:var(--f-mano);font-size:1.75rem;line-height:1.15;text-align:center;padding:.8rem .3rem;color:var(--morado)}
+.prop .hist-title{font-family:var(--f-titulo);font-size:1.25rem;font-weight:700}
+.prop .excerpt{font-size:.92rem;color:var(--tinta-suave)}
+.prop .meta{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center}
+.autoria{font-size:.85rem;color:var(--tinta-suave)}
+.autoria b{color:var(--tinta)}
+button.prop.sel{font-weight:inherit;box-shadow:none;border-radius:var(--radio);border:3px solid var(--linea);background:var(--papel);min-height:0;display:flex;align-items:stretch;justify-content:flex-start;cursor:pointer}
+button.prop.sel:hover{border-color:var(--azul)}
+button.prop.sel[aria-pressed=true]{border:5px solid var(--verde);background:#EAF5EE;box-shadow:0 0 0 4px rgba(63,122,91,.25)}
+button.prop.sel[aria-pressed=true]::after{content:"✔ Elegida";position:absolute;top:8px;right:8px;background:var(--verde);color:#fff;border-radius:999px;padding:.15rem .7rem;font-size:.85rem}
+button.prop.sel .img-wrap{cursor:pointer}
+
+/* Votar */
+.steps{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+.steps span{padding:.35rem .9rem;border-radius:999px;background:#fff;border:2px solid var(--linea);font-weight:800;font-size:.9rem}
+.steps span.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+.steps span.done{background:#E3F2E8;border-color:var(--ok);color:var(--ok)}
+.clase-btn{flex-direction:column;min-height:96px;font-size:1.3rem;width:100%;border-radius:20px}
+.clase-btn small{font-size:.8rem;font-weight:700}
+.code-input{font-size:2.6rem;letter-spacing:.4em;text-align:center;width:min(100%,320px);padding:.4rem;border:4px solid var(--tinta);border-radius:16px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.vote-bar{position:sticky;bottom:0;background:rgba(251,246,234,.97);border-top:2px solid var(--linea);padding:.8rem 0;margin-top:1.2rem;z-index:5}
+.big-ok{font-size:5rem;line-height:1}
+
+/* Seguimiento */
+table{border-collapse:collapse;width:100%}
+th,td{padding:.45rem .55rem;border-bottom:1px solid var(--linea);text-align:left;vertical-align:middle}
+th{font-size:.82rem;text-transform:uppercase;letter-spacing:.04em;color:var(--tinta-suave)}
+.table-wrap{overflow-x:auto}
+.tick{font-size:1.4rem}
+.progress{height:16px;background:#fff;border:2px solid var(--linea-fuerte);border-radius:999px;overflow:hidden}
+.progress>i{display:block;height:100%;background:var(--verde)}
+
+/* Resultados */
+.bar-row{display:grid;grid-template-columns:minmax(150px,240px) 1fr auto;gap:.8rem;align-items:center;padding:.5rem 0;border-bottom:1px dashed var(--linea)}
+@media (max-width:640px){.bar-row{grid-template-columns:1fr auto}.bar-row .bar-track{grid-column:1/-1;order:3}}
+.bar-label{display:flex;gap:.5rem;align-items:center;min-width:0}
+.bar-label img{width:48px;height:48px;object-fit:contain;border-radius:8px;border:1px solid var(--linea);background:#fff;flex:none}
+.bar-label .t{font-weight:800;overflow-wrap:anywhere}
+.bar-track{height:30px;background:#fff;border:2px solid var(--linea);border-radius:10px;overflow:hidden}
+.bar-fill{height:100%;background:var(--azul);border-radius:7px;min-width:4px;transition:width .6s}
+.bar-row.win .bar-fill{background:var(--dorado)}
+.bar-n{font-family:var(--f-titulo);font-size:1.5rem;font-weight:800;min-width:2ch;text-align:right}
+.bar-who{grid-column:1/-1;font-size:.8rem;color:var(--tinta-suave);margin-top:-.3rem}
+.oculto{text-align:center;padding:1.6rem;border:3px dashed var(--linea-fuerte);border-radius:var(--radio);background:#fff}
+.oculto .ico{font-size:2.6rem}
+.desempate{background:#FFF7E6;border:2px solid var(--dorado);border-radius:14px;padding:.8rem 1rem}
+
+/* Finalistas */
+.finalista{display:flex;flex-direction:column;gap:.5rem;border-top:12px solid var(--c,#3F7A5B);padding-top:1rem}
+.finalista .fin-ciclo{font-weight:800;color:var(--c);text-transform:uppercase;letter-spacing:.06em;font-size:.85rem}
+.finalista .fin-nombre{font-family:var(--f-titulo);font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:800;text-align:center;color:var(--tinta);margin:0}
+.finalista .fin-lema{font-family:var(--f-mano);font-size:1.6rem;text-align:center;color:var(--morado);line-height:1.1}
+.finalista .img-wrap{aspect-ratio:1/1;background:#fff;border-radius:14px;border:2px solid var(--linea);overflow:hidden;cursor:zoom-in}
+.finalista .img-wrap img{width:100%;height:100%;object-fit:contain}
+.finalista .autorias{font-size:.8rem;color:var(--tinta-suave);border-top:1px dashed var(--linea);padding-top:.4rem}
+.finalista.pendiente{opacity:.75;border-top-style:dashed}
+.finalista.ganadora{box-shadow:0 0 0 6px var(--dorado),var(--sombra)}
+.proyectar .finalistas-grid{grid-template-columns:repeat(5,1fr)}
+@media (max-width:1100px){.proyectar .finalistas-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}}
+
+/* Gran final */
+.stage{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:1rem;position:relative;overflow:hidden}
+.stage .titulo-final{font-size:clamp(2.4rem,7vw,5rem)}
+.cuenta{font-family:var(--f-titulo);font-size:clamp(8rem,30vw,16rem);font-weight:800;color:var(--morado);animation:latido 1s ease-in-out infinite}
+@keyframes latido{0%{transform:scale(.6);opacity:0}30%{transform:scale(1.1);opacity:1}100%{transform:scale(1);opacity:1}}
+.revela{animation:revela 1.2s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes revela{from{transform:scale(.2) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
+.mascota-oficial{max-width:560px;width:100%}
+.mascota-oficial .fin-nombre{font-size:clamp(3rem,8vw,5.5rem)}
+.corona-txt{font-family:var(--f-mano);font-size:2rem;color:var(--dorado)}
+.pandilla{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:1rem;width:100%}
+.pandilla>*{animation:revela .9s both}
+.confeti{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+.confeti i{position:absolute;top:-30px;width:12px;height:18px;border-radius:3px;animation:caer linear forwards}
+@keyframes caer{to{transform:translateY(110vh) rotate(720deg)}}
+@media (prefers-reduced-motion:reduce){.cuenta,.revela,.pandilla>*{animation:none}.confeti{display:none}}
+
+/* Lightbox */
+.lightbox{position:fixed;inset:0;z-index:60;background:rgba(20,28,23,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;color:#fff}
+.lightbox[hidden]{display:none}
+.lb-body{flex:1;width:100%;display:flex;align-items:center;justify-content:center;min-height:0}
+.lb-body img{max-width:100%;max-height:78vh;object-fit:contain;background:#fff;border-radius:12px}
+.lb-text{background:var(--papel);color:var(--tinta);max-width:800px;max-height:78vh;overflow:auto;border-radius:16px;padding:1.5rem 2rem;font-size:1.25rem;white-space:pre-wrap}
+.lb-cap{margin:.6rem 0;text-align:center;font-size:1.1rem}
+.lb-cap b{font-family:var(--f-titulo);font-size:1.5rem}
+.lb-nav{display:flex;gap:.8rem}
+.lb-close{position:absolute;top:.8rem;right:.8rem}
+
+/* Formularios */
+label{font-weight:700;display:block;margin:.6rem 0 .2rem}
+input[type=text],input[type=password],input[type=number],input:not([type]),select,textarea{font:inherit;width:100%;padding:.55rem .7rem;border:2px solid var(--linea-fuerte);border-radius:12px;background:#fff;color:var(--tinta)}
+textarea{min-height:140px;resize:vertical}
+input[type=checkbox]{width:24px;height:24px;vertical-align:middle;accent-color:var(--verde)}
+.check{display:flex;gap:.6rem;align-items:flex-start;font-weight:600;margin:.6rem 0}
+.check input{flex:none;margin-top:.1rem}
+td input,td select{padding:.35rem .5rem;font-size:.9rem}
+.thumbs{display:flex;flex-wrap:wrap;gap:.6rem}
+.thumbs figure{margin:0;position:relative;width:110px}
+.thumbs img{width:110px;height:110px;object-fit:contain;background:#fff;border:2px solid var(--linea);border-radius:10px}
+.thumbs button{position:absolute;top:-8px;right:-8px;min-height:0;width:32px;height:32px;padding:0;border-radius:50%}
+.mini{width:56px;height:56px;object-fit:contain;background:#fff;border:1px solid var(--linea);border-radius:8px}
+
+dialog{border:none;border-radius:22px;padding:0;max-width:min(760px,96vw);width:100%;background:var(--papel);color:var(--tinta);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(20,28,23,.55)}
+dialog form,dialog .dlg-in{padding:1.3rem 1.5rem;max-height:88vh;overflow:auto}
+
+#toast{position:fixed;left:50%;bottom:1.2rem;transform:translateX(-50%);z-index:70;display:flex;flex-direction:column;gap:.4rem;align-items:center;pointer-events:none}
+#toast div{background:var(--tinta);color:#fff;padding:.7rem 1.2rem;border-radius:14px;font-weight:700;box-shadow:var(--sombra);max-width:90vw}
+#toast div.error{background:var(--error)}
+
+/* Proyección */
+body.proyectando .top,body.proyectando .foot,body.proyectando #banner,body.proyectando .no-proy{display:none!important}
+body.proyectando main{max-width:none}
+
+/* Impresión */
+#print-area{display:none}
+@media print{
+  body{background:#fff;display:block}
+  body.imprimiendo>*:not(#print-area){display:none!important}
+  body.imprimiendo #print-area{display:block}
+  #print-area{font-size:11pt;color:#000}
+  #print-area h1{font-size:20pt}#print-area h2{font-size:15pt;margin-top:14pt}#print-area h3{font-size:12pt}
+  #print-area table{margin:6pt 0 10pt}#print-area th,#print-area td{border:1px solid #999;padding:3pt 5pt;font-size:9.5pt}
+  #print-area .tarjetas{display:grid;grid-template-columns:1fr 1fr;gap:10pt}
+  #print-area .tarjeta{border:2px dashed #555;padding:14pt;text-align:center;break-inside:avoid}
+  #print-area .tarjeta b{font-size:30pt;letter-spacing:.2em;display:block}
+  .firma{display:inline-block;width:45%;margin-top:40pt;border-top:1px solid #000;padding-top:4pt;margin-right:4%}
+}
+
+/* En línea: estado de conexión, avisos de guardado e imágenes que se cargan */
+.estado:empty{display:none}
+.estado{width:100%;font-size:.78rem;color:var(--tinta-suave);display:flex;align-items:center;gap:.4rem}
+.estado.err{color:var(--error);font-weight:800}
+.dot-ok,.dot-err{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--ok)}
+.dot-err{background:var(--error)}
+#busy{position:fixed;top:.8rem;left:50%;transform:translateX(-50%);z-index:80;background:var(--azul);color:#fff;font-weight:800;padding:.6rem 1.2rem;border-radius:999px;box-shadow:var(--sombra)}
+#busy[hidden]{display:none}
+img[data-ref]:not([data-ok="1"]){background:linear-gradient(90deg,#f1ead8 25%,#faf5e8 50%,#f1ead8 75%);background-size:200% 100%;animation:brillo 1.2s linear infinite;min-height:40px}
+@keyframes brillo{to{background-position:-200% 0}}
+
+/* Carga rápida */
+.slot{display:flex;flex-direction:column;gap:.2rem}
+.slot.lleno{border-color:var(--ok)}
+.slot .thumbs figure{width:150px}
+.slot .thumbs img{width:150px;height:150px}
+.foto-btn{width:100%;min-height:120px;flex-direction:column;border-style:dashed;background:#fff;font-size:1.05rem;text-align:center;margin:.3rem 0}
+.cq-texto{font-size:1.3rem;font-weight:800}
+::placeholder{color:#A39A86;font-style:italic;font-weight:400}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<header class="top">
+  <a class="brand" href="#/inicio" aria-label="Alas de Igualdad, inicio">
+    <span class="brand-logo" aria-hidden="true"></span>
+    <span class="brand-txt"><b>Alas de Igualdad</b><small>Diseñando la Mascota de Nuestro Cole</small></span>
+  </a>
+  <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="nav">☰ Menú</button>
+  <nav id="nav" aria-label="Secciones"></nav>
+  <div id="estado" class="estado" aria-live="polite"></div>
+</header>
+<div id="banner"></div>
+<main id="main" tabindex="-1"><p class="loading">Cargando…</p></main>
+<footer class="foot">
+  <span>CEIP San Sebastián · La Puebla del Río (Sevilla)</span>
+  <span class="note">igualdad · corresponsabilidad · respeto · naturaleza · convivencia</span>
+</footer>
+<dialog id="dlg" aria-modal="true"></dialog>
+<div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Vista ampliada"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="busy" role="status" aria-live="polite" hidden></div>
+<div id="print-area"></div>
+<noscript><p style="padding:2rem;font-size:1.4rem">Esta aplicación necesita JavaScript activado.</p></noscript>
+<script>
+/* Alas de Igualdad · reglas comunes al navegador y al servidor (Google Apps Script).
+   Este mismo archivo se copia al proyecto de Apps Script como «MascotaComun.gs»,
+   para que el servidor compruebe cada voto con las mismas reglas que la app. */
+
+var MASC_CAT = { dibujo: 'dibujo', nombre: 'nombre', lema: 'texto', historia: 'texto' };
+
+function mascCycleCats(c) { return c && c.textoType ? ['dibujo', 'nombre', 'texto'] : ['dibujo', 'nombre']; }
+
+function mascCatLabel(c, cat) {
+  if (cat === 'dibujo') return 'Dibujo';
+  if (cat === 'nombre') return 'Nombre';
+  if (cat === 'finalista') return 'Finalista';
+  return (c && c.textoLabel) || 'Lema';
+}
+
+function mascPropTitle(p) {
+  if (!p) return '';
+  if (p.type === 'dibujo') return 'Dibujo ' + p.code;
+  if (p.type === 'historia') return p.title || (p.text ? p.text.slice(0, 50) + '…' : 'Cómic ' + p.code);
+  return p.text;
+}
+
+function mascFind(list, id) {
+  for (var i = 0; i < (list || []).length; i++) if (list[i].id === id) return list[i];
+  return null;
+}
+
+/** Devuelve un texto de error si el voto no es válido, o null si se puede registrar.
+ *  req = {phase:'ciclo'|'centro', classId, code, choices:{cat: idPropuesta|idCiclo}}
+ *  auth = {admin: bool, email: string} */
+function mascValidarVoto(st, req, auth) {
+  var k = mascFind(st.classes, req.classId);
+  if (!k) return 'No se encuentra la clase.';
+  var email = String((auth && auth.email) || '').toLowerCase();
+  var tutor = !!email && (k.tutors || []).some(function (t) { return String(t).trim().toLowerCase() === email; });
+  if (!(auth && auth.admin) && !tutor && String(req.code || '').trim() !== String(k.code)) return 'El código de la clase no es correcto.';
+  var choices = req.choices || {}, cats = Object.keys(choices);
+  if (!cats.length) return 'No se ha elegido nada.';
+  var yaVotado = function (phase, cat) {
+    return st.votes.some(function (v) { return !v.annulled && v.phase === phase && v.classId === k.id && v.cat === cat; });
+  };
+  if (req.phase === 'ciclo') {
+    var c = mascFind(st.cycles, k.cycleId);
+    if (!c || c.direct) return 'Esta clase no participa en la votación de ciclo.';
+    if (st.phase.ciclo !== 'open' || c.closed) return 'La votación de ' + c.name + ' está cerrada.';
+    var validas = mascCycleCats(c);
+    for (var i = 0; i < cats.length; i++) {
+      var cat = cats[i];
+      if (validas.indexOf(cat) < 0) return 'Categoría no válida.';
+      if (yaVotado('ciclo', cat)) return k.name + ' ya ha votado en «' + mascCatLabel(c, cat) + '».';
+      var p = mascFind(st.proposals, choices[cat]);
+      if (!p) return 'No se encuentra la propuesta elegida.';
+      var pk = mascFind(st.classes, p.classId);
+      if (!pk || pk.cycleId !== c.id || MASC_CAT[p.type] !== cat) return 'Esa propuesta no se puede votar en este ciclo.';
+      if (st.config && st.config.allowOwnVotes === false && p.classId === k.id) return 'No se pueden votar las propuestas de la propia clase.';
+    }
+  } else if (req.phase === 'centro') {
+    if (st.phase.centro !== 'open') return 'La votación de centro está cerrada.';
+    if (cats.length !== 1 || cats[0] !== 'finalista') return 'Voto no válido.';
+    if (yaVotado('centro', 'finalista')) return k.name + ' ya ha votado en la votación de centro.';
+    if ((st.centroCandidates || []).indexOf(choices.finalista) < 0) return 'Esa finalista no existe.';
+  } else return 'Fase no válida.';
+  return null;
+}
+
+/** Añade los votos y sus entradas de historial. meta = {ts, by, uid: función} */
+function mascAplicarVoto(st, req, meta) {
+  var k = mascFind(st.classes, req.classId), c = mascFind(st.cycles, k.cycleId);
+  Object.keys(req.choices).forEach(function (cat) {
+    var target = req.choices[cat];
+    st.votes.push({ id: meta.uid(), phase: req.phase, cycleId: req.phase === 'ciclo' ? c.id : 'CENTRO', classId: k.id, cat: cat, target: target, ts: meta.ts, by: meta.by || '', annulled: false });
+    var what = req.phase === 'ciclo'
+      ? (function (p) { return p.code + ' (' + mascPropTitle(p) + ')'; })(mascFind(st.proposals, target))
+      : 'finalista de ' + mascFind(st.cycles, target).name;
+    st.log.push({ id: meta.uid(), ts: meta.ts, by: meta.by || '', type: 'voto',
+      text: k.name + ' vota ' + (req.phase === 'ciclo' ? mascCatLabel(c, cat).toLowerCase() : 'en la fase de centro') + ': ' + what });
+  });
+  return meta.ts;
+}
+
+</script>
+<script>
+/* Alas de Igualdad · datos de ejemplo e ilustraciones de prueba.
+   Los dibujos de ejemplo son garzas generadas por código (SVG) para poder probar
+   la app antes de escanear los dibujos reales. Los nombres de autoría son inventados. */
+(function () {
+  'use strict';
+  let seed = 20261015;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const INK = '#26352C';
+
+  const NOMBRES = ['Lucía', 'Martina', 'Sofía', 'Valeria', 'Carmen', 'Rocío', 'Alba', 'Noa', 'Triana', 'Macarena', 'Irene', 'Lola', 'Paula', 'Daniela', 'Aitana', 'Candela',
+    'Hugo', 'Manuel', 'Pablo', 'Mateo', 'Álvaro', 'Antonio', 'Leo', 'Daniel', 'Marco', 'José', 'Rafael', 'Bruno', 'Adrián', 'Curro', 'Iván', 'Thiago'];
+  const APELLIDOS = ['García', 'Rodríguez', 'Romero', 'Pérez', 'Muñoz', 'Sánchez', 'Jiménez', 'Moreno', 'Ruiz', 'Díaz', 'Márquez', 'Vega', 'Castro', 'Ortiz', 'Navarro', 'Reyes'];
+  const persona = curso => ({ name: `${pick(NOMBRES)} ${pick(APELLIDOS)} ${pick(APELLIDOS)}`, course: curso });
+
+  const NOMBRES_MASCOTA = ['Garzi', 'Alita', 'Plumi', 'Iguali', 'Garcilla', 'Doñanita', 'Lucera', 'Nubi', 'Brisa', 'Marisma', 'Pluma', 'Celeste', 'Juncia',
+    'Vuela', 'Arena', 'Garzón', 'Tita', 'Arcoíris', 'Sebi', 'Libélula', 'Riberita', 'Estrella', 'Pío', 'Albita', 'Lunera', 'Plumita', 'Dehesa', 'Sol', 'Garzalia', 'Volandera'];
+  const LEMAS = ['Juntas y juntos volamos más alto', 'En mi cole, las alas son de todos', 'Cuidamos el nido entre todos', 'Igualdad en cada pluma',
+    'Compartir es volar', 'Del río al cole: alas para la igualdad', 'Si nos turnamos, todos crecemos', 'Respeto en la tierra, igualdad en el cielo',
+    'Mismas alas, mismos sueños', 'Una garza, mil colores', 'Cuidar es cosa de todas y todos', 'Brillamos juntos como estrellas'];
+  const HISTORIAS = [
+    ['La garza que repartía las tareas', 'En la Dehesa de Abajo vivían dos garzas, Brisa y Junco. Cuando llegó la primavera decidieron construir un nido.\n\n—Tú traes ramitas y yo las coloco —dijo Brisa.\n—Y mañana cambiamos —respondió Junco.\n\nAsí, día tras día, las dos aprendieron a hacer de todo. Cuando nacieron sus crías, las dos sabían darles de comer, protegerlas de la lluvia y enseñarles a volar. Y las crías aprendieron que cuidar es cosa de todas y todos.'],
+    ['El nido de todos', 'Una tormenta rompió el nido de una garza joven. Las garzas vecinas, grandes y pequeñas, volaron a ayudarla. Unas trajeron juncos, otras barro, otras plumas suaves.\n\nAl final el nido quedó más bonito que nunca, porque estaba hecho con un poquito de cada una. Desde entonces, en la marisma dicen: «Ningún nido se construye con un solo pico».'],
+    ['Plumi y el río', 'Plumi era una garza que no sabía pescar. Sus compañeros no se rieron: le enseñaron, cada uno a su manera. Uno le mostró a esperar quieta, otra a mirar el reflejo del agua.\n\nCuando Plumi pescó su primer pez, lo compartió con todos. Aprendió que nadie sabe todo y que juntos sabemos mucho.'],
+    ['El turno de la luna', 'Las garzas de Doñana se turnan para vigilar los huevos. Una noche, a Lunera le tocaba descansar, pero vio a su compañero muy cansado.\n\n—Hoy me quedo yo un ratito más —le dijo.\n\nAl día siguiente él hizo lo mismo por ella. Así descubrieron que la corresponsabilidad es cuidarse también el uno al otro.']
+  ];
+
+  const BODY = ['#FFFFFF', '#EEF2F5', '#E4ECF2', '#F1EAF4', '#F6F0E2'];
+  const WING = ['#B9C7D3', '#C9B6D6', '#A9C9B7', '#E3C48E', '#9FBFD6'];
+  const BG = ['#FBE9C6', '#DCEBDF', '#D7E6EF', '#EADDF0', '#F6DCCB', '#FDF2D0'];
+  const ACC = ['#7A4E8E', '#2F6C8F', '#3F7A5B', '#D89A3C', '#C2506E'];
+  const ACCESORIOS = ['lazo', 'flores', 'bufanda', 'gafas', 'corazon', 'mochila', 'corona', 'ninguno'];
+
+  function accesorio(tipo, c) {
+    switch (tipo) {
+      case 'lazo': return `<path d="M141 112l-17-11v22zM141 112l17-11v22z" fill="${c}" stroke="${INK}" stroke-width="2"/><circle cx="141" cy="112" r="5" fill="${c}" stroke="${INK}" stroke-width="2"/>`;
+      case 'flores': return [[110, 58], [123, 53], [136, 57]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6" fill="${c}" stroke="${INK}" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="2.2" fill="#F2C46B"/>`).join('');
+      case 'bufanda': return `<rect x="122" y="116" width="40" height="13" rx="6" fill="${c}" stroke="${INK}" stroke-width="2"/><rect x="148" y="124" width="11" height="28" rx="4" fill="${c}" stroke="${INK}" stroke-width="2"/><path d="M130 117v11M140 117v11" stroke="#fff" stroke-width="3"/>`;
+      case 'gafas': return `<circle cx="117" cy="72" r="9" fill="rgba(255,255,255,.3)" stroke="${c}" stroke-width="3"/><path d="M126 70l16-3" stroke="${c}" stroke-width="3"/>`;
+      case 'corazon': return `<path d="M88 222c-28-18-20-42 0-30 20-12 28 12 0 30z" fill="#D9534F" stroke="${INK}" stroke-width="2"/>`;
+      case 'mochila': return `<rect x="196" y="148" width="30" height="28" rx="7" fill="${c}" stroke="${INK}" stroke-width="2.5"/><path d="M200 160h22" stroke="${INK}" stroke-width="2"/>`;
+      case 'corona': return `<path d="M108 58l4-15 8 10 7-13 7 13 7-9v14z" fill="#F2C46B" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`;
+      default: return '';
+    }
+  }
+
+  function svgURL(svg) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); }
+
+  function garza(opts = {}) {
+    const body = opts.body || pick(BODY), wing = opts.wing || pick(WING), bg = opts.bg || pick(BG);
+    const acc = opts.acc || pick(ACCESORIOS), c = opts.color || pick(ACC);
+    const etiqueta = opts.label === undefined ? 'Dibujo de prueba' : opts.label;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320">
+<rect width="320" height="320" fill="${bg}"/>
+<circle cx="262" cy="60" r="28" fill="#F2C46B" opacity=".9"/>
+<path d="M0 255q80-18 160 0t160 0v65H0z" fill="#9CC3D5"/>
+<g stroke="#3F7A5B" stroke-width="4" stroke-linecap="round"><path d="M28 262V168M44 262V184M286 262V172M300 262V190"/></g>
+<g fill="#8B5E3C"><ellipse cx="28" cy="170" rx="5" ry="14"/><ellipse cx="286" cy="174" rx="5" ry="14"/></g>
+<g stroke="#C9962E" stroke-width="6" stroke-linecap="round" fill="none"><path d="M168 205l-8 78M186 205l7 78M160 283h-14M193 283h14"/></g>
+<path d="M218 178l46 22-18-30z" fill="${wing}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
+<ellipse cx="186" cy="180" rx="56" ry="34" transform="rotate(-12 186 180)" fill="${body}" stroke="${INK}" stroke-width="3"/>
+<path d="M160 172q42-24 82 6-36 18-82-6z" fill="${wing}" stroke="${INK}" stroke-width="2.5"/>
+<path d="M150 170c-32-20 0-52-22-82" stroke="${INK}" stroke-width="22" fill="none" stroke-linecap="round"/>
+<path d="M150 170c-32-20 0-52-22-82" stroke="${body}" stroke-width="16" fill="none" stroke-linecap="round"/>
+<circle cx="124" cy="76" r="19" fill="${body}" stroke="${INK}" stroke-width="3"/>
+<path d="M108 71L56 80l52 8z" fill="#E2A93B" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="118" cy="72" r="4" fill="${INK}"/><circle cx="119.6" cy="70.6" r="1.4" fill="#fff"/>
+<circle cx="128" cy="85" r="4.5" fill="#F4A7A0" opacity=".75"/>
+<path d="M138 66q26-14 44-8M138 71q24-7 38-1" stroke="${INK}" stroke-width="3" fill="none" stroke-linecap="round"/>
+${accesorio(acc, c)}
+${etiqueta ? `<text x="160" y="309" text-anchor="middle" font-family="Caveat,'Comic Sans MS',cursive" font-size="20" fill="${INK}">${etiqueta}</text>` : ''}
+</svg>`;
+    return svgURL(svg);
+  }
+
+  function comic(i) {
+    const c = ACC[i % ACC.length];
+    const panel = (x, dibujo, txt) => `<g transform="translate(${x} 0)"><rect x="6" y="6" width="98" height="120" rx="6" fill="#fff" stroke="${INK}" stroke-width="2.5"/>${dibujo}<rect x="6" y="128" width="98" height="26" rx="6" fill="#FBF6EA" stroke="${INK}" stroke-width="2"/><text x="55" y="145" text-anchor="middle" font-family="Nunito,Arial" font-size="9.5" fill="${INK}">${txt}</text></g>`;
+    const mini = (x, y, col) => `<path d="M${x} ${y + 30}c-8-6 0-16-6-24" stroke="${INK}" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M${x} ${y + 30}c-8-6 0-16-6-24" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="${x - 6}" cy="${y + 4}" r="6" fill="#fff" stroke="${INK}" stroke-width="2"/><path d="M${x - 11} ${y + 3}l-12 2 12 2z" fill="#E2A93B"/><ellipse cx="${x + 8}" cy="${y + 34}" rx="13" ry="8" fill="#fff" stroke="${INK}" stroke-width="2"/><path d="M${x + 2} ${y + 33}q7-6 15 1" stroke="${col}" stroke-width="2.5" fill="none"/>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 160"><rect width="330" height="160" fill="#FBF6EA"/>
+${panel(0, `<ellipse cx="55" cy="105" rx="34" ry="10" fill="#8B5E3C"/>${mini(34, 50, c)}${mini(76, 50, '#2F6C8F')}`, 'Hacemos el nido juntas')}
+${panel(110, `<ellipse cx="55" cy="104" rx="30" ry="9" fill="#8B5E3C"/><ellipse cx="55" cy="90" rx="13" ry="16" fill="#F6F0E2" stroke="${INK}" stroke-width="2"/><path d="M55 40c-8-10-22 0 0 16 22-16 8-26 0-16z" fill="#D9534F"/>`, 'Nos turnamos para cuidar')}
+${panel(220, `<circle cx="80" cy="30" r="12" fill="#F2C46B"/>${mini(40, 52, c)}<path d="M70 92q10-12 20 0" stroke="${INK}" stroke-width="2" fill="none"/>`, '¡Y todos aprendemos a volar!')}
+</svg>`;
+    return svgURL(svg);
+  }
+
+  /** Rellena el estado vacío con propuestas de prueba según las cuotas de cada clase. */
+  function build(state, uid) {
+    seed = 20261015;
+    let n = 0, l = 0, h = 0;
+    const cnt = {};
+    const code = (letter, short) => { const k = letter + short; cnt[k] = (cnt[k] || 0) + 1; return `${letter}-${short}-${String(cnt[k]).padStart(2, '0')}`; };
+    const now = new Date().toISOString();
+    state.classes.forEach(k => {
+      const c = state.cycles.find(x => x.id === k.cycleId);
+      const add = (type, extra) => state.proposals.push(Object.assign({
+        id: uid(), type, classId: k.id, code: code({ dibujo: 'D', nombre: 'N', lema: 'L', historia: 'H' }[type], c.short),
+        text: '', title: '', images: [], alt: '', authors: [persona(k.name)], wholeClass: false, created: now
+      }, extra));
+      for (let i = 0; i < (k.quota.dibujo || 0); i++) {
+        const authors = [persona(k.name)]; if (rnd() < .35) authors.push(persona(k.name));
+        add('dibujo', { images: [garza()], authors, alt: 'Garza dibujada por el alumnado (dibujo de prueba)' });
+      }
+      for (let i = 0; i < (k.quota.nombre || 0); i++) add('nombre', { text: NOMBRES_MASCOTA[n++ % NOMBRES_MASCOTA.length] });
+      for (let i = 0; i < (k.quota.texto || 0); i++) {
+        if (!c.textoType) continue;
+        if (c.textoType === 'historia') {
+          const st = HISTORIAS[h % HISTORIAS.length];
+          if (h % 2 === 0) add('historia', { title: st[0], text: st[1], authors: [persona(k.name), persona(k.name)] });
+          else add('historia', { title: 'Cómic: ' + st[0], images: [comic(h)], alt: 'Cómic de tres viñetas sobre garzas que cuidan el nido juntas', authors: [persona(k.name), persona(k.name), persona(k.name)] });
+          h++;
+        } else {
+          const whole = k.quota.texto === 1 && k.cycleId === '1C';
+          add('lema', { text: LEMAS[l++ % LEMAS.length], wholeClass: whole, authors: whole ? [] : [persona(k.name)] });
+        }
+      }
+    });
+    state.meta.sample = true;
+    return state;
+  }
+
+  window.ADI_SAMPLE = { build, garza };
+})();
+
+</script>
+<script>
 /* Alas de Igualdad · Votación de la Mascota del CEIP San Sebastián
    Dos modos de funcionamiento:
    - EN LÍNEA (publicada con Google Apps Script e insertada en SSNet): los datos y las
@@ -1779,3 +2285,7 @@ async function bootRemote() {
 }
 ACT.reload = () => location.reload();
 boot();
+
+</script>
+</body>
+</html>

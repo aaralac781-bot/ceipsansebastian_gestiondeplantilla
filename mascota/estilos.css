@@ -235,3 +235,23 @@ body.proyectando main{max-width:none}
   #print-area .tarjeta b{font-size:30pt;letter-spacing:.2em;display:block}
   .firma{display:inline-block;width:45%;margin-top:40pt;border-top:1px solid #000;padding-top:4pt;margin-right:4%}
 }
+
+/* En línea: estado de conexión, avisos de guardado e imágenes que se cargan */
+.estado:empty{display:none}
+.estado{width:100%;font-size:.78rem;color:var(--tinta-suave);display:flex;align-items:center;gap:.4rem}
+.estado.err{color:var(--error);font-weight:800}
+.dot-ok,.dot-err{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--ok)}
+.dot-err{background:var(--error)}
+#busy{position:fixed;top:.8rem;left:50%;transform:translateX(-50%);z-index:80;background:var(--azul);color:#fff;font-weight:800;padding:.6rem 1.2rem;border-radius:999px;box-shadow:var(--sombra)}
+#busy[hidden]{display:none}
+img[data-ref]:not([data-ok="1"]){background:linear-gradient(90deg,#f1ead8 25%,#faf5e8 50%,#f1ead8 75%);background-size:200% 100%;animation:brillo 1.2s linear infinite;min-height:40px}
+@keyframes brillo{to{background-position:-200% 0}}
+
+/* Carga rápida */
+.slot{display:flex;flex-direction:column;gap:.2rem}
+.slot.lleno{border-color:var(--ok)}
+.slot .thumbs figure{width:150px}
+.slot .thumbs img{width:150px;height:150px}
+.foto-btn{width:100%;min-height:120px;flex-direction:column;border-style:dashed;background:#fff;font-size:1.05rem;text-align:center;margin:.3rem 0}
+.cq-texto{font-size:1.3rem;font-weight:800}
+::placeholder{color:#A39A86;font-style:italic;font-weight:400}

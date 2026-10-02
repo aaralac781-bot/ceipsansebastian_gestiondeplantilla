@@ -21,6 +21,7 @@
   </a>
   <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="nav">☰ Menú</button>
   <nav id="nav" aria-label="Secciones"></nav>
+  <div id="estado" class="estado" aria-live="polite"></div>
 </header>
 <div id="banner"></div>
 <main id="main" tabindex="-1"><p class="loading">Cargando…</p></main>
@@ -31,8 +32,10 @@
 <dialog id="dlg" aria-modal="true"></dialog>
 <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Vista ampliada"></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="busy" role="status" aria-live="polite" hidden></div>
 <div id="print-area"></div>
 <noscript><p style="padding:2rem;font-size:1.4rem">Esta aplicación necesita JavaScript activado.</p></noscript>
+<script src="comun.js"></script>
 <script src="muestras.js"></script>
 <script src="app.js"></script>
 </body>
