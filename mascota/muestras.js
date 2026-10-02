@@ -7,6 +7,8 @@
   const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   const pick = a => a[Math.floor(rnd() * a.length)];
   const INK = '#26352C';
+  // Escrito sin dos barras seguidas: el servidor de Apps Script borra lo que va detrás de «//».
+  const SVGNS = 'http:' + '\/\/www.w3.org/2000/svg';
 
   const NOMBRES = ['Lucía', 'Martina', 'Sofía', 'Valeria', 'Carmen', 'Rocío', 'Alba', 'Noa', 'Triana', 'Macarena', 'Irene', 'Lola', 'Paula', 'Daniela', 'Aitana', 'Candela',
     'Hugo', 'Manuel', 'Pablo', 'Mateo', 'Álvaro', 'Antonio', 'Leo', 'Daniel', 'Marco', 'José', 'Rafael', 'Bruno', 'Adrián', 'Curro', 'Iván', 'Thiago'];
@@ -50,7 +52,7 @@
     const body = opts.body || pick(BODY), wing = opts.wing || pick(WING), bg = opts.bg || pick(BG);
     const acc = opts.acc || pick(ACCESORIOS), c = opts.color || pick(ACC);
     const etiqueta = opts.label === undefined ? 'Dibujo de prueba' : opts.label;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320">
+    const svg = `<svg xmlns="${SVGNS}" viewBox="0 0 320 320">
 <rect width="320" height="320" fill="${bg}"/>
 <circle cx="262" cy="60" r="28" fill="#F2C46B" opacity=".9"/>
 <path d="M0 255q80-18 160 0t160 0v65H0z" fill="#9CC3D5"/>
@@ -77,7 +79,7 @@ ${etiqueta ? `<text x="160" y="309" text-anchor="middle" font-family="Caveat,'Co
     const c = ACC[i % ACC.length];
     const panel = (x, dibujo, txt) => `<g transform="translate(${x} 0)"><rect x="6" y="6" width="98" height="120" rx="6" fill="#fff" stroke="${INK}" stroke-width="2.5"/>${dibujo}<rect x="6" y="128" width="98" height="26" rx="6" fill="#FBF6EA" stroke="${INK}" stroke-width="2"/><text x="55" y="145" text-anchor="middle" font-family="Nunito,Arial" font-size="9.5" fill="${INK}">${txt}</text></g>`;
     const mini = (x, y, col) => `<path d="M${x} ${y + 30}c-8-6 0-16-6-24" stroke="${INK}" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M${x} ${y + 30}c-8-6 0-16-6-24" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="${x - 6}" cy="${y + 4}" r="6" fill="#fff" stroke="${INK}" stroke-width="2"/><path d="M${x - 11} ${y + 3}l-12 2 12 2z" fill="#E2A93B"/><ellipse cx="${x + 8}" cy="${y + 34}" rx="13" ry="8" fill="#fff" stroke="${INK}" stroke-width="2"/><path d="M${x + 2} ${y + 33}q7-6 15 1" stroke="${col}" stroke-width="2.5" fill="none"/>`;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 160"><rect width="330" height="160" fill="#FBF6EA"/>
+    const svg = `<svg xmlns="${SVGNS}" viewBox="0 0 330 160"><rect width="330" height="160" fill="#FBF6EA"/>
 ${panel(0, `<ellipse cx="55" cy="105" rx="34" ry="10" fill="#8B5E3C"/>${mini(34, 50, c)}${mini(76, 50, '#2F6C8F')}`, 'Hacemos el nido juntas')}
 ${panel(110, `<ellipse cx="55" cy="104" rx="30" ry="9" fill="#8B5E3C"/><ellipse cx="55" cy="90" rx="13" ry="16" fill="#F6F0E2" stroke="${INK}" stroke-width="2"/><path d="M55 40c-8-10-22 0 0 16 22-16 8-26 0-16z" fill="#D9534F"/>`, 'Nos turnamos para cuidar')}
 ${panel(220, `<circle cx="80" cy="30" r="12" fill="#F2C46B"/>${mini(40, 52, c)}<path d="M70 92q10-12 20 0" stroke="${INK}" stroke-width="2" fill="none"/>`, '¡Y todos aprendemos a volar!')}
