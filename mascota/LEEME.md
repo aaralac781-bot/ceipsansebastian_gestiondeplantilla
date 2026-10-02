@@ -27,19 +27,18 @@ Alas de Igualdad · Votación de la mascota/
 Hazlo con la cuenta de la dirección (`@g.educaand.es`).
 
 1. Entra en <https://script.google.com> → **Nuevo proyecto**. Ponle de nombre «Alas de Igualdad · Votación».
-2. Copia los archivos de la carpeta `mascota/apps-script/`:
-   - **`Mascota.gs`**: pega su contenido en el archivo `Código.gs` que viene creado (puedes renombrarlo a `Mascota`).
-   - **`MascotaComun.gs`**: pulsa **＋ → Secuencia de comandos**, ponle de nombre `MascotaComun` y pega el contenido.
-   - **`MascotaIndex.html`**: pulsa **＋ → HTML**, ponle de nombre `MascotaIndex` (exactamente así) y pega el contenido.
-   - **`appsscript.json`**: en ⚙️ Configuración del proyecto, marca «Mostrar el archivo de manifiesto appsscript.json en el editor». Después pega su contenido en ese archivo.
-3. Si otra persona de la dirección debe tener acceso fijo, añade su cuenta en `MASC_ADMINS_FIJOS`, al principio de `Mascota.gs`. También se puede añadir más tarde desde Panel → Ajustes.
+2. Copia **solo 2 archivos** de la carpeta `mascota/apps-script/`:
+   - **`Codigo.gs`**: borra lo que trae el archivo `Código.gs` del proyecto y pega este contenido entero. Guarda con Ctrl+S.
+   - **`MascotaIndex.html`**: pulsa **＋ → HTML**, ponle de nombre `MascotaIndex` (exactamente así, sin «.html»), pega el contenido y guarda.
+   - `appsscript.json` es opcional: Google detecta solo los permisos.
+3. Si otra persona de la dirección debe tener acceso fijo, añade su cuenta en `MASC_ADMINS_FIJOS` (busca esa línea en `Codigo.gs`). También se puede añadir más tarde desde Panel → Ajustes.
 4. **Implementar → Nueva implementación → Tipo: Aplicación web**:
    - Ejecutar como: **Yo** (la cuenta de la dirección).
    - Quién tiene acceso: **Cualquier usuario de g.educaand.es**.
 5. Autoriza los permisos (Drive y Hojas de cálculo) y **copia la URL de la aplicación web** (termina en `/exec`).
 6. Abre esa URL. La primera vez la app se pone en marcha sola: crea la carpeta en Drive y las 15 clases con sus códigos.
 
-> **Si cambias el código más adelante** (por ejemplo, una versión nueva de este repositorio), vuelve a generar los archivos con `python3 mascota/construir_apps_script.py`. Pégalos de nuevo y usa **Implementar → Gestionar implementaciones → ✎ Editar → Versión: nueva**. Así la URL no cambia.
+> **Si cambias el código más adelante**, vuelve a generar los 2 archivos con `python3 mascota/construir_apps_script.py`. Pégalos de nuevo y usa **Implementar → Gestionar implementaciones → ✎ Editar → Versión: nueva**. Así la URL no cambia.
 
 ## Insertarla en SSNet (canal oficial del curso 26/27)
 
@@ -103,7 +102,7 @@ Sirve para enseñarla o ensayar sin publicar nada. Los votos reales se hacen en 
 | `index.html`, `estilos.css`, `app.js`, `muestras.js` | La app (pantallas, recuento, panel) |
 | `comun.js` | Reglas de voto que comprueban a la vez el navegador y el servidor |
 | `apps-script/Mascota.gs` | Servidor: guarda en Drive, valida votos y escribe el registro |
-| `apps-script/MascotaComun.gs`, `apps-script/MascotaIndex.html` | **Generados** con `construir_apps_script.py`: no se editan a mano |
+| `apps-script/Codigo.gs`, `apps-script/MascotaIndex.html` | **Los 2 archivos que se pegan en Apps Script.** Se generan con `construir_apps_script.py`: no se editan a mano |
 | `apps-script/appsscript.json` | Permisos y configuración de la aplicación web |
 
 ## Protección de datos
