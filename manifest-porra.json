@@ -1,0 +1,14 @@
+{
+  "name": "Porra CEIP San Sebastián",
+  "short_name": "Porra SS",
+  "description": "Tercera Porra del CEIP San Sebastián · ¡Mucho Betis!",
+  "display": "standalone",
+  "background_color": "#00954C",
+  "theme_color": "#00954C",
+  "start_url": "porra.html",
+  "scope": ".",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "antonio_porra.png", "sizes": "377x528", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Porra CEIP San Sebastián</title>
+<meta name="theme-color" content="#00954C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Porra SS">
+<link rel="manifest" href="manifest-porra.json">
+<link rel="apple-touch-icon" href="antonio_porra.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verde:#00954C; --verde2:#007A3D; --verdeOsc:#0B3D24; --blanco:#fff; --oro:#D4A82B;
+  --rojo:#D71920; --fondo:#F2F6F3; --texto:#14231B; --gris:#6B7A72; --linea:#DCE6E0; --tarjeta:#fff;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--fondo);color:var(--texto);min-height:100vh}
+button,input,select{font:inherit}
+.oculto{display:none!important}
+
+/* ---------- Cabecera ---------- */
+header{position:relative;overflow:hidden;color:#fff;
+  background:repeating-linear-gradient(90deg,var(--verde) 0 46px,#0aa257 46px 92px);
+  border-bottom:6px solid var(--oro)}
+header::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,40,20,.55))}
+.hwrap{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:18px 16px 0;display:flex;align-items:flex-end;gap:12px;min-height:230px}
+.htexto{flex:1;padding-bottom:18px;min-width:0}
+.edicion{display:inline-block;background:var(--oro);color:var(--verdeOsc);font-weight:800;font-size:12px;letter-spacing:.08em;padding:4px 10px;border-radius:99px;text-transform:uppercase}
+h1{font-family:'Bebas Neue',Impact,sans-serif;font-weight:400;font-size:clamp(38px,8vw,64px);line-height:.92;margin:10px 0 6px;letter-spacing:.01em;text-shadow:0 3px 0 rgba(0,0,0,.25)}
+.sub{font-weight:600;opacity:.95;font-size:14px}
+.bote{margin-top:14px;display:inline-flex;align-items:center;gap:10px;background:rgba(255,255,255,.96);color:var(--verdeOsc);border-radius:14px;padding:8px 14px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.bote b{font-family:'Bebas Neue',sans-serif;font-size:36px;font-weight:400;line-height:1;color:var(--verde2)}
+.bote small{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gris)}
+.antonio{position:relative;width:min(36vw,200px);flex-shrink:0;align-self:flex-end}
+.antonio img{display:block;width:100%;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35))}
+.bocadillo{position:absolute;right:calc(100% - 30px);top:6px;width:min(52vw,270px);background:#fff;color:var(--texto);
+  border-radius:16px;padding:10px 12px;font-size:13.5px;font-weight:600;line-height:1.35;box-shadow:0 8px 22px rgba(0,0,0,.3);z-index:2;cursor:pointer}
+.bocadillo::after{content:"";position:absolute;right:18px;bottom:-10px;border:10px solid transparent;border-top-color:#fff;border-bottom:0}
+.bocadillo .quien{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--verde2);font-weight:800;margin-bottom:2px}
+@media(max-width:620px){
+  .hwrap{flex-direction:column;align-items:stretch;min-height:0}
+  .antonio{position:absolute;right:4px;bottom:0;width:120px}
+  .bocadillo{display:none}
+  .htexto{padding-right:118px}
+}
+.bocadilloMovil{display:none}
+@media(max-width:620px){.bocadilloMovil{display:block}}
+
+/* ---------- Layout ---------- */
+main{max-width:980px;margin:0 auto;padding:16px 16px 90px}
+.aviso{background:#FFF7DD;border:1px solid #F1D98A;color:#6B5310;border-radius:12px;padding:10px 12px;font-size:13.5px;margin-bottom:14px}
+.card{background:var(--tarjeta);border:1px solid var(--linea);border-radius:18px;padding:16px;box-shadow:0 2px 0 rgba(0,0,0,.03);margin-bottom:14px}
+.card h2{font-family:'Bebas Neue',sans-serif;font-weight:400;font-size:28px;margin:0 0 8px;color:var(--verdeOsc);letter-spacing:.02em}
+.card h3{margin:14px 0 8px;font-size:15px}
+.muted{color:var(--gris);font-size:13.5px}
+label{display:block;font-size:13px;font-weight:700;margin:10px 0 4px;color:var(--verdeOsc)}
+input[type=text],input[type=password],input[type=number],input[type=datetime-local],input[type=url],select{
+  width:100%;padding:11px 12px;border:1.5px solid var(--linea);border-radius:12px;background:#fff;color:var(--texto);font-size:16px}
+input:focus,select:focus{outline:none;border-color:var(--verde);box-shadow:0 0 0 3px rgba(0,149,76,.15)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;padding:11px 16px;font-weight:800;cursor:pointer;
+  background:var(--verde);color:#fff;font-size:15px;box-shadow:0 3px 0 var(--verdeOsc);transition:transform .05s}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--verdeOsc)}
+.btn.sec{background:#fff;color:var(--verdeOsc);border:1.5px solid var(--linea);box-shadow:none}
+.btn.peq{padding:7px 10px;font-size:13px;border-radius:10px}
+.btn.rojo{background:var(--rojo);box-shadow:0 3px 0 #8c0e13}
+.btn.oro{background:var(--oro);color:var(--verdeOsc);box-shadow:0 3px 0 #9b7a17}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.fila{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.fila>*{flex:1;min-width:140px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.grid2{grid-template-columns:1fr}}
+
+/* tabs */
+.tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;padding:10px 0;background:var(--fondo);scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;border:1.5px solid var(--linea);background:#fff;color:var(--verdeOsc);border-radius:99px;padding:8px 14px;font-weight:800;font-size:14px;cursor:pointer}
+.tab.on{background:var(--verdeOsc);color:#fff;border-color:var(--verdeOsc)}
+.yo{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:14px}
+.yo b{color:var(--verde2)}
+
+/* partidos */
+.jcab{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.reloj{background:var(--verdeOsc);color:#fff;border-radius:12px;padding:6px 10px;font-weight:700;font-size:13px}
+.reloj.cerrada{background:#7a1c1c}
+.partido{border:1.5px solid var(--linea);border-radius:16px;padding:12px;margin:10px 0;background:linear-gradient(180deg,#fff,#F8FBF9)}
+.ptag{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--verde2);margin-bottom:6px;display:flex;justify-content:space-between;gap:8px}
+.ptag span:last-child{color:var(--gris);font-weight:600;text-transform:none;letter-spacing:0}
+.marcador{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.eq{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;font-weight:700;font-size:13.5px;min-width:0}
+.eq .nm{overflow-wrap:anywhere;line-height:1.15}
+.escudo{display:inline-block;flex-shrink:0}
+.escudo img{width:100%;height:100%;object-fit:contain}
+.goles{display:flex;align-items:center;gap:6px}
+.goles input{width:54px;height:58px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:36px;padding:0;border-radius:12px;border:2px solid var(--linea)}
+.goles .guion{font-weight:800;color:var(--gris)}
+.res{font-family:'Bebas Neue',sans-serif;font-size:38px;line-height:1;color:var(--verdeOsc);padding:0 6px;white-space:nowrap}
+.res.pend{color:#B9C5BF}
+.estado{border-radius:14px;padding:10px 12px;font-weight:700;font-size:14px;margin-top:10px}
+.estado.ok{background:#E3F6EA;color:#0B5D2E;border:1px solid #A8DDBC}
+.estado.pend{background:#FFF0E0;color:#8A4B00;border:1px solid #F4C892}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:99px;padding:5px 10px;font-size:13px;font-weight:700;background:#EEF3F0;border:1px solid var(--linea)}
+.chip.pag{background:#E3F6EA;border-color:#A8DDBC;color:#0B5D2E}
+.chip.no{background:#FDECEC;border-color:#F3B6B6;color:#8c1d1d}
+.chip.mio{outline:2px solid var(--oro)}
+
+/* tablas */
+.tabla{width:100%;border-collapse:collapse;font-size:14px}
+.tabla th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--gris);text-align:left;padding:6px 6px;border-bottom:1.5px solid var(--linea)}
+.tabla td{padding:8px 6px;border-bottom:1px solid var(--linea);vertical-align:middle}
+.tabla tr.top td{background:#F4FBF6}
+.tabla .num{text-align:center;font-weight:800}
+.scroll{overflow-x:auto}
+.gl{display:inline-block;min-width:38px;text-align:center;border-radius:8px;padding:2px 6px;font-weight:800;background:#EEF3F0}
+.gl.hit{background:var(--verde);color:#fff}
+.gl.miss{background:#FBE9E9;color:#9b2c2c}
+.pleno{background:linear-gradient(90deg,#FFF4C9,#fff)!important}
+
+/* podio */
+.podio{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pd{border-radius:16px;padding:12px 8px;text-align:center;border:1.5px solid var(--linea);background:#fff}
+.pd .m{font-size:30px}
+.pd .n{font-weight:800;font-size:14px;margin-top:4px;overflow-wrap:anywhere}
+.pd .e{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--verde2)}
+@media(max-width:480px){.podio{grid-template-columns:1fr}}
+
+/* modal Antonio */
+.velo{position:fixed;inset:0;background:rgba(5,30,17,.6);z-index:100;display:flex;align-items:flex-end;justify-content:center;padding:16px}
+@media(min-width:600px){.velo{align-items:center}}
+.modal{background:#fff;border-radius:22px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.4);animation:sube .25s ease-out}
+@keyframes sube{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+.mcab{display:flex;align-items:flex-end;gap:10px;padding:14px 14px 0;background:repeating-linear-gradient(90deg,var(--verde) 0 28px,#0aa257 28px 56px)}
+.mcab img{width:96px;display:block}
+.mcab .t{color:#fff;font-family:'Bebas Neue',sans-serif;font-size:30px;line-height:1;padding-bottom:12px;text-shadow:0 2px 0 rgba(0,0,0,.25)}
+.mcuerpo{padding:16px;font-size:16px;line-height:1.45;font-weight:600}
+.mcuerpo p{margin:0 0 10px}
+.mpie{padding:0 16px 16px;display:flex;gap:8px}
+.mpie .btn{flex:1}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--verdeOsc);color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;font-size:14px;z-index:120;box-shadow:0 8px 22px rgba(0,0,0,.3);max-width:calc(100% - 32px)}
+.cargando{opacity:.6;pointer-events:none}
+
+footer{text-align:center;padding:10px 16px 40px;color:var(--gris);font-size:13px}
+footer a{color:var(--verde2);font-weight:800;text-decoration:none;cursor:pointer}
+
+.normas h3{color:var(--verde2)}
+.normas p,.normas li{line-height:1.55;font-size:15px}
+
+/* admin */
+.adminbar{background:var(--verdeOsc);color:#fff;border-radius:14px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.adminbar .fila>*{min-width:0;flex:0 0 auto}
+.jlist{display:flex;flex-direction:column;gap:8px}
+.jitem{display:flex;align-items:center;gap:10px;justify-content:space-between;border:1.5px solid var(--linea);border-radius:14px;padding:10px 12px;flex-wrap:wrap}
+.mini{display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700}
+.pform{border:1.5px dashed var(--linea);border-radius:14px;padding:10px;margin:8px 0}
+.pform .fila>*{min-width:120px}
+.escgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.escitem{border:1.5px solid var(--linea);border-radius:14px;padding:10px;text-align:center;font-size:13px;font-weight:700}
+.escitem .acc{display:flex;gap:4px;justify-content:center;margin-top:6px;flex-wrap:wrap}
+.tag{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px;background:#EEF3F0;color:var(--gris)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hwrap">
+    <div class="htexto">
+      <span class="edicion">3ª edición · Curso 2026/27</span>
+      <h1>Tercera Porra<br>del CEIP San Sebastián</h1>
+      <div class="sub">Tres partidos. Tres resultados exactos. Un euro. Mucha fe. ⚽</div>
+      <div class="bote" id="boteCab"><span style="font-size:28px">💰</span><div><small>Bote acumulado</small><b id="boteNum">—</b></div></div>
+    </div>
+    <div class="antonio">
+      <div class="bocadillo" id="bocadillo" title="Otra, Antonio"><span class="quien">Antonio dice:</span><span id="frase"></span></div>
+      <img src="antonio_porra.png" alt="Antonio Jiménez, organizador de la porra">
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="aviso oculto" id="avisoDemo">
+    🧪 <b>Modo prueba:</b> los datos solo se guardan en este dispositivo. Para que todo el claustro comparta la porra, hay que conectar la app con Google (ver <i>PORRA_INSTRUCCIONES.md</i>).
+  </div>
+  <div class="card bocadilloMovil" id="bocadilloMovil" style="cursor:pointer"><span class="muted" style="font-weight:800;color:var(--verde2)">ANTONIO DICE:</span> <span id="fraseMovil" style="font-weight:600"></span></div>
+
+  <!-- 1. Contraseña de la porra -->
+  <section id="vClave" class="oculto">
+    <div class="card">
+      <h2>🔐 Acceso a la porra</h2>
+      <p class="muted">Solo para el claustro. Antonio os ha dado la contraseña (si no la tienes, pregúntale en el recreo).</p>
+      <form id="fClave">
+        <label for="iClave">Contraseña de la porra</label>
+        <input type="password" id="iClave" autocomplete="current-password" required>
+        <div style="margin-top:12px"><button class="btn" type="submit">Entrar ⚽</button></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- 2. Quién eres -->
+  <section id="vQuien" class="oculto">
+    <div class="card">
+      <h2>👋 ¿Quién eres?</h2>
+      <div class="tabs" style="position:static;padding-top:0">
+        <button class="tab on" data-q="entrar">Ya estoy apuntado</button>
+        <button class="tab" data-q="registro">Apuntarme por primera vez</button>
+      </div>
+      <form id="fQuien">
+        <label for="iNombre">Tu nombre (el que verá todo el mundo)</label>
+        <input type="text" id="iNombre" maxlength="40" placeholder="Ej.: Lola de 3ºB" required list="dlNombres" autocomplete="off">
+        <label for="iPin">PIN de 4 números <span class="muted" id="pinAyuda">(el que elegiste al apuntarte)</span></label>
+        <input type="password" id="iPin" inputmode="numeric" pattern="\d{4}" maxlength="4" required>
+        <div class="fila" style="margin-top:12px">
+          <button class="btn" type="submit" id="bQuien">Entrar</button>
+          <button class="btn sec" type="button" id="bOtraClave">Cambiar contraseña de la porra</button>
+        </div>
+      </form>
+      <p class="muted" style="margin-top:12px">¿Se te ha olvidado el PIN? Antonio te lo puede cambiar desde su zona privada.</p>
+    </div>
+  </section>
+
+  <!-- 3. App -->
+  <section id="vApp" class="oculto">
+    <div class="yo"><span>Hola, <b id="yoNombre"></b> 👋</span><button class="btn sec peq" id="bSalir">Salir</button></div>
+    <nav class="tabs" id="tabsApp">
+      <button class="tab on" data-t="jornada">⚽ Jornada</button>
+      <button class="tab" data-t="clasif">🏆 Clasificación</button>
+      <button class="tab" data-t="hist">📜 Historial</button>
+      <button class="tab" data-t="normas">📋 Normas</button>
+    </nav>
+    <div id="tJornada"></div>
+    <div id="tClasif" class="oculto"></div>
+    <div id="tHist" class="oculto"></div>
+    <div id="tNormas" class="oculto"></div>
+  </section>
+
+  <!-- 4. Admin -->
+  <section id="vAdminLogin" class="oculto">
+    <div class="card">
+      <h2>🔒 Zona privada de Antonio</h2>
+      <p class="muted">Aquí se configuran los partidos, se cobra el euro y se ponen los resultados. Si no eres Antonio, date la vuelta despacito. 👀</p>
+      <form id="fAdmin">
+        <label for="iAdmin">Contraseña de Antonio</label>
+        <input type="password" id="iAdmin" required autocomplete="current-password">
+        <div class="fila" style="margin-top:12px">
+          <button class="btn oro" type="submit">Entrar al despacho</button>
+          <button class="btn sec" type="button" id="bVolver1">Volver a la porra</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section id="vAdmin" class="oculto">
+    <div class="adminbar"><b>😎 Despacho de Antonio</b><span class="fila" style="flex:0 0 auto;gap:6px"><button class="btn sec peq" id="bVolver2">Ver porra</button><button class="btn rojo peq" id="bAdminSalir">Salir</button></span></div>
+    <nav class="tabs" id="tabsAdmin">
+      <button class="tab on" data-a="jornadas">📅 Jornadas</button>
+      <button class="tab" data-a="pagos">💶 Pagos y pronósticos</button>
+      <button class="tab" data-a="resultados">🧮 Resultados</button>
+      <button class="tab" data-a="participantes">👥 Participantes</button>
+      <button class="tab" data-a="escudos">🛡️ Escudos</button>
+      <button class="tab" data-a="ajustes">⚙️ Ajustes</button>
+    </nav>
+    <div id="aJornadas"></div>
+    <div id="aPagos" class="oculto"></div>
+    <div id="aResultados" class="oculto"></div>
+    <div id="aParticipantes" class="oculto"></div>
+    <div id="aEscudos" class="oculto"></div>
+    <div id="aAjustes" class="oculto"></div>
+  </section>
+</main>
+
+<footer>
+  ¡Viva el Betis y viva el CEIP San Sebastián! 🟢⚪⚽<br><br>
+  <a id="lnkAdmin">🔒 Zona privada de Antonio</a>
+</footer>
+
+<datalist id="dlEquipos"></datalist>
+<datalist id="dlNombres"></datalist>
+
+<script src="porra_core.js"></script>
+<script>
+/* =========================================================
+   CONFIGURACIÓN: pega aquí la URL de tu Apps Script (termina en /exec).
+   Si se deja vacía, la app funciona en MODO PRUEBA (solo este dispositivo).
+   ========================================================= */
+var PORRA_API = '';
+
+/* ---------------- Frases de Antonio ---------------- */
+var FRASES = {
+  saludo: [
+    '¡Bienvenidos a la porra más seria del claustro! Bueno… seria, seria, tampoco.',
+    'Aquí se viene a tres cosas: acertar, pagar el euro y gritar ¡Viva er Betis!',
+    'El euro, a mí. El pronóstico, aquí. Y la fe, en el Betis. 💚',
+    'Pronosticar que el Sevilla gana está permitido. Recomendado, no tanto. 😂',
+    'Una porra sin Betis es como un viernes sin recreo: técnicamente posible, pero bastante triste.',
+    'El que no arriesga no gana. Y el que no paga… tampoco. 💶',
+    'Acertar tres resultados es difícil. Más difícil es explicar por qué alguien sigue confiando en el Sevilla.',
+    'Viernes a las 12:30 se cierra el chiringuito. Luego no me vengáis con lágrimas.',
+    'Manque pierda… pero en la porra, mejor acertar.',
+    'Toca el bocadillo y te digo otra cosa. Tengo frases para todo el curso. 😎'
+  ],
+  sinPagar: [
+    '¡Gracias, fiera! 💚 Pero hasta que no me pagues el euro, tu pronóstico vale menos que un córner del Sevilla.',
+    'Apuntado, máquina. Ahora búscame con el euro, que sin pagar esto es papel mojado. 💶',
+    '¡Gracias, crack! Tu pronóstico está guardado… en la sala de espera. Se activa con 1 € en mi mano.',
+    'Muy bonito todo, pero sin euro no hay paraíso. ¡Pásate por mi clase antes del viernes a las 12:30!',
+    'Pronóstico recibido. Estado: ⏳ esperando a que sueltes la moneda. No me hagas ir a buscarte al recreo.',
+    '¡Eso es tener fe! Ahora ten también un euro, que si no, no cuenta. 😉'
+  ],
+  cambioPagado: [
+    'Cambio apuntado. Y como ya has pagado, todo en regla. ¡Así me gusta, fiera! ✅',
+    'Cambiado. Pagado. Perfecto. Eres el alumno ejemplar de esta porra. 🏅'
+  ],
+  betisPierde: [
+    '¿El Betis perdiendo? Te lo apunto… pero que sepas que te estoy mirando. 👀',
+    '¿Que pierde el Betis? Esto lo hablamos tú y yo en el recreo. 😤'
+  ],
+  sevillaGana: [
+    '¿El Sevilla ganando? Respeto tu fe. No la comparto, pero la respeto. 😂',
+    '¿Victoria del Sevilla? Valiente. Muy valiente. Demasiado valiente. 🙃'
+  ],
+  goleadaBetis: [
+    '¡ESO ES! ¡Goleada verdiblanca! Así se pronostica: con el corazón. 💚🤍',
+    '¡Olé! Ese pronóstico tiene más arte que la Feria entera. 💃💚'
+  ],
+  duplicado: [
+    '¡Copión! 😂 Ese pronóstico exacto ya lo tiene otro compañero. Como mucho podéis coincidir en dos resultados. Cambia alguno.'
+  ],
+  cerrada: [
+    'Llegas tarde, fiera. Viernes 12:30 era la hora. La próxima, madruga. ⏰'
+  ],
+  claveMal: [
+    'Esa contraseña no es. ¿Seguro que eres del claustro y no un espía del Sevilla? 🕵️'
+  ],
+  bienvenida: [
+    '¡Ya estás dentro, {n}! Bienvenido/a a la familia. Ahora a pronosticar… y a pagar. 💶'
+  ],
+  admin: [
+    'Bienvenido a tu despacho, jefe. Aquí se cobra, se apunta y se manda. 😎'
+  ]
+};
+function frase(tipo, n) { var a = FRASES[tipo]; return a[Math.floor(Math.random() * a.length)].replace('{n}', n || ''); }
+
+/* ---------------- Estado ---------------- */
+var S = { datos: null, admin: null, sesion: null, claveAdmin: null, modoQuien: 'entrar', tab: 'jornada', atab: 'jornadas', pagosJ: null };
+try { S.sesion = JSON.parse(localStorage.getItem('porra_sesion') || 'null'); } catch (e) {}
+try { S.claveAdmin = sessionStorage.getItem('porra_admin'); } catch (e) {}
+function guardarSesion() { try { localStorage.setItem('porra_sesion', JSON.stringify(S.sesion)); } catch (e) {} }
+
+/* ---------------- API ---------------- */
+function api(req) {
+  if (!PORRA_API) {
+    var db = null;
+    try { db = JSON.parse(localStorage.getItem('porra_demo') || 'null'); } catch (e) {}
+    db = db || PorraCore.nuevaBD();
+    var out = PorraCore.handle(db, JSON.parse(JSON.stringify(req)), new Date());
+    if (out.changed) try { localStorage.setItem('porra_demo', JSON.stringify(db)); } catch (e) {}
+    return Promise.resolve(JSON.parse(JSON.stringify(out.res)));
+  }
+  return fetch(PORRA_API, { method: 'POST', body: JSON.stringify(req) })
+    .then(function (r) { return r.json(); })
+    .catch(function () { return { ok: false, error: 'No hay conexión con el servidor. Inténtalo de nuevo en un momento.' }; });
+}
+function apiUser(action, extra) {
+  var req = { action: action, clave: S.sesion && S.sesion.clave, nombre: S.sesion && S.sesion.nombre, pin: S.sesion && S.sesion.pin };
+  for (var k in extra || {}) req[k] = extra[k];
+  return ocupado(api(req));
+}
+function apiAdmin(action, extra) {
+  var req = { action: action, claveAdmin: S.claveAdmin };
+  for (var k in extra || {}) req[k] = extra[k];
+  return ocupado(api(req)).then(function (r) {
+    if (r.ok) { S.admin = r; pintarBote(r.bote); pintarAdmin(); }
+    else if (r.code === 'clave_admin') { salirAdmin(); }
+    else toast('⚠️ ' + r.error);
+    return r;
+  });
+}
+function ocupado(p) {
+  document.body.classList.add('cargando');
+  return p.then(function (r) { document.body.classList.remove('cargando'); return r; },
+                function (e) { document.body.classList.remove('cargando'); throw e; });
+}
+
+/* ---------------- Utilidades ---------------- */
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function euros(n) { n = +n || 0; return (Math.round(n * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) + ' €'; }
+function fecha(iso, corta) {
+  var d = new Date(iso);
+  return d.toLocaleString('es-ES', corta ? { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+    : { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+}
+function falta(iso) {
+  var ms = new Date(iso) - new Date();
+  if (ms <= 0) return null;
+  var m = Math.floor(ms / 60000), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mi = m % 60;
+  return (d ? d + 'd ' : '') + (d || h ? h + 'h ' : '') + mi + 'min';
+}
+function toast(msg) {
+  var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200);
+}
+function antonioDice(titulo, html, botones) {
+  var v = document.createElement('div'); v.className = 'velo';
+  v.innerHTML = '<div class="modal" role="dialog"><div class="mcab"><img src="antonio_porra.png" alt=""><div class="t">' + esc(titulo) +
+    '</div></div><div class="mcuerpo">' + html + '</div><div class="mpie"><button class="btn">Vale, Antonio</button></div></div>';
+  v.addEventListener('click', function (e) { if (e.target === v || e.target.tagName === 'BUTTON') v.remove(); });
+  document.body.appendChild(v);
+}
+function confirmar(msg) { return window.confirm(msg); }
+
+/* ---------------- Escudos ---------------- */
+var nEsc = 0;
+function hashColor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return 'hsl(' + (h % 360) + ',55%,42%)'; }
+function siglas(n) {
+  var w = PorraCore.clave(n).split(' ').filter(function (x) { return x && ['fc', 'cf', 'cd', 'ud', 'rc', 'rcd', 'ca', 'de', 'la', 'el', 'real', 'club'].indexOf(x) < 0; });
+  if (!w.length) w = PorraCore.clave(n).split(' ');
+  return (w.length > 1 ? w[0][0] + w[1][0] + (w[2] ? w[2][0] : '') : (w[0] || '?').slice(0, 3)).toUpperCase();
+}
+function escudo(nombre, tam) {
+  tam = tam || 56;
+  var datos = S.datos || S.admin || {};
+  var img = (datos.escudos || {})[PorraCore.clave(nombre)];
+  if (img) return '<span class="escudo" style="width:' + tam + 'px;height:' + tam + 'px"><img src="' + esc(img) + '" alt="' + esc(nombre) + '" onerror="this.parentNode.outerHTML=escudoSVG(\'' + esc(String(nombre).replace(/'/g, '')) + '\',' + tam + ')"></span>';
+  return escudoSVG(nombre, tam);
+}
+function escudoSVG(nombre, tam) {
+  var e = PorraCore.equipo(nombre) || { s: siglas(nombre), c: [hashColor(PorraCore.clave(nombre)), '#FFFFFF'], p: 's' };
+  var id = 'cl' + (++nEsc), c0 = e.c[0], c1 = e.c[1], fondo = '';
+  if (e.p === 'v') { fondo = '<rect width="100" height="120" fill="' + c1 + '"/>'; for (var x = 0; x < 100; x += 28) fondo += '<rect x="' + x + '" width="14" height="120" fill="' + c0 + '"/>'; }
+  else if (e.p === 'h') fondo = '<rect width="50" height="120" fill="' + c0 + '"/><rect x="50" width="50" height="120" fill="' + c1 + '"/>';
+  else if (e.p === 'd') fondo = '<rect width="100" height="120" fill="' + c0 + '"/><polygon points="0,30 0,58 100,110 100,82" fill="' + c1 + '"/>';
+  else if (e.p === 'x') fondo = '<rect width="100" height="120" fill="' + c0 + '"/><rect x="50" width="50" height="60" fill="' + c1 + '"/><rect y="60" width="50" height="60" fill="' + c1 + '"/>';
+  else fondo = '<rect width="100" height="120" fill="' + c0 + '"/><path d="M50 14 L84 23 V58 C84 82 66 96 50 104 C34 96 16 82 16 58 V23 Z" fill="none" stroke="' + c1 + '" stroke-width="4"/>';
+  var forma = 'M50 4 L94 16 V58 C94 88 72 106 50 116 C28 106 6 88 6 58 V16 Z';
+  return '<span class="escudo" style="width:' + tam + 'px;height:' + tam + 'px" title="' + esc(nombre) + '"><svg viewBox="0 0 100 120" width="100%" height="100%" role="img" aria-label="' + esc(nombre) + '">' +
+    '<defs><clipPath id="' + id + '"><path d="' + forma + '"/></clipPath></defs><g clip-path="url(#' + id + ')">' + fondo + '</g>' +
+    '<path d="' + forma + '" fill="none" stroke="#1a2a22" stroke-width="4"/>' +
+    '<text x="50" y="70" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="' + (e.s.length > 3 ? 21 : 26) + '" fill="#fff" stroke="rgba(0,0,0,.6)" stroke-width="5" paint-order="stroke">' + esc(e.s) + '</text></svg></span>';
+}
+
+/* ---------------- Cabecera / frases ---------------- */
+function nuevaFrase() { var f = frase('saludo'); $('frase').textContent = f; $('fraseMovil').textContent = f; }
+$('bocadillo').onclick = nuevaFrase; $('bocadilloMovil').onclick = nuevaFrase;
+function pintarBote(b) { $('boteNum').textContent = b == null ? '—' : euros(b); }
+
+/* ---------------- Navegación de vistas ---------------- */
+function vista(v) {
+  ['vClave', 'vQuien', 'vApp', 'vAdminLogin', 'vAdmin'].forEach(function (x) { $(x).classList.toggle('oculto', x !== v); });
+  window.scrollTo(0, 0);
+}
+
+function arrancar() {
+  if (!PORRA_API) $('avisoDemo').classList.remove('oculto');
+  nuevaFrase();
+  PorraCore.EQUIPOS.forEach(function (e) { var o = document.createElement('option'); o.value = e.n; $('dlEquipos').appendChild(o); });
+  if (location.hash === '#antonio') return abrirAdmin();
+  if (!S.sesion || !S.sesion.clave) return vista('vClave');
+  if (!S.sesion.nombre) return vista('vQuien');
+  apiUser('entrar').then(function (r) {
+    if (r.ok) { S.datos = r; entrarApp(); }
+    else if (r.code === 'clave') { S.sesion = null; guardarSesion(); vista('vClave'); }
+    else if (r.code === 'login') { S.sesion.nombre = null; S.sesion.pin = null; guardarSesion(); vista('vQuien'); }
+    else { toast('⚠️ ' + r.error); vista('vClave'); }
+  });
+}
+
+/* Paso 1: contraseña */
+$('fClave').onsubmit = function (e) {
+  e.preventDefault();
+  var c = $('iClave').value.trim();
+  ocupado(api({ action: 'comprobar', clave: c })).then(function (r) {
+    if (!r.ok) return antonioDice('¡Alto ahí!', '<p>' + esc(frase('claveMal')) + '</p>');
+    S.sesion = { clave: c }; guardarSesion(); S.datos = r; pintarBote(r.bote); vista('vQuien');
+  });
+};
+
+/* Paso 2: quién eres */
+document.querySelectorAll('[data-q]').forEach(function (b) {
+  b.onclick = function () {
+    S.modoQuien = b.dataset.q;
+    document.querySelectorAll('[data-q]').forEach(function (x) { x.classList.toggle('on', x === b); });
+    $('bQuien').textContent = S.modoQuien === 'registro' ? 'Apuntarme' : 'Entrar';
+    $('pinAyuda').textContent = S.modoQuien === 'registro' ? '(invéntate uno y no se lo digas a nadie, ni a Antonio)' : '(el que elegiste al apuntarte)';
+  };
+});
+$('bOtraClave').onclick = function () { S.sesion = null; guardarSesion(); vista('vClave'); };
+$('fQuien').onsubmit = function (e) {
+  e.preventDefault();
+  var nombre = $('iNombre').value.trim(), pin = $('iPin').value.trim();
+  if (!/^\d{4}$/.test(pin)) return toast('El PIN son 4 números.');
+  ocupado(api({ action: S.modoQuien, clave: S.sesion.clave, nombre: nombre, pin: pin })).then(function (r) {
+    if (!r.ok) return antonioDice('Uy, uy, uy…', '<p>' + esc(r.error) + '</p>');
+    S.sesion.nombre = r.yo.nombre; S.sesion.pin = pin; guardarSesion(); S.datos = r;
+    $('iPin').value = '';
+    if (r.nuevo) antonioDice('¡Fichaje!', '<p>' + esc(frase('bienvenida', r.yo.nombre)) + '</p><p class="muted">Recuerda tu PIN: lo necesitarás para entrar desde otro móvil.</p>');
+    entrarApp();
+  });
+};
+$('bSalir').onclick = function () { S.sesion.nombre = null; S.sesion.pin = null; guardarSesion(); S.datos = null; vista('vQuien'); };
+
+/* ---------------- App de participante ---------------- */
+function entrarApp() { vista('vApp'); pintarApp(); }
+document.querySelectorAll('#tabsApp .tab').forEach(function (b) {
+  b.onclick = function () { S.tab = b.dataset.t; pintarApp(); };
+});
+function refrescar() { return apiUser('entrar').then(function (r) { if (r.ok) { S.datos = r; pintarApp(); } }); }
+
+function pintarApp() {
+  var d = S.datos; if (!d) return;
+  pintarBote(d.bote);
+  $('yoNombre').textContent = d.yo ? d.yo.nombre : '';
+  document.querySelectorAll('#tabsApp .tab').forEach(function (x) { x.classList.toggle('on', x.dataset.t === S.tab); });
+  ['jornada', 'clasif', 'hist', 'normas'].forEach(function (t) {
+    $({ jornada: 'tJornada', clasif: 'tClasif', hist: 'tHist', normas: 'tNormas' }[t]).classList.toggle('oculto', t !== S.tab);
+  });
+  if (S.tab === 'jornada') pintarJornada();
+  if (S.tab === 'clasif') pintarClasif();
+  if (S.tab === 'hist') pintarHist();
+  if (S.tab === 'normas') pintarNormas();
+}
+
+function etiquetaPartido(p, i) {
+  if (p.etiqueta) return p.etiqueta;
+  var t = [p.local, p.visitante].map(function (x) { var e = PorraCore.equipo(x); return e ? e.n : ''; });
+  if (t.indexOf('Real Betis') >= 0) return '💚 Partido del Betis';
+  if (t.indexOf('Sevilla FC') >= 0) return '❤️ Partido del Sevilla';
+  return '⭐ Partido sorpresa';
+}
+
+function cabJornada(j) {
+  var f = falta(j.cierre), txt, cls = '';
+  if (j.finalizada) { txt = '✅ Finalizada'; cls = 'cerrada'; }
+  else if (j.abierta && f) txt = '⏳ Cierra en ' + f;
+  else { txt = '🔒 Porra cerrada'; cls = 'cerrada'; }
+  return '<div class="jcab"><div><h2>Jornada ' + esc(j.numero) + (j.titulo ? ' · ' + esc(j.titulo) : '') + '</h2>' +
+    '<div class="muted">Cierre: <b>' + esc(fecha(j.cierre)) + '</b> · En juego: <b>' + euros(j.bote) + '</b></div></div>' +
+    '<div class="reloj ' + cls + '" data-cierre="' + esc(j.cierre) + '" data-fin="' + (j.finalizada ? 1 : 0) + '" data-ab="' + (j.abierta ? 1 : 0) + '">' + txt + '</div></div>';
+}
+
+function pintarJornada() {
+  var d = S.datos, cont = $('tJornada');
+  var abiertas = d.jornadas.filter(function (j) { return j.abierta; });
+  var pendientes = d.jornadas.filter(function (j) { return !j.abierta && !j.finalizada; });
+  var ultimaFin = d.jornadas.filter(function (j) { return j.finalizada; }).slice(-1);
+  var html = '';
+  if (!abiertas.length && !pendientes.length) {
+    html += '<div class="card"><h2>Sin jornada abierta</h2><p>Antonio todavía no ha puesto los partidos de esta semana. Paciencia, que está mirando el calendario con lupa. 🔎</p></div>';
+  }
+  abiertas.forEach(function (j) { html += tarjetaJornadaAbierta(j); });
+  pendientes.forEach(function (j) { html += tarjetaJornadaCerrada(j, 'Porra cerrada: esperando resultados. ¡A sufrir! 😬'); });
+  if (!abiertas.length) ultimaFin.forEach(function (j) { html += tarjetaJornadaCerrada(j); });
+  cont.innerHTML = html;
+  cont.querySelectorAll('form[data-j]').forEach(function (f) { f.onsubmit = enviarPronostico; });
+}
+
+function tarjetaJornadaAbierta(j) {
+  var mio = j.pronosticos.filter(function (p) { return p.mio; })[0];
+  var h = '<div class="card">' + cabJornada(j) + '<form data-j="' + j.id + '">';
+  j.partidos.forEach(function (p, i) {
+    var g = mio ? mio.goles[i] : ['', ''];
+    h += '<div class="partido"><div class="ptag"><span>' + esc(etiquetaPartido(p, i)) + '</span><span>' + esc(p.cuando || '') + '</span></div>' +
+      '<div class="marcador"><div class="eq">' + escudo(p.local) + '<span class="nm">' + esc(p.local) + '</span></div>' +
+      '<div class="goles"><input name="l' + i + '" inputmode="numeric" pattern="\\d{1,2}" maxlength="2" value="' + esc(g[0]) + '" aria-label="Goles ' + esc(p.local) + '" required>' +
+      '<span class="guion">–</span><input name="v' + i + '" inputmode="numeric" pattern="\\d{1,2}" maxlength="2" value="' + esc(g[1]) + '" aria-label="Goles ' + esc(p.visitante) + '" required></div>' +
+      '<div class="eq">' + escudo(p.visitante) + '<span class="nm">' + esc(p.visitante) + '</span></div></div></div>';
+  });
+  h += '<button class="btn" type="submit" style="width:100%;margin-top:4px">' + (mio ? '✏️ Cambiar mi pronóstico' : '🎯 ¡Me mojo! Guardar pronóstico') + '</button></form>';
+  if (mio) {
+    h += mio.pagado
+      ? '<div class="estado ok">✅ Pronóstico <b>VÁLIDO</b>: Antonio ya tiene tu euro. Ahora, a rezar.</div>'
+      : '<div class="estado pend">⏳ Pronóstico <b>PENDIENTE DE PAGO</b>. Hasta que no le des 1 € a Antonio no vale. Tienes hasta el ' + esc(fecha(j.cierre)) + '.</div>';
+  }
+  h += '<h3>👥 Participantes de esta jornada (' + j.pronosticos.length + ')</h3>';
+  if (!j.pronosticos.length) h += '<p class="muted">Nadie todavía. ¡Sé el primero en mojarte!</p>';
+  else {
+    h += '<div class="chips">' + j.pronosticos.map(function (p) {
+      return '<span class="chip ' + (p.pagado ? 'pag' : 'no') + (p.mio ? ' mio' : '') + '">' + (p.pagado ? '💶' : '⏳') + ' ' + esc(p.nombre) + '</span>';
+    }).join('') + '</div><p class="muted" style="margin-top:8px">💶 pagado · ⏳ pendiente de pago. Los pronósticos de los demás son secretos hasta el cierre. 🤫</p>';
+  }
+  return h + '</div>';
+}
+
+function filaGoles(goles, res) {
+  return goles.map(function (g, i) {
+    var r = res[i], cls = '';
+    if (r && r[0] !== null && r[0] !== undefined) cls = (+r[0] === +g[0] && +r[1] === +g[1]) ? 'hit' : 'miss';
+    return '<span class="gl ' + cls + '">' + g[0] + '-' + g[1] + '</span>';
+  }).join(' ');
+}
+
+function tarjetaJornadaCerrada(j, nota) {
+  var h = '<div class="card">' + cabJornada(j);
+  if (nota) h += '<p class="muted">' + esc(nota) + '</p>';
+  j.partidos.forEach(function (p, i) {
+    var r = j.resultados[i];
+    h += '<div class="partido"><div class="ptag"><span>' + esc(etiquetaPartido(p, i)) + '</span><span>' + esc(p.cuando || '') + '</span></div><div class="marcador">' +
+      '<div class="eq">' + escudo(p.local, 48) + '<span class="nm">' + esc(p.local) + '</span></div>' +
+      '<div class="res ' + (r ? '' : 'pend') + '">' + (r ? r[0] + ' – ' + r[1] : '? – ?') + '</div>' +
+      '<div class="eq">' + escudo(p.visitante, 48) + '<span class="nm">' + esc(p.visitante) + '</span></div></div></div>';
+  });
+  if (j.finalizada) {
+    h += j.ganadores.length
+      ? '<div class="estado ok">🎉 ¡¡PLENO!! ' + j.ganadores.map(function (g) { return '<b>' + esc(g.nombre) + '</b> se lleva ' + euros(g.importe); }).join(' · ') + '. ¡Que corra el Cruzcampo! 🍻</div>'
+      : '<div class="estado pend">😅 Nadie ha acertado los tres. El bote sigue engordando: ' + euros(j.boteTras) + ' para la próxima.</div>';
+  }
+  var pros = j.pronosticos.filter(function (p) { return p.pagado || p.mio; });
+  if (pros.length) {
+    h += '<h3>Pronósticos válidos</h3><div class="scroll"><table class="tabla"><tr><th>Nombre</th>' +
+      j.partidos.map(function (p) { return '<th>' + esc(siglas(p.local)) + '-' + esc(siglas(p.visitante)) + '</th>'; }).join('') + '<th>Aciertos</th></tr>';
+    pros.sort(function (a, b) { return (b.aciertos || 0) - (a.aciertos || 0); }).forEach(function (p) {
+      h += '<tr class="' + (p.pleno ? 'pleno' : '') + '"><td>' + esc(p.nombre) + (p.pagado ? '' : ' <span class="tag">sin pagar</span>') + '</td>' +
+        (p.goles ? p.goles.map(function (g, i) {
+          var r = j.resultados[i], cls = r ? ((+r[0] === +g[0] && +r[1] === +g[1]) ? 'hit' : 'miss') : '';
+          return '<td><span class="gl ' + cls + '">' + g[0] + '-' + g[1] + '</span></td>';
+        }).join('') : '<td colspan="3">🤫</td>') + '<td class="num">' + (p.aciertos == null ? '—' : p.aciertos) + (p.pleno ? ' 🏆' : '') + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+  return h + '</div>';
+}
+
+function enviarPronostico(e) {
+  e.preventDefault();
+  var f = e.target, jid = f.dataset.j, goles = [];
+  for (var i = 0; i < 3; i++) goles.push([f['l' + i].value.trim(), f['v' + i].value.trim()]);
+  apiUser('pronosticar', { jornadaId: jid, goles: goles }).then(function (r) {
+    if (!r.ok) {
+      if (r.code === 'duplicado') return antonioDice('¡Copión!', '<p>' + esc(frase('duplicado')) + '</p>');
+      if (r.code === 'cerrada') { refrescar(); return antonioDice('Tarde, tarde…', '<p>' + esc(frase('cerrada')) + '</p>'); }
+      return antonioDice('Uy…', '<p>' + esc(r.error) + '</p>');
+    }
+    S.datos = r; pintarApp();
+    var j = r.jornadas.filter(function (x) { return x.id === jid; })[0];
+    var extras = comentariosPronostico(j, goles);
+    var principal = r.guardado.pagado ? frase('cambioPagado') : frase('sinPagar');
+    antonioDice(r.guardado.pagado ? '¡Apuntado!' : '¡Gracias, fiera!',
+      '<p>' + esc(principal) + '</p>' + extras.map(function (x) { return '<p>' + esc(x) + '</p>'; }).join('') +
+      (r.guardado.pagado ? '' : '<p class="muted">💶 Recuerda: 1 € a Antonio antes del ' + esc(fecha(j.cierre)) + '. Sin pago no hay premio.</p>'));
+  });
+}
+function comentariosPronostico(j, goles) {
+  var out = [];
+  j.partidos.forEach(function (p, i) {
+    var L = PorraCore.equipo(p.local), V = PorraCore.equipo(p.visitante), g = goles[i].map(Number);
+    var betisLocal = L && L.n === 'Real Betis', betisVis = V && V.n === 'Real Betis';
+    if (betisLocal || betisVis) {
+      var bg = betisLocal ? g[0] : g[1], rg = betisLocal ? g[1] : g[0];
+      if (bg < rg) out.push(frase('betisPierde'));
+      else if (bg - rg >= 3) out.push(frase('goleadaBetis'));
+    }
+    var sevLocal = L && L.n === 'Sevilla FC', sevVis = V && V.n === 'Sevilla FC';
+    if ((sevLocal && g[0] > g[1]) || (sevVis && g[1] > g[0])) out.push(frase('sevillaGana'));
+  });
+  return out.slice(0, 2);
+}
+
+function pintarClasif() {
+  var d = S.datos, h = '<div class="card"><h2>💰 Bote acumulado: ' + euros(d.bote) + '</h2><p class="muted">Aportación por jornada: ' + euros(d.aportacion) + '. Si nadie acierta los tres resultados, el bote sigue creciendo. Solo cuentan los pronósticos <b>pagados</b>.</p></div>';
+  h += '<div class="card"><h2>🏆 Clasificación de la temporada</h2>';
+  if (!d.ranking.length) h += '<p class="muted">Todavía no hay aciertos registrados. La gloria espera. ✨</p>';
+  else {
+    h += '<div class="scroll"><table class="tabla"><tr><th>#</th><th>Nombre</th><th class="num">Aciertos</th><th class="num">Plenos</th><th class="num">Jornadas</th><th class="num">Ganado</th></tr>';
+    d.ranking.forEach(function (r) {
+      var med = r.posicion === 1 ? '🥇' : r.posicion === 2 ? '🥈' : r.posicion === 3 ? '🥉' : r.posicion;
+      h += '<tr class="' + (r.posicion <= 3 ? 'top' : '') + '"><td class="num">' + med + '</td><td><b>' + esc(r.nombre) + '</b>' + (d.yo && r.participanteId === d.yo.id ? ' 👈' : '') + '</td><td class="num">' + r.aciertos +
+        '</td><td class="num">' + r.plenos + '</td><td class="num">' + r.jugadas + '</td><td class="num">' + (r.ganado ? euros(r.ganado) : '—') + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+  h += '</div><div class="card"><h2>🎓 Si el curso acabara hoy…</h2><p class="muted">Si al final del curso nadie ha hecho pleno, el bote se reparte entre los tres con más aciertos: 50 % · 30 % · 20 % (con las reglas de empate).</p>';
+  if (!d.reparto.length) h += '<p class="muted">Aún no hay a quién repartir nada. 🤷</p>';
+  else {
+    h += '<div class="podio">' + d.reparto.map(function (r) {
+      var m = r.posicion === 1 ? '🥇' : r.posicion === 2 ? '🥈' : '🥉';
+      return '<div class="pd"><div class="m">' + m + '</div><div class="n">' + esc(r.nombre) + '</div><div class="muted">' + r.aciertos + ' aciertos' + (r.empate ? ' · empate' : '') +
+        '</div><div class="e">' + euros(r.importe) + '</div><div class="muted">' + String(r.porcentaje).replace('.', ',') + ' %</div></div>';
+    }).join('') + '</div>';
+  }
+  cont('tClasif', h + '</div>');
+}
+function cont(id, h) { $(id).innerHTML = h; }
+
+function pintarHist() {
+  var js = S.datos.jornadas.filter(function (j) { return !j.abierta; }).slice().reverse();
+  if (!js.length) return cont('tHist', '<div class="card"><h2>📜 Historial</h2><p class="muted">Aquí irán apareciendo las jornadas ya cerradas. De momento, página en blanco… como el palmarés europeo de algunos. 😏</p></div>');
+  cont('tHist', js.map(function (j) { return tarjetaJornadaCerrada(j); }).join(''));
+}
+
+function pintarNormas() {
+  cont('tNormas', '<div class="card normas"><h2>📋 Presentación</h2>' +
+    '<p>Estimados compañeros y compañeras:</p><p>Con motivo de fomentar la convivencia, la participación y, por supuesto, nuestra pasión por el fútbol, damos comienzo a la <b>Tercera Porra del CEIP San Sebastián</b>, una iniciativa destinada a todo el claustro de profesores y profesoras.</p>' +
+    '<p>La dinámica será sencilla, aunque acertar no lo será tanto: cada semana se propondrán <b>tres encuentros</b> de fútbol, cuyos resultados exactos deberán ser pronosticados por los participantes. Uno de los encuentros corresponderá al <b>Real Betis Balompié</b>, otro al <b>Sevilla Fútbol Club</b> y el tercero será seleccionado semanalmente entre diferentes equipos del panorama futbolístico nacional, pudiendo corresponder, entre otros, al Real Madrid, Fútbol Club Barcelona u otros conjuntos.</p>' +
+    '<p>El objetivo será conseguir acertar el resultado exacto de los tres encuentros. Cada jornada, los participantes realizarán su pronóstico y contribuirán con un euro al bote semanal, que irá aumentando cuando ningún participante consiga acertar los tres resultados.</p><p>Y ahora sí… que comience el espectáculo. ⚽</p>' +
+    '<h2>📜 Reglamento</h2>' +
+    '<h3>1. Objetivo de la porra</h3><p>Para conseguir el premio de la jornada será necesario acertar exactamente el resultado de los tres partidos propuestos.</p>' +
+    '<h3>2. Aportación semanal</h3><p>Cada participante deberá aportar 1 € semanalmente, que será entregado al maestro Antonio, encargado de recoger las participaciones y gestionar el bote. <b>En esta app: si Antonio no marca tu pronóstico como pagado, no es válido y no puede optar a premio.</b></p>' +
+    '<h3>3. Pronósticos</h3><p>No podrán repetirse exactamente los resultados de los tres partidos entre diferentes participantes. Como máximo, podrán coincidir dos de los tres resultados pronosticados. <b>(La app no te dejará guardar un pronóstico idéntico al de otra persona: quien llega primero, se lo queda.)</b></p>' +
+    '<h3>4. Plazo de participación</h3><p>El último momento para entregar el euro y formalizar el pronóstico de cada jornada será el <b>viernes a las 12:30 horas</b>. Una vez alcanzada dicha hora, la porra quedará oficialmente cerrada y no se admitirán nuevas participaciones ni modificaciones en los pronósticos.</p>' +
+    '<h3>5. Bote semanal</h3><p>Cuando ningún participante consiga acertar los tres resultados de una jornada, el importe acumulado permanecerá en el bote, que continuará incrementándose con las aportaciones de las semanas posteriores.</p>' +
+    '<h3>6. Premio final en caso de que nadie acierte durante el curso</h3><p>Si al finalizar el curso ningún participante hubiera conseguido acertar los tres partidos de una jornada, el bote acumulado se repartirá entre los tres participantes que hayan obtenido el mayor número de aciertos de partidos durante toda la temporada:</p>' +
+    '<ul><li>🥇 Primer clasificado: 50 % del bote.</li><li>🥈 Segundo clasificado: 30 % del bote.</li><li>🥉 Tercer clasificado: 20 % del bote.</li></ul>' +
+    '<p><b>¿Y qué ocurre en caso de empate?</b> Los empatados suman los porcentajes de las posiciones que ocupan y se los reparten a partes iguales:</p>' +
+    '<ul><li>Empate entre el primer y segundo clasificado: se reparten el bote correspondiente a esas dos posiciones.</li><li>Empate entre el segundo y tercer clasificado: ambos se repartirán el 50 % del bote correspondiente a esas posiciones.</li><li>Empate entre el tercer, cuarto o quinto clasificado: los participantes empatados se repartirán el 20 % del bote destinado a la tercera posición.</li><li>Empate entre los tres primeros clasificados: los tres participantes se repartirán el 100 % del bote a partes iguales.</li></ul>' +
+    '<h2>👋 Despedida</h2><p>Y poco más que añadir, queridos compañeros y compañeras… ¡Que empiece la porra! ⚽🔥</p><p>Participen, arriesguen, confíen en sus pronósticos y, sobre todo, tengan fe. Porque acertar tres resultados exactos puede parecer complicado, pero más complicado es explicar por qué uno sigue confiando en el Sevilla. 😂</p>' +
+    '<p>Y recordad:<br><b>¡Mucho Betis! 💚🤍<br>¡Muchísimo Betis! 💚🤍<br>¡Y todavía más Betis! 💚🤍</b></p><p>Porque una porra sin Betis es como un viernes sin recreo: técnicamente posible, pero bastante triste.</p><p><b>¡Viva el Betis y viva el CEIP San Sebastián! 🟢⚪⚽</b></p><p class="muted">— Antonio</p></div>');
+}
+
+/* reloj en vivo */
+setInterval(function () {
+  document.querySelectorAll('.reloj[data-cierre]').forEach(function (el) {
+    if (el.dataset.fin === '1' || el.dataset.ab !== '1') return;
+    var f = falta(el.dataset.cierre);
+    if (f) el.textContent = '⏳ Cierra en ' + f;
+    else { el.textContent = '🔒 Porra cerrada'; el.classList.add('cerrada'); if (S.datos && !$('vApp').classList.contains('oculto')) refrescar(); }
+  });
+}, 30000);
+
+/* ---------------- ZONA ANTONIO ---------------- */
+$('lnkAdmin').onclick = abrirAdmin;
+window.addEventListener('hashchange', function () { if (location.hash === '#antonio') abrirAdmin(); });
+function abrirAdmin() {
+  if (S.claveAdmin) {
+    apiAdmin('adminEstado').then(function (r) { if (r.ok) vista('vAdmin'); });
+  } else vista('vAdminLogin');
+}
+$('fAdmin').onsubmit = function (e) {
+  e.preventDefault();
+  var c = $('iAdmin').value.trim();
+  ocupado(api({ action: 'adminEstado', claveAdmin: c })).then(function (r) {
+    if (!r.ok) return antonioDice('¡Intruso!', '<p>' + esc(r.error) + '</p>');
+    S.claveAdmin = c; try { sessionStorage.setItem('porra_admin', c); } catch (e) {}
+    $('iAdmin').value = '';
+    S.admin = r; pintarBote(r.bote); vista('vAdmin'); pintarAdmin(); toast(frase('admin'));
+  });
+};
+function salirAdmin() {
+  S.claveAdmin = null; S.admin = null; try { sessionStorage.removeItem('porra_admin'); } catch (e) {}
+  volverPorra();
+}
+function volverPorra() {
+  if (location.hash) history.replaceState(null, '', location.pathname);
+  if (S.sesion && S.sesion.nombre) { vista('vApp'); refrescar(); }
+  else if (S.sesion && S.sesion.clave) vista('vQuien');
+  else vista('vClave');
+}
+$('bVolver1').onclick = volverPorra; $('bVolver2').onclick = volverPorra; $('bAdminSalir').onclick = salirAdmin;
+document.querySelectorAll('#tabsAdmin .tab').forEach(function (b) { b.onclick = function () { S.atab = b.dataset.a; pintarAdmin(); }; });
+
+var ATABS = { jornadas: 'aJornadas', pagos: 'aPagos', resultados: 'aResultados', participantes: 'aParticipantes', escudos: 'aEscudos', ajustes: 'aAjustes' };
+function pintarAdmin() {
+  if (!S.admin) return;
+  document.querySelectorAll('#tabsAdmin .tab').forEach(function (x) { x.classList.toggle('on', x.dataset.a === S.atab); });
+  for (var k in ATABS) $(ATABS[k]).classList.toggle('oculto', k !== S.atab);
+  ({ jornadas: aJornadas, pagos: aPagos, resultados: aResultados, participantes: aParticipantes, escudos: aEscudos, ajustes: aAjustes })[S.atab]();
+}
+
+function proximoViernes() {
+  var d = new Date(); d.setSeconds(0, 0);
+  var add = (5 - d.getDay() + 7) % 7;
+  d.setDate(d.getDate() + add); d.setHours(12, 30);
+  if (d < new Date()) d.setDate(d.getDate() + 7);
+  return d;
+}
+function aLocalInput(d) {
+  var p = function (n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+function aJornadas(editId) {
+  var A = S.admin, j = editId ? A.jornadas.filter(function (x) { return x.id === editId; })[0] : null;
+  var sig = A.jornadas.reduce(function (m, x) { return Math.max(m, +x.numero || 0); }, 0) + 1;
+  var def = j ? j.partidos : [
+    { local: 'Real Betis', visitante: '', etiqueta: '💚 Partido del Betis', cuando: '' },
+    { local: '', visitante: 'Sevilla FC', etiqueta: '❤️ Partido del Sevilla', cuando: '' },
+    { local: '', visitante: '', etiqueta: '⭐ Partido sorpresa', cuando: '' }];
+  var h = '<div class="card"><h2>' + (j ? '✏️ Editar jornada ' + esc(j.numero) : '➕ Nueva jornada') + '</h2>' +
+    '<form id="fJor"><div class="grid2"><div><label>Número de jornada</label><input type="number" name="numero" min="1" value="' + esc(j ? j.numero : sig) + '" required></div>' +
+    '<div><label>Cierre de la porra (fecha y hora)</label><input type="datetime-local" name="cierre" value="' + esc(aLocalInput(j ? new Date(j.cierre) : proximoViernes())) + '" required></div></div>' +
+    '<label>Título opcional (ej.: «Semana del derbi»)</label><input type="text" name="titulo" maxlength="60" value="' + esc(j ? j.titulo : '') + '">';
+  def.forEach(function (p, i) {
+    h += '<div class="pform"><b>Partido ' + (i + 1) + '</b><div class="fila" style="margin-top:6px">' +
+      '<div><label>Local</label><div class="fila" style="flex-wrap:nowrap"><span data-prev="l' + i + '" style="flex:0 0 auto;min-width:0">' + escudo(p.local || '?', 36) + '</span><input type="text" name="l' + i + '" list="dlEquipos" value="' + esc(p.local) + '" required></div></div>' +
+      '<div><label>Visitante</label><div class="fila" style="flex-wrap:nowrap"><span data-prev="v' + i + '" style="flex:0 0 auto;min-width:0">' + escudo(p.visitante || '?', 36) + '</span><input type="text" name="v' + i + '" list="dlEquipos" value="' + esc(p.visitante) + '" required></div></div></div>' +
+      '<div class="fila"><div><label>Etiqueta</label><input type="text" name="e' + i + '" value="' + esc(p.etiqueta || '') + '" maxlength="40"></div>' +
+      '<div><label>Día y hora del partido (opcional)</label><input type="text" name="c' + i + '" value="' + esc(p.cuando || '') + '" placeholder="Sáb 21:00" maxlength="40"></div></div></div>';
+  });
+  h += '<p class="muted">Escribe el nombre del equipo o elígelo de la lista. Los equipos de LaLiga salen con su escudo; puedes subir los escudos oficiales en la pestaña 🛡️ Escudos.</p>' +
+    '<div class="fila"><button class="btn" type="submit">' + (j ? 'Guardar cambios' : 'Crear jornada') + '</button>' + (j ? '<button class="btn sec" type="button" id="bCancelJ">Cancelar</button>' : '') + '</div></form></div>';
+
+  h += '<div class="card"><h2>📅 Jornadas</h2>';
+  if (!A.jornadas.length) h += '<p class="muted">Aún no hay jornadas. Crea la primera arriba.</p>';
+  h += '<div class="jlist">' + A.jornadas.slice().reverse().map(function (x) {
+    var est = x.finalizada ? '✅ Finalizada' : x.abierta ? '🟢 Abierta' : '🔒 Cerrada';
+    return '<div class="jitem"><div><b>Jornada ' + esc(x.numero) + '</b> ' + (x.titulo ? '· ' + esc(x.titulo) : '') + ' <span class="tag">' + est + '</span><div class="muted">' +
+      x.partidos.map(function (p) { return esc(p.local) + ' – ' + esc(p.visitante); }).join(' · ') + '</div><div class="muted">Cierre: ' + esc(fecha(x.cierre, true)) + ' · ' + x.pronosticos.length + ' pronósticos (' + x.pagados + ' pagados)</div></div>' +
+      '<div class="fila" style="flex:0 0 auto;gap:6px">' +
+      '<button class="btn sec peq" data-ed="' + x.id + '">Editar</button>' +
+      (x.finalizada ? '' : '<button class="btn sec peq" data-ce="' + x.id + '" data-v="' + (x.cerrada ? 0 : 1) + '">' + (x.cerrada ? 'Reabrir' : 'Cerrar ya') + '</button>') +
+      '<button class="btn rojo peq" data-del="' + x.id + '">Borrar</button></div></div>';
+  }).join('') + '</div></div>';
+  cont('aJornadas', h);
+
+  var f = $('fJor');
+  f.querySelectorAll('input[list]').forEach(function (inp) {
+    inp.addEventListener('input', function () { f.querySelector('[data-prev="' + inp.name + '"]').innerHTML = escudo(inp.value || '?', 36); });
+  });
+  f.onsubmit = function (e) {
+    e.preventDefault();
+    var partidos = [0, 1, 2].map(function (i) { return { local: f['l' + i].value, visitante: f['v' + i].value, etiqueta: f['e' + i].value, cuando: f['c' + i].value }; });
+    apiAdmin('adminJornada', { jornada: { id: j ? j.id : null, numero: f.numero.value, titulo: f.titulo.value, cierre: new Date(f.cierre.value).toISOString(), partidos: partidos } })
+      .then(function (r) { if (r.ok) toast(j ? '✅ Jornada actualizada' : '✅ Jornada creada. ¡Que empiece el espectáculo!'); });
+  };
+  if ($('bCancelJ')) $('bCancelJ').onclick = function () { aJornadas(); };
+  document.querySelectorAll('[data-ed]').forEach(function (b) { b.onclick = function () { aJornadas(b.dataset.ed); window.scrollTo(0, 0); }; });
+  document.querySelectorAll('[data-ce]').forEach(function (b) { b.onclick = function () { apiAdmin('adminCerrar', { jornadaId: b.dataset.ce, cerrada: b.dataset.v === '1' }); }; });
+  document.querySelectorAll('[data-del]').forEach(function (b) {
+    b.onclick = function () { if (confirmar('¿Borrar la jornada y TODOS sus pronósticos? No se puede deshacer.')) apiAdmin('adminBorrarJornada', { jornadaId: b.dataset.del }); };
+  });
+}
+
+function selectorJornada(id) {
+  var A = S.admin;
+  if (!A.jornadas.length) return null;
+  if (!S.pagosJ || !A.jornadas.some(function (j) { return j.id === S.pagosJ; })) {
+    var ab = A.jornadas.filter(function (j) { return j.abierta; });
+    S.pagosJ = (ab[0] || A.jornadas[A.jornadas.length - 1]).id;
+  }
+  return '<label>Jornada</label><select id="' + id + '">' + A.jornadas.slice().reverse().map(function (j) {
+    return '<option value="' + j.id + '"' + (j.id === S.pagosJ ? ' selected' : '') + '>Jornada ' + esc(j.numero) + (j.titulo ? ' · ' + esc(j.titulo) : '') + (j.abierta ? ' (abierta)' : '') + '</option>';
+  }).join('') + '</select>';
+}
+
+function aPagos() {
+  var A = S.admin, sel = selectorJornada('selPag');
+  if (!sel) return cont('aPagos', '<div class="card"><p class="muted">Primero crea una jornada.</p></div>');
+  var j = A.jornadas.filter(function (x) { return x.id === S.pagosJ; })[0];
+  var h = '<div class="card"><h2>💶 Pagos y pronósticos</h2>' + sel +
+    '<p class="muted" style="margin-top:10px"><b>' + j.pronosticos.length + '</b> pronósticos · <b>' + j.pagados + '</b> pagados · Recaudado: <b>' + euros(j.recaudado) + '</b> · En juego: <b>' + euros(j.bote) + '</b></p>';
+  if (!j.pronosticos.length) h += '<p class="muted">Nadie ha pronosticado todavía en esta jornada.</p>';
+  else {
+    h += '<div class="scroll"><table class="tabla"><tr><th>Nombre</th>' + j.partidos.map(function (p) { return '<th>' + esc(siglas(p.local)) + '-' + esc(siglas(p.visitante)) + '</th>'; }).join('') + '<th>Pago</th><th></th></tr>';
+    j.pronosticos.forEach(function (p) {
+      h += '<tr><td><b>' + esc(p.nombre) + '</b><div class="muted" style="font-size:11.5px">' + esc(fecha(p.fecha, true)) + '</div></td>' +
+        p.goles.map(function (g, i) { return '<td>' + filaGoles([g], [j.resultados[i]]) + '</td>'; }).join('') +
+        '<td><button class="btn peq ' + (p.pagado ? '' : 'oro') + '" data-pag="' + p.id + '" data-v="' + (p.pagado ? 0 : 1) + '">' + (p.pagado ? '✅ Pagado' : '💶 Marcar pagado') + '</button></td>' +
+        '<td><button class="btn rojo peq" data-bp="' + p.id + '" title="Borrar pronóstico">🗑</button></td></tr>';
+    });
+    h += '</table></div><p class="muted">Pulsa «✅ Pagado» otra vez si te equivocaste y quieres quitarlo.</p>';
+  }
+  h += '</div><div class="card"><h2>✍️ Añadir pronóstico a mano</h2><p class="muted">Para quien te lo da en papel o no usa la app. Puedes hacerlo aunque la jornada esté cerrada. Si el nombre no existe, se crea el participante (sin PIN; se lo puedes poner en 👥 Participantes).</p>' +
+    '<form id="fMan"><label>Nombre</label><input type="text" name="nombre" list="dlNombres" required maxlength="40">';
+  j.partidos.forEach(function (p, i) {
+    h += '<label>' + esc(p.local) + ' – ' + esc(p.visitante) + '</label><div class="goles"><input name="l' + i + '" inputmode="numeric" maxlength="2" required><span class="guion">–</span><input name="v' + i + '" inputmode="numeric" maxlength="2" required></div>';
+  });
+  h += '<label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" name="pagado" checked style="width:20px;height:20px"> Ya ha pagado</label>' +
+    '<div style="margin-top:12px"><button class="btn" type="submit">Añadir pronóstico</button></div></form></div>';
+  cont('aPagos', h);
+  rellenarNombres();
+  $('selPag').onchange = function () { S.pagosJ = this.value; aPagos(); };
+  document.querySelectorAll('[data-pag]').forEach(function (b) {
+    b.onclick = function () { apiAdmin('adminPagado', { pronosticoId: b.dataset.pag, pagado: b.dataset.v === '1' }).then(function (r) { if (r.ok && b.dataset.v === '1') toast('💶 Euro cobrado. Otro pronóstico que ya cuenta.'); }); };
+  });
+  document.querySelectorAll('[data-bp]').forEach(function (b) {
+    b.onclick = function () { if (confirmar('¿Borrar este pronóstico?')) apiAdmin('adminBorrarPronostico', { pronosticoId: b.dataset.bp }); };
+  });
+  var f = $('fMan');
+  f.onsubmit = function (e) {
+    e.preventDefault();
+    var goles = [0, 1, 2].map(function (i) { return [f['l' + i].value.trim(), f['v' + i].value.trim()]; });
+    apiAdmin('adminPronosticoManual', { jornadaId: j.id, nombre: f.nombre.value, goles: goles, pagado: f.pagado.checked }).then(function (r) { if (r.ok) toast('✅ Pronóstico añadido'); });
+  };
+}
+function rellenarNombres() {
+  var dl = $('dlNombres'); dl.innerHTML = '';
+  (S.admin && S.admin.participantes || []).forEach(function (p) { var o = document.createElement('option'); o.value = p.nombre; dl.appendChild(o); });
+}
+
+function aResultados() {
+  var A = S.admin, sel = selectorJornada('selRes');
+  if (!sel) return cont('aResultados', '<div class="card"><p class="muted">Primero crea una jornada.</p></div>');
+  var j = A.jornadas.filter(function (x) { return x.id === S.pagosJ; })[0];
+  var h = '<div class="card"><h2>🧮 Resultados reales</h2>' + sel + '<form id="fRes">';
+  j.partidos.forEach(function (p, i) {
+    var r = j.resultados[i] || ['', ''];
+    h += '<div class="partido"><div class="marcador"><div class="eq">' + escudo(p.local, 44) + '<span class="nm">' + esc(p.local) + '</span></div>' +
+      '<div class="goles"><input name="l' + i + '" inputmode="numeric" maxlength="2" value="' + esc(r[0]) + '"><span class="guion">–</span><input name="v' + i + '" inputmode="numeric" maxlength="2" value="' + esc(r[1]) + '"></div>' +
+      '<div class="eq">' + escudo(p.visitante, 44) + '<span class="nm">' + esc(p.visitante) + '</span></div></div></div>';
+  });
+  h += '<p class="muted">Puedes ir poniendo los resultados según se juegan (deja vacío lo que falte). Cuando estén los tres, la jornada se da por finalizada y se calcula si hay pleno.</p>' +
+    '<button class="btn" type="submit">Guardar resultados</button></form>';
+  if (j.finalizada) {
+    h += j.ganadores.length
+      ? '<div class="estado ok">🎉 ¡PLENO! ' + j.ganadores.map(function (g) { return esc(g.nombre) + ' → ' + euros(g.importe); }).join(' · ') + '</div>'
+      : '<div class="estado pend">Nadie ha acertado los tres. El bote pasa a la siguiente: ' + euros(j.boteTras) + '</div>';
+  }
+  cont('aResultados', h + '</div>');
+  $('selRes').onchange = function () { S.pagosJ = this.value; aResultados(); };
+  var f = $('fRes');
+  f.onsubmit = function (e) {
+    e.preventDefault();
+    var res = [0, 1, 2].map(function (i) { var a = f['l' + i].value.trim(), b = f['v' + i].value.trim(); return a === '' || b === '' ? null : [a, b]; });
+    apiAdmin('adminResultados', { jornadaId: j.id, resultados: res }).then(function (r) {
+      if (!r.ok) return;
+      var jj = r.jornadas.filter(function (x) { return x.id === j.id; })[0];
+      if (jj && jj.finalizada && jj.ganadores.length) antonioDice('¡¡¡PLENO!!!', '<p>🎉 ' + jj.ganadores.map(function (g) { return esc(g.nombre); }).join(' y ') + ' ha acertado los tres. ¡Prepara la cartera, Antonio!</p>');
+      else toast('✅ Resultados guardados');
+    });
+  };
+}
+
+function aParticipantes() {
+  var A = S.admin;
+  var h = '<div class="card"><h2>👥 Participantes (' + A.participantes.length + ')</h2>';
+  if (!A.participantes.length) h += '<p class="muted">Todavía no se ha apuntado nadie.</p>';
+  else {
+    h += '<div class="scroll"><table class="tabla"><tr><th>Nombre</th><th>PIN</th><th></th></tr>' + A.participantes.map(function (p) {
+      return '<tr><td><b>' + esc(p.nombre) + '</b></td><td>' + (p.tienePin ? '🔑 sí' : '<span class="tag">sin PIN</span>') + '</td><td><div class="fila" style="gap:6px;justify-content:flex-end">' +
+        '<button class="btn sec peq" data-pin="' + p.id + '">Nuevo PIN</button><button class="btn sec peq" data-ren="' + p.id + '" data-n="' + esc(p.nombre) + '">Renombrar</button><button class="btn rojo peq" data-bpa="' + p.id + '">🗑</button></div></td></tr>';
+    }).join('') + '</table></div>';
+  }
+  cont('aParticipantes', h + '<p class="muted">Si alguien olvida su PIN, ponle uno nuevo y díselo en persona.</p></div>');
+  document.querySelectorAll('[data-pin]').forEach(function (b) {
+    b.onclick = function () { var pin = prompt('Nuevo PIN de 4 números:'); if (pin) apiAdmin('adminPin', { participanteId: b.dataset.pin, pin: pin.trim() }).then(function (r) { if (r.ok) toast('🔑 PIN cambiado'); }); };
+  });
+  document.querySelectorAll('[data-ren]').forEach(function (b) {
+    b.onclick = function () { var n = prompt('Nuevo nombre:', b.dataset.n); if (n) apiAdmin('adminRenombrar', { participanteId: b.dataset.ren, nombre: n }); };
+  });
+  document.querySelectorAll('[data-bpa]').forEach(function (b) {
+    b.onclick = function () { if (confirmar('¿Borrar a este participante y TODOS sus pronósticos?')) apiAdmin('adminBorrarParticipante', { participanteId: b.dataset.bpa }); };
+  });
+}
+
+function aEscudos() {
+  var A = S.admin, nombres = PorraCore.EQUIPOS.map(function (e) { return e.n; });
+  A.jornadas.forEach(function (j) { j.partidos.forEach(function (p) { [p.local, p.visitante].forEach(function (n) { if (!PorraCore.equipo(n) && nombres.indexOf(n) < 0) nombres.push(n); }); }); });
+  var h = '<div class="card"><h2>🛡️ Escudos</h2><p class="muted">Por defecto cada equipo sale con un escudo dibujado con sus colores. Si quieres el escudo oficial, súbelo desde el móvil/ordenador (una imagen PNG o JPG) o pega la dirección web de la imagen.</p><div class="escgrid">' +
+    nombres.map(function (n, i) {
+      var tiene = !!A.escudos[PorraCore.clave(n)];
+      return '<div class="escitem">' + escudo(n, 60) + '<div>' + esc(n) + '</div><div class="acc">' +
+        '<label class="btn sec peq" style="margin:0">📷 Subir<input type="file" accept="image/*" data-up="' + i + '" hidden></label>' +
+        '<button class="btn sec peq" data-url="' + i + '">🔗 URL</button>' + (tiene ? '<button class="btn rojo peq" data-rs="' + i + '">↺</button>' : '') + '</div></div>';
+    }).join('') + '</div></div>';
+  cont('aEscudos', h);
+  document.querySelectorAll('[data-up]').forEach(function (inp) {
+    inp.onchange = function () {
+      var file = inp.files[0]; if (!file) return;
+      reducirImagen(file, 120, function (url) { apiAdmin('adminEscudo', { equipo: nombres[+inp.dataset.up], img: url }).then(function (r) { if (r.ok) toast('🛡️ Escudo actualizado'); }); });
+    };
+  });
+  document.querySelectorAll('[data-url]').forEach(function (b) {
+    b.onclick = function () { var u = prompt('Pega la dirección (URL) de la imagen del escudo:'); if (u) apiAdmin('adminEscudo', { equipo: nombres[+b.dataset.url], img: u.trim() }); };
+  });
+  document.querySelectorAll('[data-rs]').forEach(function (b) {
+    b.onclick = function () { apiAdmin('adminEscudo', { equipo: nombres[+b.dataset.rs], img: '' }); };
+  });
+}
+function reducirImagen(file, max, cb) {
+  var fr = new FileReader();
+  fr.onload = function () {
+    var im = new Image();
+    im.onload = function () {
+      var k = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas');
+      c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      var url = c.toDataURL('image/png');
+      if (url.length > 44000) url = c.toDataURL('image/webp', 0.85);
+      if (url.length > 44000) url = c.toDataURL('image/jpeg', 0.8);
+      cb(url);
+    };
+    im.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+function aAjustes() {
+  var c = S.admin.config;
+  var h = '<div class="card"><h2>⚙️ Ajustes</h2><form id="fAj">' +
+    '<label>Contraseña de la porra (la que dais al claustro)</label><input type="text" name="claveParticipantes" value="' + esc(c.claveParticipantes) + '" required>' +
+    '<label>Contraseña de Antonio (zona privada)</label><input type="text" name="claveAdmin" value="' + esc(c.claveAdmin) + '" required>' +
+    '<div class="grid2"><div><label>Aportación por jornada (€)</label><input type="number" step="0.5" min="0" name="aportacion" value="' + esc(c.aportacion) + '"></div>' +
+    '<div><label>Bote inicial (€) <span class="muted">(si arrastráis algo de antes)</span></label><input type="number" step="0.5" min="0" name="boteInicial" value="' + esc(c.boteInicial) + '"></div></div>' +
+    '<div style="margin-top:12px"><button class="btn" type="submit">Guardar ajustes</button></div></form>' +
+    '<p class="muted" style="margin-top:12px">💡 Truco: el enlace <b>porra.html#antonio</b> abre directamente esta zona privada.</p></div>';
+  cont('aAjustes', h);
+  var f = $('fAj');
+  f.onsubmit = function (e) {
+    e.preventDefault();
+    var nueva = f.claveAdmin.value.trim();
+    apiAdmin('adminConfig', { config: { claveParticipantes: f.claveParticipantes.value, claveAdmin: nueva, aportacion: f.aportacion.value, boteInicial: f.boteInicial.value } })
+      .then(function (r) {
+        if (!r.ok) return;
+        S.claveAdmin = nueva; try { sessionStorage.setItem('porra_admin', nueva); } catch (e) {}
+        if (S.sesion && S.sesion.clave !== r.config.claveParticipantes) { S.sesion.clave = r.config.claveParticipantes; guardarSesion(); }
+        toast('✅ Ajustes guardados');
+      });
+  };
+}
+
+arrancar();
+</script>
+</body>
+</html>
