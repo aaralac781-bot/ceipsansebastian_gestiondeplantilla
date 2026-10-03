@@ -117,9 +117,9 @@ function randomCode(used) {
 function defaultCycles() {
   return [
     { id: 'INF', name: 'Infantil', short: 'INF', color: '#C7862A', textoType: null, textoLabel: 'Frase de la clase', textoLabelPl: 'Frases de la clase', direct: false, closed: false },
-    { id: '1C', name: 'Primer ciclo', short: '1C', color: '#3F7A5B', textoType: 'lema', textoLabel: 'Lema', textoLabelPl: 'Lemas', direct: false, closed: false },
-    { id: '2C', name: 'Segundo ciclo', short: '2C', color: '#2F6C8F', textoType: 'lema', textoLabel: 'Lema', textoLabelPl: 'Lemas', direct: false, closed: false },
-    { id: '3C', name: 'Tercer ciclo', short: '3C', color: '#7A4E8E', textoType: 'historia', textoLabel: 'Historia o cómic', textoLabelPl: 'Historias o cómics', direct: false, closed: false },
+    { id: '1C', name: 'Primer ciclo', short: '1C', color: '#3F7A5B', textoType: 'ambos', textoLabel: 'Lema o historia', textoLabelPl: 'Lemas o historias', direct: false, closed: false },
+    { id: '2C', name: 'Segundo ciclo', short: '2C', color: '#2F6C8F', textoType: 'ambos', textoLabel: 'Lema o historia', textoLabelPl: 'Lemas o historias', direct: false, closed: false },
+    { id: '3C', name: 'Tercer ciclo', short: '3C', color: '#7A4E8E', textoType: 'ambos', textoLabel: 'Lema o historia', textoLabelPl: 'Lemas o historias', direct: false, closed: false },
     { id: 'AE', name: 'Aula de las Estrellas', short: 'AE', color: '#B8546F', textoType: 'lema', textoLabel: 'Lema', textoLabelPl: 'Lemas', direct: true, closed: false }
   ];
 }
@@ -160,6 +160,11 @@ function migrate(st) {
   ['proposals', 'votes', 'tiebreaks', 'log'].forEach(k => { if (!Array.isArray(st[k])) st[k] = []; });
   st.classes.forEach(k => { k.quota = Object.assign({ dibujo: 0, nombre: 0, texto: 0 }, k.quota); });
   st.proposals.forEach(p => { p.images = p.images || []; p.authors = p.authors || []; });
+  // Primer, segundo y tercer ciclo admiten lema o historia/cómic en la tercera categoría.
+  if (!st.meta.ambos && st.phase.ciclo === 'prep') {
+    st.cycles.forEach(c => { if (['1C', '2C', '3C'].includes(c.id) && c.textoType) Object.assign(c, { textoType: 'ambos', textoLabel: 'Lema o historia', textoLabelPl: 'Lemas o historias' }); });
+    st.meta.ambos = true;
+  }
   return st;
 }
 
@@ -767,7 +772,7 @@ function voteView(phase) {
     } else {
       cards = `<div class="grid g5">${centroCandidates().map(f => `<button type="button" class="prop sel card" data-act="pick" data-id="${f.cycleId}" aria-pressed="${V.choices.finalista === f.cycleId}" style="padding:0;border-width:3px">${finalistCard(f, { noAuthors: true, noLb: true })}</button>`).join('')}</div>`;
     }
-    const pregunta = phase === 'centro' ? '¿Qué finalista os gusta más para ser la Mascota Oficial?' : `Elegid ${cat === 'dibujo' ? 'un dibujo' : cat === 'nombre' ? 'un nombre' : (c.textoType === 'historia' ? 'una historia o cómic' : 'un lema')}`;
+    const pregunta = phase === 'centro' ? '¿Qué finalista os gusta más para ser la Mascota Oficial?' : `Elegid ${cat === 'dibujo' ? 'un dibujo' : cat === 'nombre' ? 'un nombre' : (c.textoType === 'ambos' ? 'un lema o una historia' : c.textoType === 'historia' ? 'una historia o cómic' : 'un lema')}`;
     return head + `<div class="row between"><h2 style="margin:0">${esc(k.name)}</h2>${cancel}</div>${stepsBar()}
       <h2>${CAT_ICON[cat]} ${esc(pregunta)}</h2>
       ${phase === 'ciclo' && !S.config.allowOwnVotes ? '<p class="muted small">Las propuestas de vuestra propia clase no aparecen.</p>' : ''}
@@ -1166,7 +1171,7 @@ function textToAuthors(t, className) {
 function buildCQ(classId) {
   const k = cls(classId), c = cyc(k.cycleId), slots = [];
   const tipos = [['dibujo', 'dibujo'], ['nombre', 'nombre']];
-  if (c.textoType) tipos.push(['texto', c.textoType]);
+  if (c.textoType) tipos.push(['texto', c.textoType === 'ambos' ? 'lema' : c.textoType]);
   tipos.forEach(([cat, type]) => {
     const ex = S.proposals.filter(p => p.classId === k.id && catOf(p) === cat).sort(byCode);
     const n = Math.max(k.quota[cat] || 0, ex.length, cat === 'texto' ? 0 : 1);
@@ -1195,8 +1200,11 @@ PANEL.carga = () => {
   const k = cls(CQ.classId), c = cyc(k.cycleId);
   const idx = S.classes.indexOf(k), next = S.classes[idx + 1];
   const slotHtml = (sl, i, n) => {
-    const head = `<div class="row between"><b>${CAT_ICON[sl.cat]} ${esc(sl.type === 'historia' ? 'Historia o cómic' : catLabel(c, sl.cat))} ${n}</b>${sl.code ? `<span class="chip code">${esc(sl.code)}</span>` : '<span class="chip">nueva</span>'}</div>`;
+    const head = `<div class="row between"><b>${CAT_ICON[sl.cat]} ${esc(sl.cat === 'texto' && c.textoType === 'ambos' ? 'Lema o historia' : sl.type === 'historia' ? 'Historia o cómic' : catLabel(c, sl.cat))} ${n}</b>${sl.code ? `<span class="chip code">${esc(sl.code)}</span>` : '<span class="chip">nueva</span>'}</div>`;
     let body = '';
+    if (sl.cat === 'texto' && c.textoType === 'ambos') body += `<div class="tabs" style="margin:.4rem 0" role="group" aria-label="Tipo de propuesta">
+      <button type="button" data-act="cq-tipo" data-i="${i}" data-t="lema" aria-pressed="${sl.type === 'lema'}">💬 Lema</button>
+      <button type="button" data-act="cq-tipo" data-i="${i}" data-t="historia" aria-pressed="${sl.type === 'historia'}">📖 Historia o cómic</button></div>`;
     if (sl.type === 'dibujo' || sl.type === 'historia') {
       body += `<div class="thumbs">${sl.images.map((src, j) => `<figure>${imgTag(src, 'Imagen ' + (j + 1))}<button type="button" class="btn-peligro" data-act="cq-img-del" data-i="${i}" data-j="${j}" aria-label="Quitar imagen">✕</button>
         <button type="button" class="btn-sm" data-act="cq-rot" data-i="${i}" data-j="${j}" style="position:static;width:auto;height:auto;border-radius:10px;margin-top:4px;padding:.2rem .5rem">↻ Girar</button></figure>`).join('')}</div>`;
@@ -1204,7 +1212,7 @@ PANEL.carga = () => {
     }
     if (sl.type === 'historia') body += `<label>Título <span class="small muted">(opcional)</span></label><input data-cq="${i}" data-f="title" value="${esc(sl.title)}" maxlength="120">
       <label>Texto <span class="small muted">(opcional: con las fotos de las páginas es suficiente)</span></label><textarea data-cq="${i}" data-f="text" maxlength="20000">${esc(sl.text)}</textarea>`;
-    if (sl.type === 'nombre' || sl.type === 'lema') body += `<label>${sl.type === 'nombre' ? 'Nombre propuesto' : esc(c.textoLabel || 'Lema')}</label><input class="cq-texto" data-cq="${i}" data-f="text" value="${esc(sl.text)}" maxlength="${sl.type === 'nombre' ? 60 : 200}">`;
+    if (sl.type === 'nombre' || sl.type === 'lema') body += `<label>${sl.type === 'nombre' ? 'Nombre propuesto' : esc(c.textoType === 'ambos' ? 'Lema' : (c.textoLabel || 'Lema'))}</label><input class="cq-texto" data-cq="${i}" data-f="text" value="${esc(sl.text)}" maxlength="${sl.type === 'nombre' ? 60 : 200}">`;
     body += `<label>Autoría <span class="small muted">(nombres separados por comas)</span></label><input data-cq="${i}" data-f="authors" value="${esc(sl.authors)}" placeholder="Ej.: Nombre Apellido, Nombre Apellido" ${sl.whole ? 'disabled' : ''}>
       <label class="check"><input type="checkbox" data-cq="${i}" data-f="whole" data-chg="cq-whole" ${sl.whole ? 'checked' : ''}> Toda la clase</label>`;
     return `<div class="card slot ${slotHasContent(sl) ? 'lleno' : ''}">${head}${body}</div>`;
@@ -1240,7 +1248,7 @@ ACT['cq-class'] = el => {
 ACT['cq-add'] = el => {
   readCQ();
   const k = cls(CQ.classId), c = cyc(k.cycleId), cat = el.dataset.cat;
-  CQ.slots.push({ cat, type: cat === 'texto' ? c.textoType : cat, propId: null, code: '', text: '', title: '', images: [], authors: '', whole: false });
+  CQ.slots.push({ cat, type: cat === 'texto' ? (c.textoType === 'ambos' ? 'lema' : c.textoType) : cat, propId: null, code: '', text: '', title: '', images: [], authors: '', whole: false });
   CQ.slots.sort((a, b) => ['dibujo', 'nombre', 'texto'].indexOf(a.cat) - ['dibujo', 'nombre', 'texto'].indexOf(b.cat));
   CQ.dirty = true; rerender();
 };
@@ -1272,6 +1280,7 @@ CHG['cq-bulk'] = async el => {
   CQ.dirty = true; rerender();
   if (fotos.length) toast(`${plural(fotos.length, 'foto colocada', 'fotos colocadas')} en ${k.name}. Revisa el orden y escribe la autoría.`);
 };
+ACT['cq-tipo'] = el => { readCQ(); CQ.slots[+el.dataset.i].type = el.dataset.t; CQ.dirty = true; rerender(); };
 ACT['cq-img-del'] = el => { readCQ(); CQ.slots[+el.dataset.i].images.splice(+el.dataset.j, 1); CQ.dirty = true; rerender(); };
 ACT['cq-rot'] = async el => {
   readCQ();
@@ -1295,9 +1304,10 @@ FORMS['cq-save'] = async (f, e) => {
         authors: sl.whole ? [] : textToAuthors(sl.authors, kk.name), wholeClass: !!sl.whole };
       const old = sl.propId && prop(sl.propId);
       if (old) {
-        const antes = JSON.stringify([old.text, old.title, old.images, old.authors, old.wholeClass]);
+        const antes = JSON.stringify([old.type, old.text, old.title, old.images, old.authors, old.wholeClass]);
         Object.assign(old, datos);
-        if (antes !== JSON.stringify([old.text, old.title, old.images, old.authors, old.wholeClass])) cambios++;
+        if (!old.code.startsWith(`${TYPES[old.type].letter}-${cyc(cycleId).short}-`)) old.code = nextCode(old.type, cycleId);
+        if (antes !== JSON.stringify([old.type, old.text, old.title, old.images, old.authors, old.wholeClass])) cambios++;
       } else {
         const np = Object.assign({ id: sl.propId || uid(), code: nextCode(sl.type, cycleId), alt: '', created: nowISO() }, datos);
         sl.propId = np.id; S.proposals.push(np); altas++;
@@ -1430,7 +1440,7 @@ function openEditor(id, classId) {
 }
 function allowedTypes(classId) {
   const c = cyc(cls(classId).cycleId);
-  const t = ['dibujo', 'nombre']; if (c.textoType) t.push(c.textoType);
+  const t = ['dibujo', 'nombre']; if (c.textoType === 'ambos') t.push('lema', 'historia'); else if (c.textoType) t.push(c.textoType);
   if (ED?.id && !t.includes(ED.type)) t.push(ED.type);
   return t;
 }
@@ -1579,7 +1589,7 @@ PANEL.clases = () => `<div class="card"><div class="row between"><h2 style="marg
   <div class="card" style="margin-top:1rem"><h2>Ciclos</h2><p class="small muted">Qué se vota en la tercera categoría de cada ciclo.</p>
   <div class="table-wrap"><table><thead><tr><th>Ciclo</th><th>Tercera categoría</th><th>Etiqueta</th><th>Etiqueta en plural</th></tr></thead><tbody>
   ${S.cycles.map(c => `<tr><td>${cycChip(c)}${c.direct ? '<br><span class="small muted">finalista directa</span>' : ''}</td>
-    <td><select data-chg="cyc-f" data-id="${c.id}" data-f="textoType" ${c.closed || S.phase.ciclo === 'open' && !c.direct ? 'disabled' : ''}>${[['', 'Sin lema'], ['lema', 'Lema / frase'], ['historia', 'Historia o cómic']].map(([v, l]) => `<option value="${v}" ${(c.textoType || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+    <td><select data-chg="cyc-f" data-id="${c.id}" data-f="textoType" ${c.closed || S.phase.ciclo === 'open' && !c.direct ? 'disabled' : ''}>${[['', 'Sin lema'], ['lema', 'Lema / frase'], ['historia', 'Historia o cómic'], ['ambos', 'Lema o historia (las dos opciones)']].map(([v, l]) => `<option value="${v}" ${(c.textoType || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
     <td><input value="${esc(c.textoLabel)}" data-chg="cyc-f" data-id="${c.id}" data-f="textoLabel"></td>
     <td><input value="${esc(c.textoLabelPl)}" data-chg="cyc-f" data-id="${c.id}" data-f="textoLabelPl"></td></tr>`).join('')}</tbody></table></div>
   <p class="small muted">Infantil viene <b>sin lema</b>. Si preferís una frase dictada por la clase, elige «Lema / frase» antes de abrir la votación y da de alta las frases en Propuestas.</p></div>`;

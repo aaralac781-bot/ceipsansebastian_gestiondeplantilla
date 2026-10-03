@@ -107,7 +107,7 @@ ${panel(220, `<circle cx="80" cy="30" r="12" fill="#F2C46B"/>${mini(40, 52, c)}<
       for (let i = 0; i < (k.quota.nombre || 0); i++) add('nombre', { text: NOMBRES_MASCOTA[n++ % NOMBRES_MASCOTA.length] });
       for (let i = 0; i < (k.quota.texto || 0); i++) {
         if (!c.textoType) continue;
-        if (c.textoType === 'historia') {
+        if (c.textoType === 'historia' || (c.textoType === 'ambos' && i % 2 === 1)) {
           const st = HISTORIAS[h % HISTORIAS.length];
           if (h % 2 === 0) add('historia', { title: st[0], text: st[1], authors: [persona(k.name), persona(k.name)] });
           else add('historia', { title: 'Cómic: ' + st[0], images: [comic(h)], alt: 'Cómic de tres viñetas sobre garzas que cuidan el nido juntas', authors: [persona(k.name), persona(k.name), persona(k.name)] });
