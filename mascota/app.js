@@ -191,7 +191,7 @@ function applyServer(r) {
   if (r.user) USER = r.user;
 }
 function setOnline(ok) {
-  const el = $('#estado'); if (!el || !REMOTE) return;
+  const el = $('#estado'); if (!el || !REMOTE || FAMILIAS) return;
   el.innerHTML = ok ? `<span class="dot-ok" aria-hidden="true"></span> En línea${USER.email ? ' · ' + esc(USER.email) : ''}${USER.admin ? ' · <b>Dirección</b>' : ''}${USER.admin && CLAVE ? ' · <button class="btn-link" data-act="salir-clave">salir</button>' : ''}`
     : '<span class="dot-err" aria-hidden="true"></span> Sin conexión: reintentando…';
   el.className = 'estado ' + (ok ? 'ok' : 'err');
@@ -287,7 +287,9 @@ async function poll() {
   try {
     const r = await gsCall('mascApiRev');
     if (r.rev === REV || BUSY) return;
-    applyServer(await gsCall('mascApiEstado'));
+    const n = await gsCall(FAMILIAS ? 'mascApiFamilias' : 'mascApiEstado');
+    if (n.cerrado) return;
+    applyServer(n);
     if (canAutoRender()) rerender();
   } catch (e) { /* setOnline ya avisa */ }
 }
@@ -481,6 +483,11 @@ function mascotaResult() {
 function tieNote(phase) { return phase === 'centro' ? `Desempate decidido por ${S.config.centroTieBody}` : NOTA_DESEMPATE_CICLO; }
 
 function faseActiva() {
+  const fa = faseActivaBase();
+  if (FAMILIAS && /votar|centro/.test(fa.go)) return Object.assign(fa, { go: fa.key === 'centro' ? '#/finalistas' : '#/galeria', btn: fa.key === 'centro' ? '⭐ Ver las finalistas' : '🖼️ Ver las propuestas' });
+  return fa;
+}
+function faseActivaBase() {
   if (S.phase.centro === 'closed') return { key: 'final', txt: 'Proclamación de la Mascota Oficial y la Pandilla', fecha: '15 de octubre', go: '#/final', btn: '🏆 Ir a la gran final' };
   if (S.phase.centro === 'open') return { key: 'centro', txt: 'Votación de centro', fecha: '13 y 14 de octubre', go: '#/centro', btn: '🗳️ Votar a una finalista' };
   if (S.phase.ciclo === 'open' && votingCycles().some(c => !c.closed)) return { key: 'ciclo', txt: 'Votación de ciclo', fecha: 'Del 5 al 9 de octubre', go: '#/votar', btn: '🗳️ Ir a votar' };
@@ -542,6 +549,9 @@ function finalistCard(f, opts = {}) {
 }
 
 /* ================= Router ================= */
+/* Vista para familias: enlace público de solo lectura (galería, finalistas y gran final). */
+const FAMILIAS = document.body.dataset.familias === '1';
+const NAV_FAMILIAS = ['inicio', 'galeria', 'finalistas', 'final'];
 const NAV = [
   ['inicio', '🏠', 'Inicio'], ['galeria', '🖼️', 'Galería'], ['votar', '🗳️', 'Votar'], ['seguimiento', '✅', 'Seguimiento'],
   ['resultados', '📊', 'Resultados'], ['finalistas', '⭐', 'Finalistas'], ['centro', '🏫', 'Votación de centro'],
@@ -551,9 +561,10 @@ const VIEWS = {};
 function currentRoute() { const parts = (location.hash.replace(/^#\/?/, '') || 'inicio').split('/').map(decodeURIComponent); return { name: VIEWS[parts[0]] ? parts[0] : 'inicio', args: parts.slice(1) }; }
 
 function render() {
-  const { name, args } = currentRoute();
-  $('#nav').innerHTML = NAV.map(([k, ico, t]) => `<a href="#/${k}" ${k === name ? 'aria-current="page"' : ''}><span aria-hidden="true">${ico}</span>${t}${k === 'panel' && isAdmin() ? ' ✓' : ''}</a>`).join('');
-  $('#banner').innerHTML = S.meta.sample ? `<div class="banner">🧪 Hay <b>datos de prueba</b> cargados. Antes de la votación real, la dirección los borrará desde Panel → Datos.</div>` : '';
+  let { name, args } = currentRoute();
+  if (FAMILIAS && !NAV_FAMILIAS.includes(name)) { name = 'inicio'; args = []; }
+  $('#nav').innerHTML = NAV.filter(n => !FAMILIAS || NAV_FAMILIAS.includes(n[0])).map(([k, ico, t]) => `<a href="#/${k}" ${k === name ? 'aria-current="page"' : ''}><span aria-hidden="true">${ico}</span>${t}${k === 'panel' && isAdmin() ? ' ✓' : ''}</a>`).join('');
+  $('#banner').innerHTML = FAMILIAS ? `<div class="banner">🏡 Galería para las familias del CEIP San Sebastián · ¡Gracias por acompañar a vuestros hijos e hijas en «Alas de Igualdad»!</div>` : S.meta.sample ? `<div class="banner">🧪 Hay <b>datos de prueba</b> cargados. Antes de la votación real, la dirección los borrará desde Panel → Datos.</div>` : '';
   document.title = `${NAV.find(n => n[0] === name)[2]} · Alas de Igualdad`;
   $('#main').innerHTML = VIEWS[name](args) || '';
   VIEWS[name].after?.(args);
@@ -814,9 +825,10 @@ function esTutor(k) { return !!(USER.email && k && (k.tutors || []).some(t => St
 FORMS['v-code'] = async f => {
   const val = $('#vcode', f).value.trim();
   let ok;
-  if (REMOTE) { setBusy('Comprobando…'); try { ok = (await gsCall('mascApiCodigo', { classId: V.classId, code: val })).ok; } finally { setBusy(''); } }
+  let bloqueado = false;
+  if (REMOTE) { setBusy('Comprobando…'); try { const r = await gsCall('mascApiCodigo', { classId: V.classId, code: val }); ok = r.ok; bloqueado = !!r.bloqueado; } finally { setBusy(''); } }
   else ok = val === cls(V.classId).code;
-  if (!ok) { V.err = 'Código incorrecto. Prueba otra vez.'; render(); return; }
+  if (!ok) { V.err = bloqueado ? 'Demasiados intentos fallidos. Espera 10 minutos o pide el código a la dirección.' : 'Código incorrecto. Prueba otra vez.'; render(); return; }
   V.code = val; V.step = 'cat'; V.err = ''; render(); window.scrollTo(0, 0);
 };
 ACT.pick = el => {
@@ -1115,7 +1127,7 @@ VIEWS.ayuda = () => `<h1>Ayuda para el profesorado</h1>
   <p class="muted small center" style="margin-top:1.5rem">Alas de Igualdad · versión ${APP_VERSION}</p>`;
 
 /* ================= PANEL DOCENTE ================= */
-const PANEL_TABS = [['carga', '📸 Carga rápida'], ['fases', '🚦 Fases'], ['propuestas', '🖼️ Propuestas'], ['clases', '🏫 Clases'], ['votos', '🗳️ Votos e historial'], ['ajustes', '⚙️ Ajustes'], ['datos', '💾 Datos']];
+const PANEL_TABS = [['carga', '📸 Carga rápida'], ['fases', '🚦 Fases'], ['propuestas', '🖼️ Propuestas'], ['clases', '🏫 Clases'], ['votos', '🗳️ Votos e historial'], ['ajustes', '⚙️ Ajustes'], ['difundir', '📣 Difundir'], ['datos', '💾 Datos']];
 VIEWS.panel = args => {
   if (REMOTE && !isAdmin()) return `<h1>Panel de dirección</h1>${claveHtml()}`;
   if (!isAdmin()) return `<div class="card" style="max-width:520px;margin:2rem auto"><h1>Panel docente</h1>
@@ -1237,7 +1249,7 @@ async function leerFotos(files) {
   const out = [];
   for (const [i, f] of [...files].entries()) {
     setBusy(`Preparando foto ${i + 1} de ${files.length}…`);
-    try { out.push(await fileToDataURL(f)); } catch (e) { toast(`No se ha podido leer «${f.name}». Usa JPG o PNG.`, 'error'); }
+    try { out.push(await fileToDataURL(f)); } catch (e) { console.error(e); toast(`No se ha podido preparar «${f.name}»: ${e.message}.`, 'error'); }
   }
   setBusy('');
   return out;
@@ -1297,18 +1309,9 @@ FORMS['cq-save'] = async (f, e) => {
   CQ = buildCQ(nextId || k.id); rerender();
   if (nextId) window.scrollTo(0, 0);
 };
-function rotateDataURL(src) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => {
-      const cv = document.createElement('canvas'); cv.width = img.height; cv.height = img.width;
-      const ctx = cv.getContext('2d'); ctx.translate(cv.width / 2, cv.height / 2); ctx.rotate(Math.PI / 2);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
-      res(cv.toDataURL('image/jpeg', 0.88));
-    };
-    img.onerror = () => rej(new Error('No se ha podido girar la imagen'));
-    img.src = src;
-  });
+async function rotateDataURL(src) {
+  try { return lienzoDesde(await abrirImagen(src), 1400, true); }
+  catch (e) { throw new Error('No se ha podido girar la imagen: ' + e.message); }
 }
 
 /* --- Fases --- */
@@ -1478,7 +1481,7 @@ CHG['ed-files'] = async el => {
   const files = [...el.files];
   for (const f of files) {
     try { ED.images.push(await fileToDataURL(f)); }
-    catch (e) { toast(`No se pudo leer «${f.name}». Usa JPG o PNG.`, 'error'); }
+    catch (e) { console.error(e); toast(`No se ha podido preparar «${f.name}»: ${e.message}.`, 'error'); }
     if (ED.type === 'dibujo') break;
   }
   drawEditor();
@@ -1514,25 +1517,50 @@ FORMS['ed-save'] = async () => {
 };
 dlg.addEventListener('close', () => { ED = null; });
 
-function fileToDataURL(file, max = 1400) {
-  return new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const k = Math.min(1, max / Math.max(img.width, img.height));
-        const cv = document.createElement('canvas');
-        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
-        const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
-        ctx.drawImage(img, 0, 0, cv.width, cv.height);
-        res(cv.toDataURL('image/jpeg', 0.85));
-      };
-      img.onerror = () => rej(new Error('Imagen no válida'));
-      img.src = fr.result;
-    };
-    fr.onerror = () => rej(fr.error);
-    fr.readAsDataURL(file);
-  });
+/* Prepara una foto para subirla: la reduce y la convierte a JPG.
+   Prueba tres caminos porque algunos navegadores, dentro del marco de Google,
+   no dejan abrir la imagen por uno u otro; si todos fallan, explica por qué. */
+function dataUrlToBlob(src) {
+  const [cab, datos] = src.split(',');
+  const tipo = (cab.match(/^data:([^;]+)/) || [])[1] || 'image/png';
+  const bin = atob(datos), u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return new Blob([u], { type: tipo });
+}
+const medidas = img => [img.naturalWidth || img.width, img.naturalHeight || img.height];
+function cargarImagen(src) {
+  return new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = () => rej(new Error('el navegador no puede abrir esta imagen')); img.src = src; });
+}
+/** Abre una imagen (archivo, Blob o data URL) de la forma más compatible posible. */
+async function abrirImagen(fuente) {
+  const blob = typeof fuente === 'string' ? (fuente.startsWith('data:image/svg') ? null : dataUrlToBlob(fuente)) : fuente;
+  if (blob && window.createImageBitmap) { try { return await createImageBitmap(blob); } catch (e) { /* siguiente camino */ } }
+  if (typeof fuente === 'string') return cargarImagen(fuente);
+  const url = URL.createObjectURL(fuente);
+  try { return await cargarImagen(url); } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+}
+function lienzoDesde(img, max, girar = false) {
+  const [w, h] = medidas(img), k = Math.min(1, max / Math.max(w, h));
+  const W = Math.max(1, Math.round(w * k)), H = Math.max(1, Math.round(h * k));
+  const cv = document.createElement('canvas');
+  cv.width = girar ? H : W; cv.height = girar ? W : H;
+  const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (girar) { ctx.translate(cv.width / 2, cv.height / 2); ctx.rotate(Math.PI / 2); ctx.drawImage(img, -W / 2, -H / 2, W, H); }
+  else ctx.drawImage(img, 0, 0, W, H);
+  return cv.toDataURL('image/jpeg', 0.86);
+}
+function leerArchivo(file) {
+  return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(fr.error || new Error('no se puede leer el archivo')); fr.readAsDataURL(file); });
+}
+async function fileToDataURL(file, max = 1400) {
+  if (/heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name)) throw new Error('es una foto HEIC de iPhone. En el iPhone: Ajustes → Cámara → Formatos → «Más compatible», o envíatela por WhatsApp y súbela desde ahí');
+  const fallos = [];
+  try { return lienzoDesde(await abrirImagen(file), max); } catch (e) { fallos.push(e.message); }
+  let datos = null;
+  try { datos = await leerArchivo(file); return lienzoDesde(await cargarImagen(datos), max); } catch (e) { fallos.push(e.message); }
+  // Último recurso: el archivo tal cual, sin reducir, si es JPG o PNG y no pesa demasiado.
+  if (datos && /^data:image\/(jpeg|png);base64,/.test(datos) && file.size < 8e6) return datos;
+  throw new Error(fallos.filter(Boolean).join(' · ') || 'formato no reconocido');
 }
 
 /* --- Clases --- */
@@ -1660,7 +1688,7 @@ FORMS.admins = async f => {
 CHG.cfg = async el => {
   if (!needAdmin()) return;
   const f = el.dataset.f, v = el.type === 'checkbox' ? el.checked : el.value;
-  const nombres = { allowOwnVotes: 'votar propuestas propias', liveResults: 'recuento en directo', initials: 'mostrar solo iniciales', centroTieBody: 'quién desempata en la fase de centro' };
+  const nombres = { publicFamilias: 'publicar la galería para familias', allowOwnVotes: 'votar propuestas propias', liveResults: 'recuento en directo', initials: 'mostrar solo iniciales', centroTieBody: 'quién desempata en la fase de centro' };
   await commit(() => { S.config[f] = v; addLog('ajuste', `Ajuste «${nombres[f]}»: ${v === true ? 'sí' : v === false ? 'no' : v}.`); });
   toast('Ajuste guardado.');
 };
@@ -1672,6 +1700,210 @@ FORMS['pw-change'] = async f => {
   await commit(() => { S.config.adminHash = h; addLog('ajuste', 'Se cambia la contraseña del profesorado.'); });
   toast('Contraseña cambiada.');
 };
+
+/* --- Difundir: enlace para familias e imágenes para WhatsApp / Instagram --- */
+function familiasUrl() {
+  const u = String(S.config.urlFamilias || '').trim();
+  if (!u) return '';
+  return /familias=1/.test(u) ? u : u + (u.includes('?') ? '&' : '?') + 'familias=1';
+}
+const mensajeFamilias = link => `🪶 «Alas de Igualdad»: el alumnado del CEIP San Sebastián está diseñando la mascota del cole, una garza que representa la igualdad y el cuidado de la naturaleza. ¡Mirad sus propuestas aquí! ${link}`;
+async function copiarTexto(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* plan B */ }
+  const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) { /* nada */ }
+  ta.remove(); return ok;
+}
+ACT.copiar = async el => toast(await copiarTexto(el.dataset.texto) ? 'Copiado. Ya puedes pegarlo.' : 'No se ha podido copiar: selecciona el texto y cópialo a mano.');
+const CARTELES = [];
+PANEL.difundir = () => {
+  const link = familiasUrl();
+  const opciones = [
+    ...S.cycles.map(c => ['dib|' + c.id, `🎨 Dibujos · ${c.name}`, proposalsOf(c.id, 'dibujo').some(p => p.images.length)]),
+    ...S.cycles.map(c => ['txt|' + c.id, `🏷️ Nombres y lemas · ${c.name}`, proposalsOf(c.id, 'nombre').length + proposalsOf(c.id, 'texto').length > 0]),
+    ['fin|', '⭐ Las finalistas', allFinalists().some(f => f.complete)],
+    ['mas|', '👑 Mascota Oficial y Pandilla', !!mascotaResult()]
+  ];
+  return `<div class="grid g2">
+  <div class="card stack"><h2 style="margin-top:0">🔗 Enlace para las familias</h2>
+    <p class="small">Una página pública, sin cuenta del cole, con la galería de propuestas, las finalistas y la gran final. Muestra solo <b>nombre e inicial del apellido</b>, y los votos solo cuando cada votación está cerrada.</p>
+    <label class="check"><input type="checkbox" data-chg="cfg" data-f="publicFamilias" ${S.config.publicFamilias ? 'checked' : ''}> <span><b>Publicar</b> la galería para las familias</span></label>
+    <details><summary><b>Cómo crear el enlace (una sola vez)</b></summary><ol class="small">
+      <li>En Apps Script: <b>Implementar → Nueva implementación</b> → ⚙️ <b>Aplicación web</b>.</li>
+      <li>Descripción: «Familias». Ejecutar como: <b>Yo</b>. Quién tiene acceso: <b>Cualquier usuario</b>.</li>
+      <li>Pulsa Implementar, copia la URL y pégala aquí debajo.</li>
+      <li>Si no aparece «Cualquier usuario», el dominio del centro no permite enlaces públicos: usad las imágenes de la derecha.</li></ol></details>
+    <label for="urlfam">URL de la implementación pública</label>
+    <input id="urlfam" data-chg="url-fam" value="${esc(S.config.urlFamilias || '')}" placeholder="https://script.google.com/macros/s/…/exec">
+    ${link ? `<p class="small" style="margin-bottom:0">Enlace para las familias:</p><p style="word-break:break-all"><code>${esc(link)}</code></p>
+      <div class="row"><button class="btn-sm" data-act="copiar" data-texto="${esc(link)}">📋 Copiar enlace</button>
+      <button class="btn-sm" data-act="copiar" data-texto="${esc(mensajeFamilias(link))}">💬 Copiar mensaje</button>
+      <a class="btn btn-sm" href="https://wa.me/?text=${encodeURIComponent(mensajeFamilias(link))}" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="btn btn-sm" href="${esc(link)}" target="_blank" rel="noopener">👁️ Ver como familia</a>
+      <button class="btn-sm" data-act="qr">▦ Código QR</button></div>
+      <div id="qr" class="center"></div>
+      ${S.config.publicFamilias ? '' : '<p class="chip pend" style="white-space:normal">Marca «Publicar» para que el enlace muestre la galería.</p>'}` : ''}
+  </div>
+  <div class="card stack"><h2 style="margin-top:0">🖼️ Imágenes para WhatsApp e Instagram</h2>
+    <p class="small">Carteles listos para compartir (1080 × 1350). Llevan códigos y clases, <b>sin nombres del alumnado</b>.</p>
+    <div class="row">${opciones.map(([k, t, ok]) => `<button class="btn-sm" data-act="cartel" data-k="${k}" ${ok ? '' : 'disabled title="Todavía no hay contenido"'}>${esc(t)}</button>`).join('')}</div>
+    <div id="carteles" class="stack">${CARTELES.map(cartelHtml).join('')}</div>
+  </div></div>`;
+};
+CHG['url-fam'] = async el => {
+  const v = el.value.trim();
+  if (v && !/^https:\/\/script\.google\.com\//.test(v)) return toast('Pega la URL que da Apps Script (empieza por https://script.google.com/).', 'error');
+  await commit(() => { S.config.urlFamilias = v; addLog('ajuste', 'Se guarda el enlace para familias.'); });
+  toast('Enlace guardado.');
+};
+function cargarScript(src) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('sin conexión')); document.head.appendChild(s); });
+}
+ACT.qr = async () => {
+  const caja = $('#qr'); caja.innerHTML = 'Generando…';
+  try {
+    if (!window.QRCode) await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
+    caja.innerHTML = '';
+    new QRCode(caja, { text: familiasUrl(), width: 260, height: 260, correctLevel: QRCode.CorrectLevel.M });
+    caja.insertAdjacentHTML('beforeend', '<p class="small muted">Haz captura o mantén pulsado para guardarlo. Ideal para un cartel en la puerta del cole.</p>');
+  } catch (e) { caja.textContent = 'No se ha podido generar el QR: ' + e.message; }
+};
+function cartelHtml(c, i) {
+  return `<div class="card" style="padding:.8rem"><b>${esc(c.titulo)}</b>
+    <img src="${c.url}" alt="${esc(c.titulo)}" style="width:100%;max-width:420px;display:block;margin:.5rem auto;border:1px solid var(--linea);border-radius:8px">
+    <div class="row"><a class="btn btn-sm btn-primary" href="${c.url}" download="${esc(c.archivo)}">⬇️ Descargar</a>
+    ${navigator.canShare ? `<button class="btn-sm" data-act="cartel-compartir" data-i="${i}">📤 Compartir</button>` : ''}
+    <button class="btn-sm" data-act="copiar" data-texto="${esc(c.texto)}">💬 Copiar texto</button></div>
+    <p class="small muted" style="margin:.4rem 0 0">Si «Descargar» no funciona, mantén pulsada la imagen (o clic derecho) → «Guardar imagen».</p></div>`;
+}
+ACT['cartel-compartir'] = async el => {
+  const c = CARTELES[+el.dataset.i];
+  const file = new File([c.blob], c.archivo, { type: 'image/jpeg' });
+  try {
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], text: c.texto });
+    else toast('Este navegador no puede compartir directamente: descarga la imagen.', 'error');
+  } catch (e) { if (e.name !== 'AbortError') toast('No se ha podido compartir: descarga la imagen.', 'error'); }
+};
+ACT.cartel = async el => {
+  const [tipo, id] = el.dataset.k.split('|');
+  setBusy('Preparando la imagen…');
+  try {
+    try { await Promise.all(['800 60px Newsreader', '600 40px Caveat', '700 30px Nunito'].map(f => document.fonts.load(f))); } catch (e) { /* tipografías del sistema */ }
+    const r = await (tipo === 'dib' ? cartelDibujos(id) : tipo === 'txt' ? cartelTextos(id) : tipo === 'fin' ? cartelFinalistas() : cartelMascota());
+    const link = familiasUrl();
+    r.texto += link && S.config.publicFamilias ? `\n\nTodas las propuestas: ${link}` : '';
+    r.blob = await new Promise((res, rej) => r.cv.toBlob(b => b ? res(b) : rej(new Error('no se ha podido crear la imagen')), 'image/jpeg', 0.9));
+    r.url = URL.createObjectURL(r.blob);
+    delete r.cv;
+    CARTELES.unshift(r);
+    $('#carteles').innerHTML = CARTELES.map(cartelHtml).join('');
+  } catch (e) { console.error(e); toast('No se ha podido crear la imagen: ' + e.message, 'error'); }
+  finally { setBusy(''); }
+};
+/* Dibujo de los carteles */
+const CW = 1080, CH = 1350;
+const F_TIT = 'Newsreader, Georgia, serif', F_MANO = 'Caveat, "Comic Sans MS", cursive', F_TXT = 'Nunito, "Segoe UI", sans-serif';
+function cartelBase(subtitulo, color) {
+  const cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#FBF6EA'; c.fillRect(0, 0, CW, CH);
+  c.strokeStyle = 'rgba(63,122,91,.08)'; c.lineWidth = 2;
+  for (let x = 0; x <= CW; x += 40) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, CH); c.stroke(); }
+  for (let y = 0; y <= CH; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(CW, y); c.stroke(); }
+  c.fillStyle = color; c.fillRect(0, 0, CW, 14);
+  c.textAlign = 'center'; c.fillStyle = '#26352C'; c.font = `800 76px ${F_TIT}`; c.fillText('Alas de Igualdad', CW / 2, 112);
+  c.fillStyle = color; c.font = `600 54px ${F_MANO}`; c.fillText(subtitulo, CW / 2, 178);
+  c.fillStyle = '#4C5D52'; c.font = `700 28px ${F_TXT}`; c.fillText('CEIP San Sebastián · La Puebla del Río', CW / 2, CH - 74);
+  c.fillStyle = '#7A4E8E'; c.font = `600 36px ${F_MANO}`; c.fillText('#AlasDeIgualdad · Diseñando la Mascota de Nuestro Cole', CW / 2, CH - 30);
+  return { cv, c };
+}
+function caja(c, x, y, w, h, r = 18) {
+  c.beginPath();
+  if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h);
+  c.fillStyle = '#FFFFFF'; c.fill(); c.strokeStyle = '#E6DCC4'; c.lineWidth = 3; c.stroke();
+}
+function encajar(c, img, x, y, w, h) {
+  const [iw, ih] = medidas(img), k = Math.min(w / iw, h / ih);
+  c.drawImage(img, x + (w - iw * k) / 2, y + (h - ih * k) / 2, iw * k, ih * k);
+}
+function partir(c, t, maxW) {
+  const out = []; let l = '';
+  String(t).split(/\s+/).forEach(p => { const n = l ? l + ' ' + p : p; if (c.measureText(n).width > maxW && l) { out.push(l); l = p; } else l = n; });
+  if (l) out.push(l); return out;
+}
+async function imgProp(ref) { return abrirImagen(isRef(ref) ? await loadRef(ref) : ref); }
+async function cartelDibujos(cycleId) {
+  const cy = cyc(cycleId), ps = proposalsOf(cycleId, 'dibujo').filter(p => p.images.length).slice(0, 16);
+  const { cv, c } = cartelBase(`Dibujos de ${cy.name}`, cy.color);
+  const n = ps.length, cols = n <= 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : 4, rows = Math.ceil(n / cols), g = 22;
+  const top = 220, bottom = CH - 130, cw = (CW - 80 - (cols - 1) * g) / cols, chh = Math.min(cw + 52, (bottom - top - (rows - 1) * g) / rows);
+  for (let i = 0; i < n; i++) {
+    const p = ps[i], x = 40 + (i % cols) * (cw + g), y = top + Math.floor(i / cols) * (chh + g);
+    caja(c, x, y, cw, chh);
+    try { encajar(c, await imgProp(p.images[0]), x + 12, y + 12, cw - 24, chh - 64); } catch (e) { /* imagen no disponible */ }
+    c.fillStyle = '#26352C'; c.font = `800 ${cols > 3 ? 22 : 26}px ${F_TXT}`; c.textAlign = 'center';
+    c.fillText(`${p.code} · ${cls(p.classId)?.name || ''}`, x + cw / 2, y + chh - 20);
+  }
+  return { cv, titulo: `Dibujos de ${cy.name}`, archivo: `dibujos-${cy.short}.jpg`,
+    texto: `🪶 Alas de Igualdad · ¡Estos son los dibujos de ${cy.name} para elegir la mascota del cole! Del 5 al 9 de octubre cada clase votará su favorito. #AlasDeIgualdad #CEIPSanSebastián` };
+}
+async function cartelTextos(cycleId) {
+  const cy = cyc(cycleId), nombres = proposalsOf(cycleId, 'nombre'), textos = proposalsOf(cycleId, 'texto');
+  let cv, c;
+  for (let k = 1; k >= 0.5; k -= 0.05) {
+    ({ cv, c } = cartelBase(`Nombres y lemas · ${cy.name}`, cy.color));
+    let y = 250; c.textAlign = 'center';
+    if (nombres.length) {
+      c.fillStyle = '#26352C'; c.font = `700 ${Math.round(46 * k)}px ${F_TIT}`; c.fillText('🏷️ Nombres propuestos', CW / 2, y); y += 30 * k;
+      c.font = `800 ${Math.round(44 * k)}px ${F_TIT}`; c.fillStyle = '#2F6C8F';
+      const cols = 2, colW = (CW - 120) / cols;
+      nombres.forEach((p, i) => { if (i % cols === 0) y += 64 * k; c.fillText(p.text, 60 + colW * (i % cols) + colW / 2, y); });
+      y += 70 * k;
+    }
+    if (textos.length) {
+      c.fillStyle = '#26352C'; c.font = `700 ${Math.round(46 * k)}px ${F_TIT}`; c.fillText(`💬 ${catLabel(cy, 'texto', true)}`, CW / 2, y); y += 20 * k;
+      c.font = `600 ${Math.round(46 * k)}px ${F_MANO}`; c.fillStyle = '#7A4E8E';
+      textos.forEach(p => { const t = p.type === 'historia' ? (p.title || 'Historia') : `«${p.text}»`; partir(c, t, CW - 160).forEach(l => { y += 52 * k; c.fillText(l, CW / 2, y); }); y += 18 * k; });
+    }
+    if (y < CH - 150) break;
+  }
+  return { cv, titulo: `Nombres y lemas · ${cy.name}`, archivo: `nombres-${cy.short}.jpg`,
+    texto: `🏷️ Alas de Igualdad · Estos son los nombres y ${catLabel(cy, 'texto', true).toLowerCase()} que propone ${cy.name} para nuestra mascota. ¿Cuál os gusta más? #AlasDeIgualdad #CEIPSanSebastián` };
+}
+async function fichaFinalista(c, f, x, y, w, h, grande) {
+  const cy = cyc(f.cycleId), d = prop(f.parts.dibujo), n = prop(f.parts.nombre), t = f.parts.texto ? prop(f.parts.texto) : null;
+  caja(c, x, y, w, h, 22);
+  c.fillStyle = cy.color; c.fillRect(x + 3, y + 3, w - 6, 12);
+  const imgH = grande ? h - 300 : h - 150;
+  try { encajar(c, await imgProp(d.images[0]), x + 16, y + 26, w - 32, imgH); } catch (e) { /* sin imagen */ }
+  c.textAlign = 'center'; c.fillStyle = '#26352C'; c.font = `800 ${grande ? 96 : 40}px ${F_TIT}`;
+  c.fillText(n.text, x + w / 2, y + imgH + (grande ? 120 : 76));
+  c.fillStyle = cy.color; c.font = `800 ${grande ? 30 : 22}px ${F_TXT}`; c.fillText(cy.name.toUpperCase(), x + w / 2, y + imgH + (grande ? 170 : 110));
+  if (grande && t && t.type === 'lema') { c.fillStyle = '#7A4E8E'; c.font = `600 46px ${F_MANO}`; partir(c, `«${t.text}»`, w - 80).slice(0, 2).forEach((l, i) => c.fillText(l, x + w / 2, y + imgH + 228 + i * 50)); }
+}
+async function cartelFinalistas() {
+  const fs = allFinalists().filter(f => f.complete);
+  const { cv, c } = cartelBase('¡Nuestras finalistas!', '#D89A3C');
+  const g = 24, top = 220, w3 = (CW - 80 - 2 * g) / 3, h = (CH - 130 - top - g) / 2;
+  for (let i = 0; i < fs.length; i++) {
+    const fila = i < 3 ? 0 : 1, enFila = fila === 0 ? Math.min(3, fs.length) : fs.length - 3;
+    const x0 = (CW - (enFila * w3 + (enFila - 1) * g)) / 2, col = fila === 0 ? i : i - 3;
+    await fichaFinalista(c, fs[i], x0 + col * (w3 + g), top + fila * (h + g), w3, h, false);
+  }
+  return { cv, titulo: 'Las finalistas', archivo: 'finalistas.jpg',
+    texto: '⭐ ¡Ya tenemos las finalistas de «Alas de Igualdad»! El 13 y 14 de octubre votan todas las clases y el 15 de octubre conoceremos a la Mascota Oficial del cole. #AlasDeIgualdad #CEIPSanSebastián' };
+}
+async function cartelMascota() {
+  const res = mascotaResult(), win = finalist(res.id), pandilla = centroCandidates().filter(f => f.cycleId !== res.id);
+  const { cv, c } = cartelBase('👑 ¡Nuestra Mascota Oficial!', '#D89A3C');
+  await fichaFinalista(c, win, 140, 215, CW - 280, 860, true);
+  c.textAlign = 'center'; c.fillStyle = '#26352C'; c.font = `700 34px ${F_TIT}`; c.fillText('Y la Pandilla de Garzas del Cole:', CW / 2, 1140);
+  c.fillStyle = '#2F6C8F'; c.font = `800 36px ${F_TIT}`;
+  partir(c, pandilla.map(f => prop(f.parts.nombre)?.text).join(' · '), CW - 120).slice(0, 2).forEach((l, i) => c.fillText(l, CW / 2, 1190 + i * 44));
+  const nombre = prop(win.parts.nombre)?.text;
+  return { cv, titulo: 'Mascota Oficial', archivo: 'mascota-oficial.jpg',
+    texto: `👑 ¡${nombre} es la Mascota Oficial del CEIP San Sebastián! Y junto a ella, la Pandilla de Garzas del Cole. Gracias al alumnado y a las familias por participar en «Alas de Igualdad». #AlasDeIgualdad #CEIPSanSebastián` };
+}
 
 /* --- Datos --- */
 PANEL.datos = () => `<div class="grid g2">
@@ -1841,6 +2073,15 @@ function arrancar() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 }
 async function bootRemote() {
+  if (FAMILIAS) {
+    setBusy('Cargando…');
+    let f;
+    try { f = await gsCall('mascApiFamilias'); }
+    catch (e) { $('#main').innerHTML = `<div class="oculto"><div class="ico">📡</div><h2>No se ha podido cargar</h2><p>Comprueba la conexión y vuelve a intentarlo.</p><button data-act="reload">Reintentar</button></div>`; return; }
+    finally { setBusy(''); }
+    if (f.cerrado) { $('#main').innerHTML = `<div class="oculto"><div class="ico">🪺</div><h2>La galería todavía no está publicada</h2><p>Muy pronto podréis ver aquí los dibujos, nombres y lemas del alumnado.</p></div>`; return; }
+    applyServer(f); render(); arrancar(); return;
+  }
   setBusy('Conectando…');
   let r;
   try { r = await gsCall('mascApiEstado'); }

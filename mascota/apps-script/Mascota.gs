@@ -16,8 +16,12 @@ var MASC_ADMINS_FIJOS = ['aaralac781@g.educaand.es'];
 var MASC_NOMBRE_CARPETA = 'Alas de Igualdad · Votación de la mascota';
 
 function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('MascotaIndex')
-    .setTitle('Alas de Igualdad · Votación de la mascota')
+  // ?familias=1 → galería pública de solo lectura (para el enlace de las familias).
+  var familias = !!(e && e.parameter && e.parameter.familias);
+  var salida = HtmlService.createHtmlOutputFromFile('MascotaIndex');
+  if (familias) salida = HtmlService.createHtmlOutput(salida.getContent().replace('<body>', '<body data-familias="1">'));
+  return salida
+    .setTitle(familias ? 'Alas de Igualdad · Galería para las familias' : 'Alas de Igualdad · Votación de la mascota')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     // Permite insertar la app dentro de SSNet (iframe).
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -174,11 +178,45 @@ function mascApiClave(json) {
 /** Solo el número de versión: sirve para refrescar las pizarras sin descargar todo. */
 function mascApiRev() { return JSON.stringify({ rev: mascRev_() }); }
 
+/* Freno contra probar códigos al azar: 10 fallos seguidos bloquean esa clase 10 minutos. */
+function mascIntentos_(classId, fallo) {
+  var c = CacheService.getScriptCache(), k = 'masc_int_' + classId, n = Number(c.get(k)) || 0;
+  if (fallo) { n++; c.put(k, String(n), 600); }
+  return n;
+}
+
 /** Comprueba el código de una clase antes de empezar a votar. */
 function mascApiCodigo(json) {
   var req = mascReq_(json), st = mascLeer_();
+  if (mascIntentos_(req.classId) >= 10) return JSON.stringify({ ok: false, bloqueado: true });
   var k = st && mascFind(st.classes, req.classId);
-  return JSON.stringify({ ok: !!k && String(k.code) === String(req.code || '').trim() });
+  var ok = !!k && String(k.code) === String(req.code || '').trim();
+  if (!ok) mascIntentos_(req.classId, true);
+  return JSON.stringify({ ok: ok });
+}
+
+/** Datos para la galería de las familias: sin códigos, sin cuentas, nombres con inicial
+ *  y votos solo de las votaciones ya cerradas. */
+function mascApiFamilias(json) {
+  mascReq_(json);
+  var st = mascLeer_();
+  if (!st || !st.config || !st.config.publicFamilias) return JSON.stringify({ cerrado: true, rev: mascRev_() });
+  var c = JSON.parse(JSON.stringify(st)), cerrado = {};
+  (c.cycles || []).forEach(function (y) { cerrado[y.id] = !!(y.closed || y.direct); });
+  c.votes = (c.votes || []).filter(function (v) {
+    return !v.annulled && (v.phase === 'ciclo' ? cerrado[v.cycleId] : c.phase.centro === 'closed');
+  }).map(function (v) { return { id: v.id, phase: v.phase, cycleId: v.cycleId, classId: v.classId, cat: v.cat, target: v.target, ts: v.ts, annulled: false }; });
+  c.log = [];
+  (c.classes || []).forEach(function (k) { delete k.code; delete k.tutors; });
+  c.config = { initials: true, allowOwnVotes: st.config.allowOwnVotes, liveResults: false, centroTieBody: st.config.centroTieBody, publicFamilias: true };
+  c.meta = { sample: false };
+  (c.proposals || []).forEach(function (p) {
+    p.authors = (p.authors || []).map(function (a) {
+      var n = String(a.name || '').trim().split(/\s+/);
+      return { name: n[0] + (n[1] ? ' ' + n[1].charAt(0).toUpperCase() + '.' : ''), course: a.course };
+    });
+  });
+  return JSON.stringify({ state: c, rev: mascRev_(), user: { email: '', admin: false } });
 }
 
 /** Registra el voto de una clase. Las reglas se comprueban aquí, con bloqueo, aunque voten varias clases a la vez. */
@@ -188,7 +226,10 @@ function mascApiVotar(json) {
   try {
     var st = mascLeer_();
     if (!st) return mascError_('La votación todavía no está preparada.');
-    var err = mascValidarVoto(st, req, { admin: mascEsAdmin_(st, email), email: email });
+    var admin = mascEsAdmin_(st, email);
+    if (!admin && mascIntentos_(req.classId) >= 10) return mascRespuesta_(st, email, { error: 'Demasiados intentos con un código incorrecto. Espera 10 minutos.' });
+    var err = mascValidarVoto(st, req, { admin: admin, email: email });
+    if (err === 'El código de la clase no es correcto.') mascIntentos_(req.classId, true);
     if (err) return mascRespuesta_(st, email, { error: err });
     var antes = st.log.length;
     var ts = mascAplicarVoto(st, req, { ts: new Date().toISOString(), by: email || (mascClaveOk_() ? 'dirección (clave)' : ''), uid: function () { return Utilities.getUuid(); } });
