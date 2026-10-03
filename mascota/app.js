@@ -1974,6 +1974,9 @@ PANEL.datos = () => `<div class="grid g2">
     : '<p class="small">Los datos se guardan <b>solo en este navegador</b>. Descarga una copia al final de cada día de votación. Con ella también puedes pasar los datos a otro ordenador.</p>'}
     <button class="btn-azul" data-act="export">⬇️ Descargar copia de seguridad</button>
     <label class="btn" style="margin:0">⬆️ Restaurar una copia<input type="file" accept="application/json,.json" data-chg="import" hidden></label></div>
+  <div class="card stack"><h2>🩺 Revisar las imágenes</h2>
+    <p class="small">Comprueba en <b>este navegador</b> si cada foto subida se puede ver. Si alguna falla, haz una captura del resultado.</p>
+    <button data-act="revisar-imgs">🩺 Revisar imágenes</button><div id="revision"></div></div>
   <div class="card stack"><h2>🧪 Pruebas</h2>
     <p class="small">Para ensayar antes de la votación real.</p>
     <button data-act="simulate" ${(S.phase.ciclo === 'open' && votingCycles().some(c => !c.closed)) || centroOpen() ? '' : 'disabled'}>🎲 Simular votos de prueba en la fase abierta</button>
@@ -1982,6 +1985,27 @@ PANEL.datos = () => `<div class="grid g2">
   <div class="card stack"><h2>🗑️ Al terminar el concurso</h2>
     <p class="small">Borra todas las propuestas, imágenes, autorías, votos y el historial. Se conservan las clases. Descarga antes el acta y una copia si la necesitáis.</p>
     <button class="btn-peligro" data-act="wipe">Borrar todos los datos</button></div></div>`;
+ACT['revisar-imgs'] = async () => {
+  const caja = $('#revision'), filas = [];
+  const navegador = /Edg\//.test(navigator.userAgent) ? 'Edge' : /Chrome\//.test(navigator.userAgent) ? 'Chrome' : /Safari\//.test(navigator.userAgent) ? 'Safari' : /Firefox\//.test(navigator.userAgent) ? 'Firefox' : 'otro';
+  const lista = S.proposals.flatMap(p => p.images.map((ref, i) => [p, ref, i])).filter(([, ref]) => isRef(ref) || isNewImg(ref));
+  for (const [n, [p, ref, i]] of lista.entries()) {
+    caja.textContent = `Revisando ${n + 1} de ${lista.length}…`;
+    const f = { code: p.code + (p.images.length > 1 ? ` (pág. ${i + 1})` : ''), kb: '—', tipo: '—', img: '✗', lienzo: '✗', nota: '' };
+    try {
+      const src = isRef(ref) ? await loadRef(ref) : ref;
+      f.kb = Math.round(src.length * 0.75 / 1024) + ' KB'; f.tipo = (src.match(/^data:([^;]+)/) || [])[1] || '?';
+      try { const im = await cargarImagen(src); f.img = `✓ ${medidas(im).join('×')}`; } catch (e) { f.nota = e.message; }
+      try { const bm = await createImageBitmap(dataUrlToBlob(src)); f.lienzo = `✓ ${bm.width}×${bm.height}`; } catch (e) { f.nota += (f.nota ? ' · ' : '') + (e.message || e.name); }
+    } catch (e) { f.nota = 'no se ha podido descargar: ' + e.message; }
+    filas.push(f);
+  }
+  const malas = filas.filter(f => f.img[0] !== '✓' && f.lienzo[0] !== '✓').length;
+  caja.innerHTML = `<p class="small"><b>${navegador}</b> · ${filas.length} imágenes · ${malas ? `<b style="color:var(--error)">${malas} no se pueden ver</b>` : '<b style="color:var(--ok)">todas se pueden ver</b>'}</p>
+    <div class="table-wrap"><table><thead><tr><th>Código</th><th>Tamaño</th><th>Tipo</th><th>Imagen</th><th>Lienzo</th><th>Detalle</th></tr></thead><tbody>
+    ${filas.map(f => `<tr><td>${esc(f.code)}</td><td>${f.kb}</td><td>${esc(f.tipo)}</td><td>${f.img}</td><td>${f.lienzo}</td><td class="small">${esc(f.nota)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="small muted">${esc(navigator.userAgent)}</p>`;
+};
 ACT.export = () => {
   download(`alas-de-igualdad-copia-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.json`, JSON.stringify(S), 'application/json');
   toast('Copia descargada.');
