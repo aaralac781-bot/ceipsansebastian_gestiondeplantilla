@@ -2150,10 +2150,12 @@ PANEL.datos = () => `<div class="grid g2">
   <div class="card stack"><h2>🩺 Revisar las imágenes</h2>
     <p class="small">Comprueba en <b>este navegador</b> si cada foto subida se puede ver. Si alguna falla, haz una captura del resultado.</p>
     <button data-act="revisar-imgs">🩺 Revisar imágenes</button><div id="revision"></div></div>
-  <div class="card stack"><h2>🧪 Pruebas</h2>
-    <p class="small">Para ensayar antes de la votación real.</p>
+  <div class="card stack"><h2>🧪 Ensayar la votación</h2>
+    <p class="small">Puedes hacer una votación de prueba con <b>tus propuestas reales</b> y después borrar solo los votos.</p>
     <button data-act="simulate" ${(S.phase.ciclo === 'open' && votingCycles().some(c => !c.closed)) || centroOpen() ? '' : 'disabled'}>🎲 Simular votos de prueba en la fase abierta</button>
-    <button data-act="load-sample">Cargar de nuevo los datos de prueba</button>
+    <button class="btn-dorado" data-act="reset-votos">🔄 Reiniciar la votación (borra solo votos y desempates)</button>
+    <p class="small muted">Reiniciar conserva propuestas, fotos, autorías, clases, códigos y votantes, y deja las fases sin abrir, como al principio.</p>
+    <button class="btn-sm btn-peligro" data-act="load-sample">Cargar datos inventados (BORRA tus propuestas)</button>
     ${S.meta.sample ? '<button class="btn-dorado" data-act="start-real">✅ Empezar con datos reales (borra los datos de prueba)</button>' : ''}</div>
   <div class="card stack"><h2>🗑️ Al terminar el concurso</h2>
     <p class="small">Borra todas las propuestas, imágenes, autorías, votos y el historial. Se conservan las clases. Descarga antes el acta y una copia si la necesitáis.</p>
@@ -2221,10 +2223,11 @@ ACT.simulate = async () => {
   });
   toast('Votos de prueba registrados.');
 };
-async function resetTo(sample, msg) {
+async function resetTo(sample, msg, borrarVotantes = false) {
   await commit(() => {
     const st = emptyState();
     st.config = S.config;
+    st.voters = borrarVotantes ? [] : (S.voters || []);
     st.classes = S.classes; st.cycles = S.cycles.map(c => Object.assign(c, { closed: false, closedTs: null }));
     S = sample ? ADI_SAMPLE.build(st, uid) : st;
     addLog('datos', msg);
@@ -2235,7 +2238,9 @@ async function resetTo(sample, msg) {
 }
 ACT['load-sample'] = async () => {
   if (!needAdmin()) return;
-  if (!confirm('¿Cargar los datos de prueba? Se BORRARÁN las propuestas, votos e historial actuales (se conservan clases y ajustes).')) return;
+  if (!S.meta.sample && S.proposals.length) {
+    if (prompt(`ATENCIÓN: esto BORRA tus ${S.proposals.length} propuestas reales y sus fotos y pone datos inventados.\nPara ensayar con tus propuestas usa «Reiniciar la votación».\n\nSi de verdad quieres borrarlas, escribe BORRAR:`) !== 'BORRAR') return toast('No se ha borrado nada.');
+  } else if (!confirm('¿Cargar los datos de prueba? Se borrarán las propuestas y votos actuales.')) return;
   await resetTo(true, 'Se cargan los datos de prueba.'); toast('Datos de prueba cargados.');
 };
 ACT['start-real'] = async () => {
@@ -2243,11 +2248,24 @@ ACT['start-real'] = async () => {
   if (!confirm('¿Borrar los datos de prueba (propuestas, votos e historial) y empezar con datos reales?\nSe conservan las clases, los códigos y los ajustes.')) return;
   await resetTo(false, 'Se borran los datos de prueba y se empieza con datos reales.'); toast('Listo para dar de alta las propuestas reales.');
 };
+ACT['reset-votos'] = async () => {
+  if (!needAdmin()) return;
+  const n = S.votes.length;
+  if (prompt(`Se borrarán ${n} votos (y anulaciones), los desempates y los cierres, y todas las fases volverán a «sin abrir».\nSe conservan propuestas, fotos, clases, códigos y votantes.\n\nEscribe REINICIAR para confirmar:`) !== 'REINICIAR') return toast('No se ha borrado nada.');
+  await commit(() => {
+    S.votes = []; S.tiebreaks = [];
+    S.phase = { ciclo: 'prep', centro: 'prep' }; S.centroClosedTs = null; delete S.centroCandidates;
+    S.cycles.forEach(c => { c.closed = false; c.closedTs = null; });
+    addLog('datos', `Se reinicia la votación: se borran ${n} votos de prueba y los desempates. Las propuestas se conservan.`);
+  });
+  resetV('ciclo'); FINAL.step = 0;
+  toast('Votación reiniciada. Las propuestas siguen intactas.');
+};
 ACT.wipe = async () => {
   if (!needAdmin()) return;
   const t = prompt('Esto borra TODAS las propuestas, imágenes, autorías, votos e historial del concurso.\nNo se puede deshacer.\n\nEscribe BORRAR para confirmar:');
   if (t !== 'BORRAR') return toast('No se ha borrado nada.');
-  await resetTo(false, 'Se borran todos los datos del concurso.'); toast('Datos borrados.');
+  await resetTo(false, 'Se borran todos los datos del concurso.', true); toast('Datos borrados.');
 };
 
 /* --- Exportación: CSV y acta --- */
