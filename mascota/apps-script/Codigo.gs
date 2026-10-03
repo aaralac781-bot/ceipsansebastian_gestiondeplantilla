@@ -28,39 +28,53 @@ function mascFind(list, id) {
   return null;
 }
 
+var MASC_TIPO_PERSONA = { docente: 'docente', consejo: 'familia del Consejo Escolar', pas: 'PAS' };
+
+/** Quién vota: una clase (classId) o una persona (voterId: docente, familia del Consejo Escolar o PAS). */
+function mascActor(st, req) {
+  if (req.voterId) {
+    var p = mascFind(st.voters || [], req.voterId);
+    return p ? { persona: true, id: p.id, name: p.name, kind: p.kind, cycleId: p.cycleId, code: p.code, emails: p.email ? [p.email] : [] } : null;
+  }
+  var k = mascFind(st.classes, req.classId);
+  return k ? { persona: false, id: k.id, name: k.name, cycleId: k.cycleId, code: k.code, emails: k.tutors || [] } : null;
+}
+
 /** Devuelve un texto de error si el voto no es válido, o null si se puede registrar.
- *  req = {phase:'ciclo'|'centro', classId, code, choices:{cat: idPropuesta|idCiclo}}
+ *  req = {phase:'ciclo'|'centro', classId | voterId, code, choices:{cat: idPropuesta|idCiclo}}
  *  auth = {admin: bool, email: string} */
 function mascValidarVoto(st, req, auth) {
-  var k = mascFind(st.classes, req.classId);
-  if (!k) return 'No se encuentra la clase.';
+  var a = mascActor(st, req);
+  if (!a) return req.voterId ? 'No se encuentra a la persona que vota.' : 'No se encuentra la clase.';
   var email = String((auth && auth.email) || '').toLowerCase();
-  var tutor = !!email && (k.tutors || []).some(function (t) { return String(t).trim().toLowerCase() === email; });
-  if (!(auth && auth.admin) && !tutor && String(req.code || '').trim() !== String(k.code)) return 'El código de la clase no es correcto.';
+  var cuenta = !!email && a.emails.some(function (t) { return String(t).trim().toLowerCase() === email; });
+  if (!(auth && auth.admin) && !cuenta && String(req.code || '').trim() !== String(a.code))
+    return a.persona ? 'El código personal no es correcto.' : 'El código de la clase no es correcto.';
   var choices = req.choices || {}, cats = Object.keys(choices);
   if (!cats.length) return 'No se ha elegido nada.';
   var yaVotado = function (phase, cat) {
-    return st.votes.some(function (v) { return !v.annulled && v.phase === phase && v.classId === k.id && v.cat === cat; });
+    return st.votes.some(function (v) { return !v.annulled && v.phase === phase && v.cat === cat && (a.persona ? v.voterId === a.id : v.classId === a.id); });
   };
   if (req.phase === 'ciclo') {
-    var c = mascFind(st.cycles, k.cycleId);
-    if (!c || c.direct) return 'Esta clase no participa en la votación de ciclo.';
+    if (a.persona && a.kind !== 'docente') return 'En la votación de ciclo votan las clases y el profesorado. Las familias del Consejo Escolar y el PAS votáis en la votación de centro.';
+    var c = mascFind(st.cycles, a.cycleId);
+    if (!c || c.direct) return a.persona ? 'Tu ciclo no tiene votación de ciclo: podrás votar en la votación de centro.' : 'Esta clase no participa en la votación de ciclo.';
     if (st.phase.ciclo !== 'open' || c.closed) return 'La votación de ' + c.name + ' está cerrada.';
     var validas = mascCycleCats(c);
     for (var i = 0; i < cats.length; i++) {
       var cat = cats[i];
       if (validas.indexOf(cat) < 0) return 'Categoría no válida.';
-      if (yaVotado('ciclo', cat)) return k.name + ' ya ha votado en «' + mascCatLabel(c, cat) + '».';
+      if (yaVotado('ciclo', cat)) return a.name + ' ya ha votado en «' + mascCatLabel(c, cat) + '».';
       var p = mascFind(st.proposals, choices[cat]);
       if (!p) return 'No se encuentra la propuesta elegida.';
       var pk = mascFind(st.classes, p.classId);
       if (!pk || pk.cycleId !== c.id || MASC_CAT[p.type] !== cat) return 'Esa propuesta no se puede votar en este ciclo.';
-      if (st.config && st.config.allowOwnVotes === false && p.classId === k.id) return 'No se pueden votar las propuestas de la propia clase.';
+      if (!a.persona && st.config && st.config.allowOwnVotes === false && p.classId === a.id) return 'No se pueden votar las propuestas de la propia clase.';
     }
   } else if (req.phase === 'centro') {
     if (st.phase.centro !== 'open') return 'La votación de centro está cerrada.';
     if (cats.length !== 1 || cats[0] !== 'finalista') return 'Voto no válido.';
-    if (yaVotado('centro', 'finalista')) return k.name + ' ya ha votado en la votación de centro.';
+    if (yaVotado('centro', 'finalista')) return a.name + ' ya ha votado en la votación de centro.';
     if ((st.centroCandidates || []).indexOf(choices.finalista) < 0) return 'Esa finalista no existe.';
   } else return 'Fase no válida.';
   return null;
@@ -68,15 +82,18 @@ function mascValidarVoto(st, req, auth) {
 
 /** Añade los votos y sus entradas de historial. meta = {ts, by, uid: función} */
 function mascAplicarVoto(st, req, meta) {
-  var k = mascFind(st.classes, req.classId), c = mascFind(st.cycles, k.cycleId);
+  var a = mascActor(st, req), c = mascFind(st.cycles, a.cycleId);
+  var quien = a.persona ? a.name + ' (' + (MASC_TIPO_PERSONA[a.kind] || a.kind) + ')' : a.name;
   Object.keys(req.choices).forEach(function (cat) {
     var target = req.choices[cat];
-    st.votes.push({ id: meta.uid(), phase: req.phase, cycleId: req.phase === 'ciclo' ? c.id : 'CENTRO', classId: k.id, cat: cat, target: target, ts: meta.ts, by: meta.by || '', annulled: false });
+    var v = { id: meta.uid(), phase: req.phase, cycleId: req.phase === 'ciclo' ? c.id : 'CENTRO', cat: cat, target: target, ts: meta.ts, by: meta.by || '', annulled: false };
+    if (a.persona) v.voterId = a.id; else v.classId = a.id;
+    st.votes.push(v);
     var what = req.phase === 'ciclo'
       ? (function (p) { return p.code + ' (' + mascPropTitle(p) + ')'; })(mascFind(st.proposals, target))
       : 'finalista de ' + mascFind(st.cycles, target).name;
     st.log.push({ id: meta.uid(), ts: meta.ts, by: meta.by || '', type: 'voto',
-      text: k.name + ' vota ' + (req.phase === 'ciclo' ? mascCatLabel(c, cat).toLowerCase() : 'en la fase de centro') + ': ' + what });
+      text: quien + ' vota ' + (req.phase === 'ciclo' ? mascCatLabel(c, cat).toLowerCase() : 'en la fase de centro') + ': ' + what });
   });
   return meta.ts;
 }
@@ -225,6 +242,7 @@ function mascRespuesta_(st, email, extra) {
   if (st && !admin) {
     pub = JSON.parse(JSON.stringify(st));
     (pub.classes || []).forEach(function (k) { delete k.code; });
+    (pub.voters || []).forEach(function (v) { delete v.code; });
     if (pub.config) delete pub.config.adminHash;
   }
   var r = { state: pub, rev: mascRev_(), user: { email: email, admin: admin, claveCreada: !!mascProps_().getProperty('MASC_CLAVE') } };
@@ -279,6 +297,16 @@ function mascApiCodigo(json) {
   return JSON.stringify({ ok: ok });
 }
 
+/** Identifica a una persona votante (docente, familia del Consejo Escolar o PAS) por su código personal. */
+function mascApiCodigoPersona(json) {
+  var req = mascReq_(json), st = mascLeer_();
+  if (mascIntentos_('persona') >= 30) return JSON.stringify({ ok: false, bloqueado: true });
+  var code = String(req.code || '').trim(), v = null;
+  ((st && st.voters) || []).forEach(function (x) { if (code && String(x.code) === code) v = x; });
+  if (!v) { mascIntentos_('persona', true); return JSON.stringify({ ok: false }); }
+  return JSON.stringify({ ok: true, voterId: v.id });
+}
+
 /** Datos para la galería de las familias: sin códigos, sin cuentas, nombres con inicial
  *  y votos solo de las votaciones ya cerradas. */
 function mascApiFamilias(json) {
@@ -289,9 +317,10 @@ function mascApiFamilias(json) {
   (c.cycles || []).forEach(function (y) { cerrado[y.id] = !!(y.closed || y.direct); });
   c.votes = (c.votes || []).filter(function (v) {
     return !v.annulled && (v.phase === 'ciclo' ? cerrado[v.cycleId] : c.phase.centro === 'closed');
-  }).map(function (v) { return { id: v.id, phase: v.phase, cycleId: v.cycleId, classId: v.classId, cat: v.cat, target: v.target, ts: v.ts, annulled: false }; });
+  }).map(function (v) { return { id: v.id, phase: v.phase, cycleId: v.cycleId, classId: v.classId, voterId: v.voterId, cat: v.cat, target: v.target, ts: v.ts, annulled: false }; });
   c.log = [];
   (c.classes || []).forEach(function (k) { delete k.code; delete k.tutors; });
+  c.voters = (c.voters || []).map(function (v) { return { id: v.id, kind: v.kind }; });
   c.config = { initials: true, allowOwnVotes: st.config.allowOwnVotes, liveResults: false, centroTieBody: st.config.centroTieBody, publicFamilias: true };
   c.meta = { sample: false };
   (c.proposals || []).forEach(function (p) {
@@ -311,9 +340,10 @@ function mascApiVotar(json) {
     var st = mascLeer_();
     if (!st) return mascError_('La votación todavía no está preparada.');
     var admin = mascEsAdmin_(st, email);
-    if (!admin && mascIntentos_(req.classId) >= 10) return mascRespuesta_(st, email, { error: 'Demasiados intentos con un código incorrecto. Espera 10 minutos.' });
+    var claveIntentos = req.voterId ? 'persona' : req.classId, limite = req.voterId ? 30 : 10;
+    if (!admin && mascIntentos_(claveIntentos) >= limite) return mascRespuesta_(st, email, { error: 'Demasiados intentos con un código incorrecto. Espera 10 minutos.' });
     var err = mascValidarVoto(st, req, { admin: admin, email: email });
-    if (err === 'El código de la clase no es correcto.') mascIntentos_(req.classId, true);
+    if (err === 'El código de la clase no es correcto.' || err === 'El código personal no es correcto.') mascIntentos_(claveIntentos, true);
     if (err) return mascRespuesta_(st, email, { error: err });
     var antes = st.log.length;
     var ts = mascAplicarVoto(st, req, { ts: new Date().toISOString(), by: email || (mascClaveOk_() ? 'dirección (clave)' : ''), uid: function () { return Utilities.getUuid(); } });

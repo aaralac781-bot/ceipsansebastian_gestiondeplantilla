@@ -63,6 +63,18 @@ Si preferís que se abra **dentro de SSNet**, añade este botón en el HTML de S
 
 Algunos navegadores bloquean las cookies de Google dentro de un iframe y piden iniciar sesión de nuevo. Para ese caso está el enlace «Abrir en pestaña nueva».
 
+## Voto personal: profesorado, Consejo Escolar y PAS
+
+Además de las clases (su voto vale **2 puntos**), pueden votar personas (**1 punto** cada voto). Los dos valores se cambian en Panel → Votantes.
+
+| Quién | Votación de ciclo | Votación de centro | Cómo se identifica |
+|---|---|---|---|
+| Docentes | En su ciclo | Sí | Cuenta educaand (si se escribe su correo) o código personal |
+| Familias del Consejo Escolar | No | Sí | Código personal |
+| PAS | No | Sí | Código personal |
+
+En Panel → **👥 Votantes** se pegan las listas (una persona por línea; en el caso del profesorado, con el correo detrás de un punto y coma) y se imprimen las tarjetas con los códigos personales. En Votar, cada persona pulsa «Votar con mi código personal»; el profesorado con correo asignado ve directamente «Votar como…». Los resultados se cuentan en puntos y el seguimiento muestra quién ha votado, pero no qué ha votado.
+
 ## Cargar las propuestas (zona de dirección)
 
 Panel de dirección → **📸 Carga rápida**:

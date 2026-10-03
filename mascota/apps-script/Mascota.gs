@@ -141,6 +141,7 @@ function mascRespuesta_(st, email, extra) {
   if (st && !admin) {
     pub = JSON.parse(JSON.stringify(st));
     (pub.classes || []).forEach(function (k) { delete k.code; });
+    (pub.voters || []).forEach(function (v) { delete v.code; });
     if (pub.config) delete pub.config.adminHash;
   }
   var r = { state: pub, rev: mascRev_(), user: { email: email, admin: admin, claveCreada: !!mascProps_().getProperty('MASC_CLAVE') } };
@@ -195,6 +196,16 @@ function mascApiCodigo(json) {
   return JSON.stringify({ ok: ok });
 }
 
+/** Identifica a una persona votante (docente, familia del Consejo Escolar o PAS) por su código personal. */
+function mascApiCodigoPersona(json) {
+  var req = mascReq_(json), st = mascLeer_();
+  if (mascIntentos_('persona') >= 30) return JSON.stringify({ ok: false, bloqueado: true });
+  var code = String(req.code || '').trim(), v = null;
+  ((st && st.voters) || []).forEach(function (x) { if (code && String(x.code) === code) v = x; });
+  if (!v) { mascIntentos_('persona', true); return JSON.stringify({ ok: false }); }
+  return JSON.stringify({ ok: true, voterId: v.id });
+}
+
 /** Datos para la galería de las familias: sin códigos, sin cuentas, nombres con inicial
  *  y votos solo de las votaciones ya cerradas. */
 function mascApiFamilias(json) {
@@ -205,9 +216,10 @@ function mascApiFamilias(json) {
   (c.cycles || []).forEach(function (y) { cerrado[y.id] = !!(y.closed || y.direct); });
   c.votes = (c.votes || []).filter(function (v) {
     return !v.annulled && (v.phase === 'ciclo' ? cerrado[v.cycleId] : c.phase.centro === 'closed');
-  }).map(function (v) { return { id: v.id, phase: v.phase, cycleId: v.cycleId, classId: v.classId, cat: v.cat, target: v.target, ts: v.ts, annulled: false }; });
+  }).map(function (v) { return { id: v.id, phase: v.phase, cycleId: v.cycleId, classId: v.classId, voterId: v.voterId, cat: v.cat, target: v.target, ts: v.ts, annulled: false }; });
   c.log = [];
   (c.classes || []).forEach(function (k) { delete k.code; delete k.tutors; });
+  c.voters = (c.voters || []).map(function (v) { return { id: v.id, kind: v.kind }; });
   c.config = { initials: true, allowOwnVotes: st.config.allowOwnVotes, liveResults: false, centroTieBody: st.config.centroTieBody, publicFamilias: true };
   c.meta = { sample: false };
   (c.proposals || []).forEach(function (p) {
@@ -227,9 +239,10 @@ function mascApiVotar(json) {
     var st = mascLeer_();
     if (!st) return mascError_('La votación todavía no está preparada.');
     var admin = mascEsAdmin_(st, email);
-    if (!admin && mascIntentos_(req.classId) >= 10) return mascRespuesta_(st, email, { error: 'Demasiados intentos con un código incorrecto. Espera 10 minutos.' });
+    var claveIntentos = req.voterId ? 'persona' : req.classId, limite = req.voterId ? 30 : 10;
+    if (!admin && mascIntentos_(claveIntentos) >= limite) return mascRespuesta_(st, email, { error: 'Demasiados intentos con un código incorrecto. Espera 10 minutos.' });
     var err = mascValidarVoto(st, req, { admin: admin, email: email });
-    if (err === 'El código de la clase no es correcto.') mascIntentos_(req.classId, true);
+    if (err === 'El código de la clase no es correcto.' || err === 'El código personal no es correcto.') mascIntentos_(claveIntentos, true);
     if (err) return mascRespuesta_(st, email, { error: err });
     var antes = st.log.length;
     var ts = mascAplicarVoto(st, req, { ts: new Date().toISOString(), by: email || (mascClaveOk_() ? 'dirección (clave)' : ''), uid: function () { return Utilities.getUuid(); } });

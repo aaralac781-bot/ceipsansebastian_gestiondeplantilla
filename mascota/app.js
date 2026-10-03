@@ -141,12 +141,12 @@ function emptyState() {
   return {
     version: STATE_VERSION,
     meta: { sample: false, created: nowISO() },
-    config: { allowOwnVotes: true, liveResults: false, initials: false, centroTieBody: 'el claustro del centro', adminHash: null },
+    config: { allowOwnVotes: true, liveResults: false, initials: false, centroTieBody: 'el claustro del centro', adminHash: null, pesoClase: 2, pesoPersona: 1 },
     phase: { ciclo: 'prep', centro: 'prep' },
     centroClosedTs: null,
     cycles: defaultCycles(),
     classes: defaultClasses(),
-    proposals: [], votes: [], tiebreaks: [], log: []
+    proposals: [], votes: [], tiebreaks: [], log: [], voters: []
   };
 }
 
@@ -157,7 +157,7 @@ function migrate(st) {
   st.config = Object.assign({}, base.config, st.config);
   st.phase = Object.assign({}, base.phase, st.phase);
   ['cycles', 'classes'].forEach(k => { if (!Array.isArray(st[k]) || !st[k].length) st[k] = base[k]; });
-  ['proposals', 'votes', 'tiebreaks', 'log'].forEach(k => { if (!Array.isArray(st[k])) st[k] = []; });
+  ['proposals', 'votes', 'tiebreaks', 'log', 'voters'].forEach(k => { if (!Array.isArray(st[k])) st[k] = []; });
   st.classes.forEach(k => { k.quota = Object.assign({ dibujo: 0, nombre: 0, texto: 0 }, k.quota); });
   st.proposals.forEach(p => { p.images = p.images || []; p.authors = p.authors || []; });
   // Primer, segundo y tercer ciclo admiten lema o historia/cómic en la tercera categoría.
@@ -483,13 +483,37 @@ function pendingCats(classId) {
   return cycleCats(c).filter(cat => !voteOf('ciclo', classId, cat) && eligible(classId, cat).length);
 }
 
+/* --- Votantes individuales y valor de cada voto --- */
+const TIPO_PERSONA = { docente: ['Docente', 'docentes'], consejo: ['Familia del Consejo Escolar', 'familias del Consejo Escolar'], pas: ['PAS', 'PAS'] };
+const voter = id => (S.voters || []).find(v => v.id === id);
+const pesoVoto = v => v.voterId ? Number(S.config.pesoPersona ?? 1) : Number(S.config.pesoClase ?? 2);
+const voteOfVoter = (phase, id, cat) => S.votes.find(v => !v.annulled && v.phase === phase && v.voterId === id && v.cat === cat);
+function actorName(v) {
+  if (v.voterId) { const p = voter(v.voterId); return p ? `${p.name || ''} (${TIPO_PERSONA[p.kind]?.[0] || p.kind})` : 'Persona'; }
+  return cls(v.classId)?.name || '';
+}
+/** «3.º A, 4.º B · 2 docentes · 1 familia del Consejo Escolar» */
+function quienVoto(row) {
+  const partes = [];
+  if (row.classIds.length) partes.push(row.classIds.map(id => cls(id)?.name).join(', '));
+  Object.keys(TIPO_PERSONA).forEach(k => { const n = row.voterIds.filter(id => voter(id)?.kind === k).length; if (n) partes.push(`${n} ${n === 1 ? ({ docente: 'docente', consejo: 'familia del Consejo Escolar', pas: 'PAS' })[k] : TIPO_PERSONA[k][1]}`); });
+  return partes.join(' · ');
+}
+function pendingPersona(p, phase) {
+  if (phase === 'centro') return voteOfVoter('centro', p.id, 'finalista') ? [] : ['finalista'];
+  if (p.kind !== 'docente') return [];
+  const c = cyc(p.cycleId);
+  if (!c || c.direct) return [];
+  return cycleCats(c).filter(cat => !voteOfVoter('ciclo', p.id, cat) && proposalsOf(c.id, cat).length);
+}
+
 /* --- Recuento --- */
 function tally(phase, scope, cat) {
   const cands = phase === 'ciclo' ? proposalsOf(scope, cat).map(p => p.id) : centroCandidates().map(f => f.cycleId);
-  const rows = cands.map(id => ({ id, n: 0, classIds: [] }));
+  const rows = cands.map(id => ({ id, n: 0, classIds: [], voterIds: [] }));
   liveVotes().filter(v => v.phase === phase && v.cat === cat && (phase === 'centro' || v.cycleId === scope)).forEach(v => {
     const r = rows.find(r => r.id === v.target);
-    if (r) { r.n++; r.classIds.push(v.classId); }
+    if (r) { r.n += pesoVoto(v); v.voterId ? r.voterIds.push(v.voterId) : r.classIds.push(v.classId); }
   });
   return rows.sort((a, b) => b.n - a.n);
 }
@@ -746,7 +770,7 @@ VIEWS.inicio = () => {
   <h2 class="section-title">¿Cómo se elige? <span class="bar"></span></h2>
   <div class="grid g3">
     <div class="card"><h3>🎨 🏷️ 💬 Tres votaciones</h3><p>Dibujo, nombre y lema (o historia en el tercer ciclo) se votan <b>por separado</b>. La finalista de cada ciclo junta el dibujo, el nombre y el lema más votados.</p></div>
-    <div class="card"><h3>🗳️ Un voto por clase</h3><p>Cada clase decide en asamblea y su maestra o maestro registra el voto con el código de la clase.</p></div>
+    <div class="card"><h3>🗳️ ¿Quién vota?</h3><p>Cada <b>clase</b> decide en asamblea y su voto vale <b>${S.config.pesoClase ?? 2} puntos</b>. También vota el <b>profesorado</b> de cada ciclo y, en la votación de centro, las <b>familias del Consejo Escolar</b> y el <b>PAS</b>: cada voto personal vale <b>${S.config.pesoPersona ?? 1} punto${(S.config.pesoPersona ?? 1) == 1 ? '' : 's'}</b>.</p></div>
     <div class="card"><h3>⭐ Cinco finalistas</h3><p>Infantil, Primer ciclo, Segundo ciclo, Tercer ciclo y el Aula de las Estrellas. La más votada será la <b>Mascota Oficial</b>; las otras cuatro, <b>la Pandilla</b>.</p></div>
   </div>
   <p class="center muted small" style="margin-top:1.4rem">${plural(S.proposals.length, 'propuesta', 'propuestas')} · ${plural(S.classes.length, 'clase', 'clases')}</p>`;
@@ -769,7 +793,7 @@ VIEWS.galeria = args => {
 
 /* ================= VOTAR (ciclo y centro) ================= */
 let V = null;
-function resetV(phase) { V = { phase, step: 'clase', classId: null, cats: [], idx: 0, choices: {}, err: '' }; }
+function resetV(phase) { V = { phase, step: 'clase', classId: null, voterId: null, cats: [], idx: 0, choices: {}, err: '' }; }
 
 function voteView(phase) {
   if (!V || V.phase !== phase) resetV(phase);
@@ -782,7 +806,8 @@ function voteView(phase) {
   if (phase === 'centro' && S.phase.centro === 'prep') return head + `<div class="oculto"><div class="ico">⏳</div><h2>La votación de centro aún no está abierta</h2><p>Se abrirá el 13 de octubre, cuando estén las cinco finalistas. <a href="#/finalistas">Ver finalistas</a></p></div>`;
   if (phase === 'centro' && S.phase.centro === 'closed') return head + `<div class="oculto"><div class="ico">🏆</div><h2>La votación de centro ha terminado</h2><p><a class="btn btn-dorado" href="#/final">Ir a la gran final</a></p></div>`;
 
-  const k = V.classId ? cls(V.classId) : null;
+  const per = V.voterId ? voter(V.voterId) : null;
+  const k = per ? { id: per.id, name: per.name, cycleId: per.cycleId, persona: true } : V.classId ? cls(V.classId) : null;
   const cancel = `<button data-act="v-cancel">✕ Cancelar</button>`;
 
   if (V.step === 'clase') {
@@ -798,7 +823,23 @@ function voteView(phase) {
         return `<button class="clase-btn ${done ? '' : 'btn-azul'}" data-act="v-clase" data-id="${x.id}" ${done ? 'disabled' : ''}>${esc(x.name)}<small>${note}</small></button>`;
       }).join('')}</div>`;
     }).join('');
-    return head + `<div class="card"><h2>¿Qué clase va a votar?</h2><p>La clase decide en asamblea y la maestra o el maestro registra el voto.</p></div>${groups}`;
+    const yo = (S.voters || []).find(p => USER.email && String(p.email || '').toLowerCase() === USER.email.toLowerCase());
+    const personal = (S.voters || []).length ? `<h2 class="section-title">🧑‍🏫 Voto personal <span class="bar"></span></h2>
+      <div class="card stack"><p>${phase === 'ciclo' ? 'En la votación de ciclo vota también el <b>profesorado</b>, cada docente en su ciclo.' : 'Votan también el <b>profesorado</b>, las <b>familias del Consejo Escolar</b> y el <b>PAS</b>.'} Cada voto personal vale ${S.config.pesoPersona ?? 1} punto${(S.config.pesoPersona ?? 1) == 1 ? '' : 's'}; el de cada clase, ${S.config.pesoClase ?? 2}.</p>
+      <div class="row">${yo && pendingPersona(yo, phase).length ? `<button class="btn-morado btn-grande" data-act="v-persona-yo" data-id="${yo.id}">🗳️ Votar como ${esc(yo.name)}</button>` : ''}
+      ${yo && !pendingPersona(yo, phase).length && (phase === 'centro' || yo.kind === 'docente') ? `<span class="chip ok">✔ ${esc(yo.name)}: ya has votado</span>` : ''}
+      <button class="btn-grande" data-act="v-persona">🔑 Votar con mi código personal</button></div></div>` : '';
+    return head + `<div class="card"><h2>¿Qué clase va a votar?</h2><p>La clase decide en asamblea y la maestra o el maestro registra el voto.</p></div>${groups}${personal}`;
+  }
+
+  if (V.step === 'persona') {
+    return head + `<div class="card center stack" style="max-width:560px;margin:auto">
+      <h2>Voto personal</h2>
+      <form data-form="v-persona" class="stack"><label for="vcode">Escribe tu código personal</label>
+      <input id="vcode" class="code-input" inputmode="numeric" autocomplete="off" maxlength="8" required autofocus>
+      ${V.err ? `<p class="chip err" style="white-space:normal">${esc(V.err)}</p>` : ''}
+      <div class="row centro"><button type="button" data-act="v-back">← Volver</button><button class="btn-primary btn-grande" type="submit">Entrar</button></div></form>
+      <p class="small muted">El código personal te lo da la dirección. Es secreto: no lo compartas.</p></div>`;
   }
 
   if (V.step === 'codigo') {
@@ -818,15 +859,15 @@ function voteView(phase) {
     const c = cyc(k.cycleId);
     let cards;
     if (phase === 'ciclo') {
-      const ps = eligible(k.id, cat);
+      const ps = k.persona ? proposalsOf(k.cycleId, cat) : eligible(k.id, cat);
       cards = `<div class="grid ${cat === 'dibujo' ? 'g4' : 'g3'}">${ps.map(p => propCard(p, { selectable: true, selected: V.choices[cat] === p.id, noCycle: true })).join('')}</div>`;
     } else {
       cards = `<div class="grid g5">${centroCandidates().map(f => `<button type="button" class="prop sel card" data-act="pick" data-id="${f.cycleId}" aria-pressed="${V.choices.finalista === f.cycleId}" style="padding:0;border-width:3px">${finalistCard(f, { noAuthors: true, noLb: true })}</button>`).join('')}</div>`;
     }
-    const pregunta = phase === 'centro' ? '¿Qué finalista os gusta más para ser la Mascota Oficial?' : `Elegid ${cat === 'dibujo' ? 'un dibujo' : cat === 'nombre' ? 'un nombre' : (c.textoType === 'ambos' ? 'un lema o una historia' : c.textoType === 'historia' ? 'una historia o cómic' : 'un lema')}`;
+    const pregunta = phase === 'centro' ? (k.persona ? '¿Qué finalista te gusta más para ser la Mascota Oficial?' : '¿Qué finalista os gusta más para ser la Mascota Oficial?') : `${k.persona ? 'Elige' : 'Elegid'} ${cat === 'dibujo' ? 'un dibujo' : cat === 'nombre' ? 'un nombre' : (c.textoType === 'ambos' ? 'un lema o una historia' : c.textoType === 'historia' ? 'una historia o cómic' : 'un lema')}`;
     return head + `<div class="row between"><h2 style="margin:0">${esc(k.name)}</h2>${cancel}</div>${stepsBar()}
       <h2>${CAT_ICON[cat]} ${esc(pregunta)}</h2>
-      ${phase === 'ciclo' && !S.config.allowOwnVotes ? '<p class="muted small">Las propuestas de vuestra propia clase no aparecen.</p>' : ''}
+      ${phase === 'ciclo' && !S.config.allowOwnVotes && !k.persona ? '<p class="muted small">Las propuestas de vuestra propia clase no aparecen.</p>' : ''}
       ${cards}
       <div class="vote-bar row between"><button data-act="v-prev">← Atrás</button>
       <button class="btn-primary btn-grande" data-act="v-next" ${V.choices[cat] ? '' : 'disabled'}>${V.idx === V.cats.length - 1 ? 'Revisar el voto →' : 'Siguiente →'}</button></div>`;
@@ -839,7 +880,7 @@ function voteView(phase) {
       return `<div><h3>${CAT_ICON[cat]} ${esc(catLabel(c, cat))}</h3>${propCard(prop(V.choices[cat]), { noCycle: true, hideAuthors: true })}</div>`;
     }).join('');
     return head + `<div class="row between"><h2 style="margin:0">${esc(k.name)}</h2>${cancel}</div>${stepsBar()}
-      <div class="card"><h2>¿Es este vuestro voto?</h2><p>Revisad bien lo que habéis elegido. Una vez registrado, solo la dirección puede anularlo.</p></div>
+      <div class="card"><h2>¿Es este ${k.persona ? 'tu' : 'vuestro'} voto?</h2><p>${k.persona ? 'Revisa bien lo que has elegido.' : 'Revisad bien lo que habéis elegido.'} Una vez registrado, solo la dirección puede anularlo.</p></div>
       <div class="grid g3" style="margin-top:1rem">${resumen}</div>
       <div class="vote-bar row between"><button data-act="v-prev">← Cambiar algo</button>
       <button class="btn-primary btn-grande" data-act="v-confirm">✔ Confirmar y registrar el voto</button></div>`;
@@ -848,9 +889,9 @@ function voteView(phase) {
   if (V.step === 'hecho') {
     return head + `<div class="card center stack" style="max-width:700px;margin:2rem auto">
       <div class="big-ok" aria-hidden="true">🎉</div><h2>¡Voto registrado, ${esc(k.name)}!</h2>
-      <p class="note">¡Gracias por participar con vuestras alas de igualdad!</p>
+      <p class="note">¡Gracias por participar con ${k.persona ? 'tus' : 'vuestras'} alas de igualdad!</p>
       <p class="small muted">${fmtFecha(V.ts)}</p>
-      <div class="row centro"><button class="btn-azul btn-grande" data-act="v-cancel">Siguiente clase →</button></div></div>`;
+      <div class="row centro"><button class="btn-azul btn-grande" data-act="v-cancel">${k.persona ? 'Terminar' : 'Siguiente clase →'}</button></div></div>`;
   }
   return '';
 }
@@ -860,7 +901,30 @@ VIEWS.centro = () => voteView('centro');
 VIEWS.centro.after = VIEWS.votar.after;
 
 ACT['v-cancel'] = () => { resetV(V.phase); rerender(); window.scrollTo(0, 0); };
-ACT['v-back'] = () => { V.step = 'clase'; V.err = ''; rerender(); };
+ACT['v-back'] = () => { V.step = 'clase'; V.err = ''; V.voterId = null; rerender(); };
+ACT['v-persona'] = () => { V.step = 'persona'; V.err = ''; V.classId = null; V.voterId = null; render(); window.scrollTo(0, 0); };
+function empezarPersona(id, code) {
+  const p = voter(id);
+  V.voterId = id; V.classId = null; V.code = code || ''; V.choices = {}; V.idx = 0; V.err = '';
+  V.cats = pendingPersona(p, V.phase);
+  if (!V.cats.length) {
+    V.step = 'persona';
+    V.err = V.phase === 'ciclo' && p.kind !== 'docente' ? `${p.name}: en la votación de ciclo votan las clases y el profesorado. Tú podrás votar en la votación de centro (13 y 14 de octubre).`
+      : V.phase === 'ciclo' && cyc(p.cycleId)?.direct ? `${p.name}: tu ciclo no tiene votación de ciclo. Podrás votar en la votación de centro.`
+      : `${p.name}: ya has votado en esta fase. ¡Gracias!`;
+    V.voterId = null; render(); return;
+  }
+  V.step = 'cat'; render(); window.scrollTo(0, 0);
+}
+ACT['v-persona-yo'] = el => empezarPersona(el.dataset.id, '');
+FORMS['v-persona'] = async f => {
+  const val = $('#vcode', f).value.trim();
+  let id = null, bloqueado = false;
+  if (REMOTE) { setBusy('Comprobando…'); try { const r = await gsCall('mascApiCodigoPersona', { code: val }); id = r.ok ? r.voterId : null; bloqueado = !!r.bloqueado; } finally { setBusy(''); } }
+  else id = (S.voters || []).find(p => String(p.code) === val)?.id || null;
+  if (!id) { V.err = bloqueado ? 'Demasiados intentos fallidos. Espera 10 minutos.' : 'Código incorrecto. Prueba otra vez.'; render(); return; }
+  empezarPersona(id, val);
+};
 ACT['v-clase'] = el => {
   V.classId = el.dataset.id; V.err = ''; V.choices = {}; V.idx = 0;
   V.cats = V.phase === 'ciclo' ? pendingCats(V.classId) : ['finalista'];
@@ -894,7 +958,7 @@ ACT.pick = el => {
 ACT['v-prev'] = () => {
   if (V.step === 'confirmar') { V.step = 'cat'; V.idx = V.cats.length - 1; }
   else if (V.idx > 0) V.idx--;
-  else { V.step = 'clase'; V.classId = null; }
+  else { V.step = 'clase'; V.classId = null; V.voterId = null; }
   render(); window.scrollTo(0, 0);
 };
 ACT['v-next'] = () => {
@@ -912,9 +976,11 @@ async function localVote(req) {
   return { ok: true, ts };
 }
 ACT['v-confirm'] = async el => {
-  const req = { phase: V.phase, classId: V.classId, code: V.code || '', choices: Object.fromEntries(V.cats.map(c => [c, V.choices[c]])) };
+  const quien = V.voterId ? { voterId: V.voterId } : { classId: V.classId };
+  const req = { phase: V.phase, code: V.code || '', choices: Object.fromEntries(V.cats.map(c => [c, V.choices[c]])) };
   el.disabled = true; BUSY++; setBusy('Registrando el voto…');
   let r;
+  Object.assign(req, quien);
   try { r = REMOTE ? await gsCall('mascApiVotar', req) : await localVote(req); }
   catch (e) { el.disabled = false; toast('No se ha podido registrar el voto: ' + e.message + '. Vuelve a pulsar «Confirmar».', 'error'); return; }
   finally { BUSY--; setBusy(''); }
@@ -941,6 +1007,11 @@ VIEWS.seguimiento = () => {
       <tbody>${ks.map(k => `<tr><td><b>${esc(k.name)}</b></td>${cats.map(cat => `<td>${voteOf('ciclo', k.id, cat) ? ok : no}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
   }).join('');
   const hechasC = S.classes.filter(k => voteOf('centro', k.id, 'finalista')).length;
+  const vs = S.voters || [];
+  const chipP = (p, ok) => `<span class="chip ${ok ? 'ok' : ''}">${ok ? '✔' : '…'} ${esc(p.name)}</span>`;
+  const personas = vs.length ? `<h2 class="section-title">🧑‍🏫 Voto personal <span class="bar"></span></h2><div class="grid g2">
+    <div class="card"><h3>Votación de ciclo · profesorado</h3>${votingCycles().map(c => { const ds = vs.filter(p => p.kind === 'docente' && p.cycleId === c.id); return ds.length ? `<p style="margin-bottom:.2rem">${cycChip(c)}</p><div class="row">${ds.map(p => chipP(p, !pendingPersona(p, 'ciclo').length && cycleCats(c).some(cat => voteOfVoter('ciclo', p.id, cat)))).join('')}</div>` : ''; }).join('') || '<p class="muted">Sin docentes asignados a ciclos.</p>'}</div>
+    <div class="card"><h3>Votación de centro</h3>${Object.keys(TIPO_PERSONA).map(kd => { const ds = vs.filter(p => p.kind === kd); return ds.length ? `<p style="margin-bottom:.2rem"><b>${TIPO_PERSONA[kd][1][0].toUpperCase() + TIPO_PERSONA[kd][1].slice(1)}</b></p><div class="row">${ds.map(p => chipP(p, !!voteOfVoter('centro', p.id, 'finalista'))).join('')}</div>` : ''; }).join('')}</div></div>` : '';
   return `<h1>Seguimiento de la votación</h1>
   <p>Aquí se ve <b>qué clases han votado y cuáles faltan</b>. Lo que ha votado cada clase ${S.config.liveResults ? 'puede verse en Resultados' : 'se mantiene en secreto hasta que se cierre la votación'}.</p>
   <h2 class="section-title">🗳️ Votación de ciclo <span class="bar"></span></h2>
@@ -949,7 +1020,7 @@ VIEWS.seguimiento = () => {
   <h2 class="section-title">🏫 Votación de centro <span class="bar"></span></h2>
   <div class="card"><div class="progress" style="margin-bottom:.6rem"><i style="width:${hechasC / S.classes.length * 100}%"></i></div>
     <p><b>${hechasC} de ${S.classes.length}</b> clases han votado ${S.phase.centro === 'prep' ? '(todavía no está abierta)' : S.phase.centro === 'closed' ? '(cerrada)' : ''}.</p>
-    <div class="row">${S.classes.map(k => `<span class="chip ${voteOf('centro', k.id, 'finalista') ? 'ok' : ''}">${voteOf('centro', k.id, 'finalista') ? '✔' : '…'} ${esc(k.name)}</span>`).join('')}</div></div>`;
+    <div class="row">${S.classes.map(k => `<span class="chip ${voteOf('centro', k.id, 'finalista') ? 'ok' : ''}">${voteOf('centro', k.id, 'finalista') ? '✔' : '…'} ${esc(k.name)}</span>`).join('')}</div></div>${personas}`;
 };
 
 /* ================= RESULTADOS ================= */
@@ -968,9 +1039,9 @@ function barsHtml(phase, scope, cat, r) {
     }
     const win = r.id === row.id;
     return `<div class="bar-row ${win ? 'win' : ''}"><div class="bar-label">${thumb}${label}</div>
-      <div class="bar-track" role="img" aria-label="${row.n} votos"><div class="bar-fill" style="width:${row.n / max * 100}%"></div></div>
-      <div class="bar-n">${row.n}${win ? ' 🏅' : ''}</div>
-      <div class="bar-who">${row.classIds.length ? 'Votado por: ' + row.classIds.map(id => esc(cls(id)?.name)).join(', ') : '—'}</div></div>`;
+      <div class="bar-track" role="img" aria-label="${row.n} puntos"><div class="bar-fill" style="width:${row.n / max * 100}%"></div></div>
+      <div class="bar-n" title="puntos">${row.n}${win ? ' 🏅' : ''}</div>
+      <div class="bar-who">${row.classIds.length || row.voterIds.length ? 'Votado por: ' + esc(quienVoto(row)) : '—'}</div></div>`;
   }).join('');
 }
 
@@ -1048,7 +1119,7 @@ VIEWS.resultados = args => {
         ${whoVotedTable('ciclo', ks, cycleCats(c), c)}`;
     }
   }
-  return `<h1>Resultados</h1>${tabsHtml}${body}`;
+  return `<h1>Resultados</h1>${tabsHtml}<p class="small muted">Recuento en puntos: el voto de cada clase vale ${S.config.pesoClase ?? 2} y cada voto personal (docentes, familias del Consejo Escolar y PAS) vale ${S.config.pesoPersona ?? 1}.</p>${body}`;
 };
 function hiddenBox(votadas, total, phase) {
   return `<div class="oculto"><div class="ico">🤫</div><h2>Recuento oculto hasta el cierre</h2>
@@ -1183,7 +1254,7 @@ VIEWS.ayuda = () => `<h1>Ayuda para el profesorado</h1>
   <p class="muted small center" style="margin-top:1.5rem">Alas de Igualdad · versión ${APP_VERSION}</p>`;
 
 /* ================= PANEL DOCENTE ================= */
-const PANEL_TABS = [['carga', '📸 Carga rápida'], ['fases', '🚦 Fases'], ['propuestas', '🖼️ Propuestas'], ['clases', '🏫 Clases'], ['votos', '🗳️ Votos e historial'], ['ajustes', '⚙️ Ajustes'], ['difundir', '📣 Difundir'], ['datos', '💾 Datos']];
+const PANEL_TABS = [['carga', '📸 Carga rápida'], ['fases', '🚦 Fases'], ['propuestas', '🖼️ Propuestas'], ['clases', '🏫 Clases'], ['votantes', '👥 Votantes'], ['votos', '🗳️ Votos e historial'], ['ajustes', '⚙️ Ajustes'], ['difundir', '📣 Difundir'], ['datos', '💾 Datos']];
 VIEWS.panel = args => {
   if (REMOTE && !isAdmin()) return `<h1>Panel de dirección</h1>${claveHtml()}`;
   if (!isAdmin()) return `<div class="card" style="max-width:520px;margin:2rem auto"><h1>Panel docente</h1>
@@ -1710,6 +1781,81 @@ ACT['class-del'] = async el => {
 ACT['print-codes'] = () => printHtml(`<h1>Códigos de voto · Alas de Igualdad</h1><p>Entregad cada tarjeta a la tutoría correspondiente. El código sirve para que solo esa clase registre su voto.</p>
   <div class="tarjetas">${S.classes.map(k => `<div class="tarjeta"><div>${esc(cyc(k.cycleId)?.name)}</div><h2>${esc(k.name)}</h2><b>${esc(k.code)}</b><div>Votación de la mascota · CEIP San Sebastián</div></div>`).join('')}</div>`);
 
+/* --- Votantes individuales: docentes, familias del Consejo Escolar y PAS --- */
+function codigoPersonal() {
+  const usados = new Set([...S.classes.map(k => String(k.code)), ...(S.voters || []).map(p => String(p.code))]);
+  let c; do { c = String(100000 + Math.floor(Math.random() * 900000)); } while (usados.has(c));
+  return c;
+}
+PANEL.votantes = () => {
+  const vs = S.voters || [];
+  const opcCiclo = sel => S.cycles.map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+  const estado = p => [p.kind === 'docente' && !cyc(p.cycleId)?.direct ? (pendingPersona(p, 'ciclo').length ? '' : 'ciclo ✔') : '', voteOfVoter('centro', p.id, 'finalista') ? 'centro ✔' : ''].filter(Boolean).join(' · ');
+  return `<div class="grid g2">
+  <div class="card stack"><h2 style="margin-top:0">👥 Voto personal</h2>
+    <p class="small">Además de las clases, pueden votar:</p>
+    <ul class="small"><li><b>Docentes</b>: en la votación de su ciclo y en la de centro.</li><li><b>Familias del Consejo Escolar</b> y <b>PAS</b>: solo en la votación de centro.</li></ul>
+    <p class="small">Cada persona tiene un <b>código personal</b>. El profesorado también puede votar con su cuenta educaand si escribes su correo.</p>
+    <div class="row"><label style="margin:0">Valor del voto de cada clase <input type="number" min="1" max="10" value="${S.config.pesoClase ?? 2}" data-chg="cfg-num" data-f="pesoClase" style="width:80px"></label>
+    <label style="margin:0">Valor de cada voto personal <input type="number" min="1" max="10" value="${S.config.pesoPersona ?? 1}" data-chg="cfg-num" data-f="pesoPersona" style="width:80px"></label></div>
+  </div>
+  <div class="card"><h2 style="margin-top:0">＋ Añadir personas</h2>
+    <form data-form="votantes-add" class="stack">
+      <div class="row"><label style="margin:0">Tipo <select id="vt-kind" data-chg="vt-kind-sel">${Object.keys(TIPO_PERSONA).map(k => `<option value="${k}">${TIPO_PERSONA[k][0]}</option>`).join('')}</select></label>
+      <label style="margin:0" id="vt-ciclo-l">Ciclo <select id="vt-ciclo">${opcCiclo(votingCycles()[0]?.id)}</select></label></div>
+      <label for="vt-lista">Una persona por línea. Para docentes puedes añadir el correo detrás de un punto y coma.</label>
+      <textarea id="vt-lista" style="min-height:120px" placeholder="María López García; mlopgar123@g.educaand.es&#10;Juan Pérez Ruiz"></textarea>
+      <button class="btn-primary" type="submit">Añadir</button></form></div></div>
+  <div class="card" style="margin-top:1rem"><div class="row between"><h2 style="margin:0">Personas con voto (${vs.length})</h2>${vs.length ? '<button class="btn-sm" data-act="print-codes-personas">🖨️ Imprimir tarjetas con los códigos</button>' : ''}</div>
+    ${vs.length ? `<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Ciclo</th><th>Correo educaand</th><th>Código</th><th>Ha votado</th><th></th></tr></thead><tbody>
+    ${vs.map(p => `<tr><td><input value="${esc(p.name)}" data-chg="vt-f" data-id="${p.id}" data-f="name" aria-label="Nombre" style="min-width:170px"></td>
+      <td><select data-chg="vt-f" data-id="${p.id}" data-f="kind" aria-label="Tipo">${Object.keys(TIPO_PERSONA).map(k => `<option value="${k}" ${k === p.kind ? 'selected' : ''}>${TIPO_PERSONA[k][0]}</option>`).join('')}</select></td>
+      <td>${p.kind === 'docente' ? `<select data-chg="vt-f" data-id="${p.id}" data-f="cycleId" aria-label="Ciclo">${opcCiclo(p.cycleId)}</select>` : '<span class="muted small">solo centro</span>'}</td>
+      <td>${p.kind === 'docente' ? `<input value="${esc(p.email || '')}" data-chg="vt-f" data-id="${p.id}" data-f="email" placeholder="opcional" aria-label="Correo" style="min-width:190px">` : '—'}</td>
+      <td><code>${esc(p.code)}</code></td><td class="small">${estado(p)}</td>
+      <td><button class="btn-sm btn-peligro" data-act="vt-del" data-id="${p.id}" aria-label="Quitar a ${esc(p.name)}">🗑</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Todavía no hay personas añadidas.</p>'}
+  </div>`;
+};
+CHG['vt-kind-sel'] = el => { const l = $('#vt-ciclo-l'); if (l) l.hidden = el.value !== 'docente'; };
+FORMS['votantes-add'] = async f => {
+  const kind = $('#vt-kind', f).value, cycleId = kind === 'docente' ? $('#vt-ciclo', f).value : null;
+  const lineas = $('#vt-lista', f).value.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lineas.length) return toast('Escribe al menos un nombre.', 'error');
+  const nuevos = lineas.map(l => { const [n, e] = l.split(/[;\t,]/).map(x => (x || '').trim()); return { name: n, email: /@/.test(e || '') ? e.toLowerCase() : '' }; }).filter(x => x.name);
+  await commit(() => {
+    S.voters = S.voters || [];
+    nuevos.forEach(x => S.voters.push({ id: 'p' + uid(), name: x.name, kind, cycleId, email: kind === 'docente' ? x.email : '', code: codigoPersonal() }));
+    addLog('votantes', `Se añaden ${nuevos.length} ${TIPO_PERSONA[kind][1]}${cycleId ? ' de ' + cyc(cycleId).name : ''}.`);
+  });
+  toast(`${plural(nuevos.length, 'persona añadida', 'personas añadidas')}.`);
+};
+CHG['vt-f'] = async el => {
+  const f = el.dataset.f, v = el.value.trim();
+  if (f === 'name' && !v) { toast('El nombre no puede quedar vacío.', 'error'); return rerender(); }
+  if (f === 'email' && v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return toast('Revisa el correo.', 'error');
+  await commit(() => {
+    const p = voter(el.dataset.id); if (!p) return;
+    p[f] = f === 'email' ? v.toLowerCase() : v;
+    if (f === 'kind' && v === 'docente' && !p.cycleId) p.cycleId = votingCycles()[0]?.id;
+    if (f === 'kind' && v !== 'docente') p.email = '';
+    addLog('votantes', `Se modifica a ${p.name}.`);
+  });
+};
+ACT['vt-del'] = async el => {
+  const p = voter(el.dataset.id);
+  if (S.votes.some(v => v.voterId === p.id && !v.annulled)) return toast('Esta persona ya ha votado. Anula antes su voto en «Votos e historial».', 'error');
+  if (!confirm(`¿Quitar a ${p.name} de la lista de votantes?`)) return;
+  await commit(() => { S.voters = S.voters.filter(x => x.id !== el.dataset.id); addLog('votantes', `Se quita a ${p.name}.`); });
+};
+CHG['cfg-num'] = async el => {
+  const n = Math.max(1, Math.min(10, parseInt(el.value, 10) || 1));
+  await commit(() => { S.config[el.dataset.f] = n; addLog('ajuste', `${el.dataset.f === 'pesoClase' ? 'Valor del voto de cada clase' : 'Valor de cada voto personal'}: ${n}.`); });
+  toast('Guardado.');
+};
+ACT['print-codes-personas'] = () => printHtml(`<h1>Códigos personales · Alas de Igualdad</h1><p>Cada código es personal y secreto. Sirve para votar en la app de la mascota.</p>
+  <div class="tarjetas">${(S.voters || []).map(p => `<div class="tarjeta"><div>${esc(TIPO_PERSONA[p.kind][0])}${p.kind === 'docente' && cyc(p.cycleId) ? ' · ' + esc(cyc(p.cycleId).name) : ''}</div><h2>${esc(p.name)}</h2><b>${esc(p.code)}</b>
+  <div>${p.kind === 'docente' ? 'Votas en la votación de tu ciclo (5–9 oct) y en la de centro (13–14 oct)' : 'Votas en la votación de centro (13 y 14 de octubre)'}</div></div>`).join('')}</div>`);
+
 /* --- Votos e historial --- */
 PANEL.votos = () => {
   const vs = [...S.votes].sort((a, b) => b.ts.localeCompare(a.ts));
@@ -1719,7 +1865,7 @@ PANEL.votos = () => {
     <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Fase</th><th>Clase</th><th>Voto</th><th>Estado</th></tr></thead><tbody>
     ${vs.map(v => {
       const closed = v.phase === 'ciclo' ? (cyc(v.cycleId)?.closed || S.phase.centro !== 'prep') : S.phase.centro === 'closed';
-      return `<tr><td class="small">${fmtFecha(v.ts)}</td><td>${v.phase === 'ciclo' ? 'Ciclo' : 'Centro'}</td><td><b>${esc(cls(v.classId)?.name)}</b></td><td>${desc(v)}${v.simulated ? ' <span class="chip">prueba</span>' : ''}</td>
+      return `<tr><td class="small">${fmtFecha(v.ts)}</td><td>${v.phase === 'ciclo' ? 'Ciclo' : 'Centro'}</td><td><b>${esc(actorName(v))}</b></td><td>${desc(v)}${v.simulated ? ' <span class="chip">prueba</span>' : ''}</td>
       <td>${v.annulled ? `<span class="chip err">Anulado</span><div class="small">${fmtFecha(v.annulTs)} · ${esc(v.annulReason)}</div>` : closed ? '<span class="chip ok">Válido</span> <span class="small muted">(fase cerrada)</span>' : `<button class="btn-sm btn-peligro" data-act="vote-annul" data-id="${v.id}">Anular</button>`}</td></tr>`;
     }).join('') || '<tr><td colspan="5" class="muted">Todavía no hay votos.</td></tr>'}</tbody></table></div></div>
   <div class="card" style="margin-top:1rem"><h2>Historial completo</h2><p class="small muted">Votos, anulaciones, desempates, aperturas y cierres, con fecha y hora.</p>
@@ -1730,13 +1876,13 @@ PANEL.votos = () => {
 ACT['vote-annul'] = async el => {
   if (!needAdmin()) return;
   const v = S.votes.find(x => x.id === el.dataset.id);
-  const reason = prompt(`Anular el voto de ${cls(v.classId)?.name}.\nEscribe el motivo (obligatorio):`);
+  const reason = prompt(`Anular el voto de ${actorName(v)}.\nEscribe el motivo (obligatorio):`);
   if (!reason?.trim()) return toast('Anulación cancelada: hace falta un motivo.');
   await commit(() => {
     const v = S.votes.find(x => x.id === el.dataset.id);
     if (!v || v.annulled) return;
     v.annulled = true; v.annulTs = nowISO(); v.annulReason = reason.trim();
-    addLog('anulación', `Se anula el voto de ${cls(v.classId)?.name} (${v.phase === 'ciclo' ? catLabel(cyc(v.cycleId), v.cat) : 'centro'}). Motivo: ${reason.trim()}`);
+    addLog('anulación', `Se anula el voto de ${actorName(v)} (${v.phase === 'ciclo' ? catLabel(cyc(v.cycleId), v.cat) : 'centro'}). Motivo: ${reason.trim()}`);
   });
   toast('Voto anulado. La clase puede volver a votar esa categoría.');
 };
@@ -2058,11 +2204,18 @@ ACT.simulate = async () => {
         const t = cands[Math.floor(Math.random() * cands.length)].cycleId;
         S.votes.push({ id: uid(), phase: 'centro', cycleId: 'CENTRO', classId: k.id, cat: 'finalista', target: t, ts, annulled: false, simulated: true }); n++;
       });
+      (S.voters || []).filter(p => !voteOfVoter('centro', p.id, 'finalista')).forEach(p => {
+        S.votes.push({ id: uid(), phase: 'centro', cycleId: 'CENTRO', voterId: p.id, cat: 'finalista', target: cands[Math.floor(Math.random() * cands.length)].cycleId, ts, annulled: false, simulated: true }); n++;
+      });
     } else {
       votingCycles().filter(cycleOpen).forEach(c => classesOf(c.id).forEach(k => pendingCats(k.id).forEach(cat => {
         const el = eligible(k.id, cat); const t = el[Math.floor(Math.random() * el.length)].id;
         S.votes.push({ id: uid(), phase: 'ciclo', cycleId: c.id, classId: k.id, cat, target: t, ts, annulled: false, simulated: true }); n++;
       })));
+      (S.voters || []).filter(p => p.kind === 'docente' && cyc(p.cycleId) && cycleOpen(cyc(p.cycleId))).forEach(p => pendingPersona(p, 'ciclo').forEach(cat => {
+        const ps = proposalsOf(p.cycleId, cat);
+        S.votes.push({ id: uid(), phase: 'ciclo', cycleId: p.cycleId, voterId: p.id, cat, target: ps[Math.floor(Math.random() * ps.length)].id, ts, annulled: false, simulated: true }); n++;
+      }));
     }
     addLog('prueba', `Se simulan ${n} votos de prueba.`);
   });
@@ -2111,7 +2264,7 @@ ACT.csv = () => {
   }
   S.votes.forEach(v => {
     const p = v.phase === 'ciclo' ? prop(v.target) : null;
-    rows.push(['Voto', v.phase === 'ciclo' ? 'Ciclo' : 'Centro', v.phase === 'ciclo' ? cyc(v.cycleId)?.name : '', v.phase === 'ciclo' ? catLabel(cyc(v.cycleId), v.cat) : 'Finalista', p?.code || '', p ? propTitle(p) : prop(finalist(v.target).parts.nombre)?.text + ' (' + cyc(v.target)?.name + ')', '', '', '', '', cls(v.classId)?.name, fmtFecha(v.ts), v.annulled ? `Anulado ${fmtFecha(v.annulTs)}: ${v.annulReason}` : v.simulated ? 'Válido (prueba)' : 'Válido']);
+    rows.push(['Voto', v.phase === 'ciclo' ? 'Ciclo' : 'Centro', v.phase === 'ciclo' ? cyc(v.cycleId)?.name : '', v.phase === 'ciclo' ? catLabel(cyc(v.cycleId), v.cat) : 'Finalista', p?.code || '', p ? propTitle(p) : prop(finalist(v.target).parts.nombre)?.text + ' (' + cyc(v.target)?.name + ')', '', '', `${pesoVoto(v)} puntos`, '', actorName(v), fmtFecha(v.ts), v.annulled ? `Anulado ${fmtFecha(v.annulTs)}: ${v.annulReason}` : v.simulated ? 'Válido (prueba)' : 'Válido']);
   });
   S.tiebreaks.forEach(t => rows.push(['Desempate', t.phase === 'ciclo' ? 'Ciclo' : 'Centro', t.phase === 'ciclo' ? cyc(t.scope)?.name : '', t.cat, t.phase === 'ciclo' ? prop(t.target)?.code : '', t.phase === 'ciclo' ? propTitle(prop(t.target)) : cyc(t.target)?.name, '', '', '', t.note, '', fmtFecha(t.ts), t.revoked ? 'Deshecho' : 'Vigente']));
   download('alas-de-igualdad-resultados.csv', '﻿' + rows.map(r => r.map(csvCell).join(';')).join('\r\n'), 'text/csv;charset=utf-8');
@@ -2132,7 +2285,7 @@ ACT['print-acta'] = () => {
     cycleCats(c).forEach(cat => {
       const r = result('ciclo', c.id, cat);
       h += `<p><b>${esc(catLabel(c, cat, true))}</b>: ${r.status === 'ganadora' ? 'ganadora ' + esc(prop(r.id).code) : r.status === 'desempate' ? 'ganadora ' + esc(prop(r.id).code) + ' — ' + esc(r.tb.note) : r.status === 'empate' ? 'empate sin resolver' : 'sin votos'}</p>`;
-      h += tbl(['Código', 'Propuesta', 'Clase', 'Autoría', 'Votos', 'Votada por'], r.rows.map(x => { const p = prop(x.id); return [esc(p.code), esc(propTitle(p)), esc(cls(p.classId)?.name), esc(authorsText(p)), x.n, esc(x.classIds.map(id => cls(id)?.name).join(', '))]; }));
+      h += tbl(['Código', 'Propuesta', 'Clase', 'Autoría', 'Puntos', 'Votada por'], r.rows.map(x => { const p = prop(x.id); return [esc(p.code), esc(propTitle(p)), esc(cls(p.classId)?.name), esc(authorsText(p)), x.n, esc(quienVoto(x))]; }));
     });
   });
   h += '<h2>2. Finalistas</h2>' + tbl(['Ciclo', 'Dibujo', 'Nombre', 'Lema / historia', 'Autorías'], allFinalists().map(f => {
@@ -2144,14 +2297,14 @@ ACT['print-acta'] = () => {
   if (S.phase.centro === 'prep') h += '<p>No iniciada.</p>';
   else {
     const r = result('centro', 'CENTRO', 'finalista');
-    h += tbl(['Finalista', 'Ciclo', 'Votos', 'Votada por', 'Resultado'], r.rows.map(x => [esc(prop(finalist(x.id).parts.nombre)?.text), esc(cyc(x.id).name), x.n, esc(x.classIds.map(id => cls(id)?.name).join(', ')), r.id === x.id ? '<b>MASCOTA OFICIAL</b>' : 'Pandilla']));
+    h += tbl(['Finalista', 'Ciclo', 'Puntos', 'Votada por', 'Resultado'], r.rows.map(x => [esc(prop(finalist(x.id).parts.nombre)?.text), esc(cyc(x.id).name), x.n, esc(quienVoto(x)), r.id === x.id ? '<b>MASCOTA OFICIAL</b>' : 'Pandilla']));
     if (r.status === 'desempate') h += `<p>${esc(r.tb.note)} (${fmtFecha(r.tb.ts)}).</p>`;
     if (r.status === 'empate') h += '<p><b>Empate sin resolver.</b></p>';
     h += `<p>Estado: ${S.phase.centro === 'closed' ? 'cerrada el ' + fmtFecha(S.centroClosedTs) : 'ABIERTA'}.</p>`;
   }
   const anul = S.votes.filter(v => v.annulled);
   h += '<h2>4. Anulaciones y desempates</h2>';
-  h += anul.length ? tbl(['Fecha', 'Clase', 'Fase', 'Motivo'], anul.map(v => [fmtFecha(v.annulTs), esc(cls(v.classId)?.name), v.phase, esc(v.annulReason)])) : '<p>Ninguna anulación.</p>';
+  h += anul.length ? tbl(['Fecha', 'Clase', 'Fase', 'Motivo'], anul.map(v => [fmtFecha(v.annulTs), esc(actorName(v)), v.phase, esc(v.annulReason)])) : '<p>Ninguna anulación.</p>';
   const tbs = S.tiebreaks.filter(t => !t.revoked);
   h += tbs.length ? tbl(['Fecha', 'Fase', 'Ganadora', 'Nota'], tbs.map(t => [fmtFecha(t.ts), t.phase === 'ciclo' ? esc(cyc(t.scope)?.name + ' · ' + catLabel(cyc(t.scope), t.cat)) : 'Centro', t.phase === 'ciclo' ? esc(prop(t.target)?.code) : esc(cyc(t.target)?.name), esc(t.note)])) : '<p>Ningún desempate.</p>';
   if (S.votes.some(v => v.simulated)) h += '<p><b>Atención:</b> hay votos de prueba (simulados) en estos datos.</p>';
