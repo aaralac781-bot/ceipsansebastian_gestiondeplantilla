@@ -403,7 +403,7 @@ function authorsText(p) {
 function propTitle(p) {
   if (!p) return '';
   if (p.type === 'dibujo') return `Dibujo ${p.code}`;
-  if (p.type === 'historia') return p.title || (p.text ? p.text.slice(0, 50) + '…' : `Cómic ${p.code}`);
+  if (p.type === 'historia') return p.title || (p.text ? p.text.slice(0, 50) + '…' : `Historia o cómic ${p.code}`);
   return p.text;
 }
 function altOf(p, i = 0) {
@@ -538,7 +538,7 @@ function finalistCard(f, opts = {}) {
   }
   const d = prop(f.parts.dibujo), n = prop(f.parts.nombre), t = f.parts.texto ? prop(f.parts.texto) : null;
   const textoHtml = t ? (t.type === 'lema' ? `<div class="fin-lema">«${esc(t.text)}»</div>` :
-    `<div class="center"><div class="hist-title">${esc(t.title || 'Historia')}</div><span class="btn btn-sm" data-act="lb" data-id="${t.id}" role="button" tabindex="0">📖 ${t.images.length ? 'Ver cómic' : 'Leer historia'}</span></div>`) : '';
+    `<div class="center">${t.images[0] ? `<div class="img-wrap" data-act="lb" data-id="${t.id}" role="button" tabindex="0" aria-label="Ver la historia o cómic" style="aspect-ratio:4/3;margin-bottom:.4rem">${imgTag(t.images[0], altOf(t))}</div>` : ''}<div class="hist-title">${esc(t.title || 'Historia o cómic')}</div><span class="btn btn-sm" data-act="lb" data-id="${t.id}" role="button" tabindex="0">📖 ${t.images.length ? 'Ver cómic' : 'Leer historia'}</span></div>`) : '';
   const aut = [[catLabel(c, 'dibujo'), d], [catLabel(c, 'nombre'), n], t ? [catLabel(c, 'texto'), t] : null].filter(Boolean)
     .map(([l, p]) => `<div><b>${esc(l)}</b> (${esc(p.code)}): ${esc(authorsText(p))}</div>`).join('');
   return `<article class="card finalista ${opts.winner ? 'ganadora' : ''} ${opts.cls || ''}" style="--c:${esc(c.color)}">
@@ -676,7 +676,7 @@ VIEWS.inicio = () => {
 
   <h2 class="section-title">Nuestros valores <span class="bar"></span></h2>
   <div class="valores">
-    ${[['⚖️', 'Igualdad', 'Las mismas oportunidades para todas y todos.'], ['🤝', 'Corresponsabilidad', 'Cuidar y repartir las tareas entre todos.'], ['💛', 'Respeto', 'Escuchar y valorar a cada persona.'], ['🌿', 'Naturaleza', 'Amar y proteger nuestro entorno.'], ['🏡', 'Convivencia', 'Vivir juntos en un cole donde caben todos.']]
+    ${[['⚖️', 'Igualdad', 'Las mismas oportunidades para todas y todos.'], ['🤝', 'Corresponsabilidad', 'Cuidar y repartir las tareas entre todas y todos.'], ['💛', 'Respeto', 'Escuchar y valorar a cada persona.'], ['🌿', 'Naturaleza', 'Amar y proteger nuestro entorno.'], ['🏡', 'Convivencia', 'Convivir en un cole donde cabemos todas y todos.']]
       .map(([i, t, d]) => `<div class="card valor"><span class="ico" aria-hidden="true">${i}</span><b>${t}</b><div class="small muted">${d}</div></div>`).join('')}
   </div>
 
@@ -783,7 +783,7 @@ function voteView(phase) {
       return `<div><h3>${CAT_ICON[cat]} ${esc(catLabel(c, cat))}</h3>${propCard(prop(V.choices[cat]), { noCycle: true, hideAuthors: true })}</div>`;
     }).join('');
     return head + `<div class="row between"><h2 style="margin:0">${esc(k.name)}</h2>${cancel}</div>${stepsBar()}
-      <div class="card"><h2>¿Es este vuestro voto?</h2><p>Revisad bien lo que habéis elegido. Una vez registrado, solo un docente puede anularlo.</p></div>
+      <div class="card"><h2>¿Es este vuestro voto?</h2><p>Revisad bien lo que habéis elegido. Una vez registrado, solo la dirección puede anularlo.</p></div>
       <div class="grid g3" style="margin-top:1rem">${resumen}</div>
       <div class="vote-bar row between"><button data-act="v-prev">← Cambiar algo</button>
       <button class="btn-primary btn-grande" data-act="v-confirm">✔ Confirmar y registrar el voto</button></div>`;
@@ -997,7 +997,7 @@ VIEWS.resultados = args => {
 function hiddenBox(votadas, total, phase) {
   return `<div class="oculto"><div class="ico">🤫</div><h2>Recuento oculto hasta el cierre</h2>
     <p>Así no influimos en las clases que todavía no han votado.<br><b>${votadas} de ${total}</b> clases han votado. <a href="#/seguimiento">Ver seguimiento</a></p>
-    <p class="small muted">El recuento aparecerá cuando un docente pulse «Cerrar votación» en el Panel docente.</p></div>`;
+    <p class="small muted">El recuento aparecerá cuando la dirección pulse «Cerrar votación».</p></div>`;
 }
 function whoVotedTable(phase, ks, cats, c) {
   return `<h2 class="section-title">📋 Qué votó cada clase <span class="bar"></span></h2><div class="card table-wrap"><table>
@@ -1045,7 +1045,7 @@ VIEWS.final = () => {
       <div style="max-width:420px;width:100%">${finalistCard(win, { winner: true, badge: '<span class="chip ok">👑 Mascota Oficial</span>' })}</div>
       <h2>La Pandilla</h2>
       <div class="pandilla">${pandilla.map((f, i) => `<div style="animation-delay:${0.3 + i * 0.5}s">${finalistCard(f, { badge: '<span class="chip">Pandilla</span>' })}</div>`).join('')}</div>
-      <p class="note">Igualdad, corresponsabilidad, respeto, naturaleza y convivencia: ¡todas volamos juntas!</p>${ctrl}</div>`;
+      <p class="note">Igualdad, corresponsabilidad, respeto, naturaleza y convivencia: ¡volamos juntas y juntos!</p>${ctrl}</div>`;
 };
 VIEWS.final.after = () => {
   if (FINAL.step === 1) {
@@ -1108,7 +1108,7 @@ VIEWS.ayuda = () => `<h1>Ayuda para el profesorado</h1>
       <li>La maestra o el maestro abre <a href="#/votar">Votar</a> en la pizarra y elige su clase (con el código, si su cuenta no está asignada a la clase).</li>
       <li>Se elige en tres pasos: <b>dibujo → nombre → lema o historia</b>.</li>
       <li>En la pantalla final se revisa todo y se pulsa «Confirmar y registrar el voto».</li>
-      <li>Si hay un error, un docente puede <b>anular</b> el voto en Panel → Votos, indicando el motivo. La clase podrá votar de nuevo esa categoría.</li>
+      <li>Si hay un error, la dirección puede <b>anular</b> el voto en Panel → Votos, indicando el motivo. La clase podrá votar de nuevo esa categoría.</li>
     </ol></div>
   <div class="card stack"><h2>4. Cerrar una fase</h2>
     <ol>
@@ -1200,10 +1200,10 @@ PANEL.carga = () => {
     if (sl.type === 'dibujo' || sl.type === 'historia') {
       body += `<div class="thumbs">${sl.images.map((src, j) => `<figure>${imgTag(src, 'Imagen ' + (j + 1))}<button type="button" class="btn-peligro" data-act="cq-img-del" data-i="${i}" data-j="${j}" aria-label="Quitar imagen">✕</button>
         <button type="button" class="btn-sm" data-act="cq-rot" data-i="${i}" data-j="${j}" style="position:static;width:auto;height:auto;border-radius:10px;margin-top:4px;padding:.2rem .5rem">↻ Girar</button></figure>`).join('')}</div>`;
-      if (sl.type === 'historia' || !sl.images.length) body += `<label class="btn foto-btn">📷 ${sl.type === 'dibujo' ? 'Hacer foto o elegir imagen' : 'Añadir páginas del cómic'}<input type="file" accept="image/*" ${sl.type === 'historia' ? 'multiple' : ''} data-chg="cq-file" data-i="${i}" hidden></label>`;
+      if (sl.type === 'historia' || !sl.images.length) body += `<label class="btn foto-btn">📷 ${sl.type === 'dibujo' ? 'Hacer foto o elegir imagen' : 'Hacer foto o elegir las páginas (una foto por página)'}<input type="file" accept="image/*" ${sl.type === 'historia' ? 'multiple' : ''} data-chg="cq-file" data-i="${i}" hidden></label>`;
     }
-    if (sl.type === 'historia') body += `<label>Título</label><input data-cq="${i}" data-f="title" value="${esc(sl.title)}" maxlength="120">
-      <label>Texto de la historia <span class="small muted">(si es un cómic, basta con las fotos)</span></label><textarea data-cq="${i}" data-f="text" maxlength="20000">${esc(sl.text)}</textarea>`;
+    if (sl.type === 'historia') body += `<label>Título <span class="small muted">(opcional)</span></label><input data-cq="${i}" data-f="title" value="${esc(sl.title)}" maxlength="120">
+      <label>Texto <span class="small muted">(opcional: con las fotos de las páginas es suficiente)</span></label><textarea data-cq="${i}" data-f="text" maxlength="20000">${esc(sl.text)}</textarea>`;
     if (sl.type === 'nombre' || sl.type === 'lema') body += `<label>${sl.type === 'nombre' ? 'Nombre propuesto' : esc(c.textoLabel || 'Lema')}</label><input class="cq-texto" data-cq="${i}" data-f="text" value="${esc(sl.text)}" maxlength="${sl.type === 'nombre' ? 60 : 200}">`;
     body += `<label>Autoría <span class="small muted">(nombres separados por comas)</span></label><input data-cq="${i}" data-f="authors" value="${esc(sl.authors)}" placeholder="Ej.: Nombre Apellido, Nombre Apellido" ${sl.whole ? 'disabled' : ''}>
       <label class="check"><input type="checkbox" data-cq="${i}" data-f="whole" data-chg="cq-whole" ${sl.whole ? 'checked' : ''}> Toda la clase</label>`;
@@ -1245,18 +1245,18 @@ ACT['cq-add'] = el => {
   CQ.dirty = true; rerender();
 };
 CHG['cq-whole'] = () => { CQ.dirty = true; redrawCQ(); };
-async function leerFotos(files) {
+async function leerFotos(files, max = 1400) {
   const out = [];
   for (const [i, f] of [...files].entries()) {
     setBusy(`Preparando foto ${i + 1} de ${files.length}…`);
-    try { out.push(await fileToDataURL(f)); } catch (e) { console.error(e); toast(`No se ha podido preparar «${f.name}»: ${e.message}.`, 'error'); }
+    try { out.push(await fileToDataURL(f, max)); } catch (e) { console.error(e); toast(`No se ha podido preparar «${f.name}»: ${e.message}.`, 'error'); }
   }
   setBusy('');
   return out;
 }
 CHG['cq-file'] = async el => {
   readCQ();
-  const sl = CQ.slots[+el.dataset.i], fotos = await leerFotos(el.files);
+  const sl = CQ.slots[+el.dataset.i], fotos = await leerFotos(el.files, sl.type === 'historia' ? 2000 : 1400);
   if (sl.type === 'dibujo') sl.images = fotos.slice(0, 1); else sl.images.push(...fotos);
   CQ.dirty = true; rerender();
 };
@@ -1446,7 +1446,7 @@ function drawEditor() {
     ${p.type === 'historia' ? `<label for="ed-title">Título de la historia o cómic</label><input id="ed-title" value="${esc(p.title)}" maxlength="120">` : ''}
     ${needText ? `<label for="ed-text">${p.type === 'nombre' ? 'Nombre propuesto' : p.type === 'lema' ? 'Lema' : 'Texto de la historia (opcional si subes el cómic en imágenes)'}</label>
       ${p.type === 'historia' ? `<textarea id="ed-text" maxlength="20000">${esc(p.text)}</textarea>` : `<input id="ed-text" value="${esc(p.text)}" maxlength="${p.type === 'nombre' ? 60 : 200}">`}` : ''}
-    ${needImg ? `<label>${p.type === 'dibujo' ? 'Imagen del dibujo' : 'Páginas del cómic (imágenes)'}</label>
+    ${needImg ? `<label>${p.type === 'dibujo' ? 'Imagen del dibujo' : 'Fotos de la historia o cómic (una por página)'}</label>
       <div class="thumbs">${p.images.map((src, i) => `<figure>${imgTag(src, `Imagen ${i + 1}`)}<button type="button" class="btn-peligro" data-act="ed-img-del" data-i="${i}" aria-label="Quitar imagen ${i + 1}">✕</button></figure>`).join('')}</div>
       ${p.type === 'dibujo' && p.images.length ? '' : `<input type="file" accept="image/*" ${p.type === 'historia' ? 'multiple' : ''} data-chg="ed-files" aria-label="Subir imagen">`}
       <p class="small muted">Foto o escaneo en JPG o PNG. Se reduce automáticamente.</p>
@@ -1480,7 +1480,7 @@ CHG['ed-files'] = async el => {
   readEditor();
   const files = [...el.files];
   for (const f of files) {
-    try { ED.images.push(await fileToDataURL(f)); }
+    try { ED.images.push(await fileToDataURL(f, ED.type === 'historia' ? 2000 : 1400)); }
     catch (e) { console.error(e); toast(`No se ha podido preparar «${f.name}»: ${e.message}.`, 'error'); }
     if (ED.type === 'dibujo') break;
   }
@@ -1863,7 +1863,7 @@ async function cartelTextos(cycleId) {
     if (textos.length) {
       c.fillStyle = '#26352C'; c.font = `700 ${Math.round(46 * k)}px ${F_TIT}`; c.fillText(`💬 ${catLabel(cy, 'texto', true)}`, CW / 2, y); y += 20 * k;
       c.font = `600 ${Math.round(46 * k)}px ${F_MANO}`; c.fillStyle = '#7A4E8E';
-      textos.forEach(p => { const t = p.type === 'historia' ? (p.title || 'Historia') : `«${p.text}»`; partir(c, t, CW - 160).forEach(l => { y += 52 * k; c.fillText(l, CW / 2, y); }); y += 18 * k; });
+      textos.forEach(p => { const t = p.type === 'historia' ? (p.title || `Historia o cómic de ${cls(p.classId)?.name || ''}`) : `«${p.text}»`; partir(c, t, CW - 160).forEach(l => { y += 52 * k; c.fillText(l, CW / 2, y); }); y += 18 * k; });
     }
     if (y < CH - 150) break;
   }

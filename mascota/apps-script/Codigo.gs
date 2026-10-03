@@ -19,7 +19,7 @@ function mascCatLabel(c, cat) {
 function mascPropTitle(p) {
   if (!p) return '';
   if (p.type === 'dibujo') return 'Dibujo ' + p.code;
-  if (p.type === 'historia') return p.title || (p.text ? p.text.slice(0, 50) + '…' : 'Cómic ' + p.code);
+  if (p.type === 'historia') return p.title || (p.text ? p.text.slice(0, 50) + '…' : 'Historia o cómic ' + p.code);
   return p.text;
 }
 

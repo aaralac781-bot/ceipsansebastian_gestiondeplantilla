@@ -17,13 +17,13 @@
 
   const NOMBRES_MASCOTA = ['Garzi', 'Alita', 'Plumi', 'Iguali', 'Garcilla', 'Doñanita', 'Lucera', 'Nubi', 'Brisa', 'Marisma', 'Pluma', 'Celeste', 'Juncia',
     'Vuela', 'Arena', 'Garzón', 'Tita', 'Arcoíris', 'Sebi', 'Libélula', 'Riberita', 'Estrella', 'Pío', 'Albita', 'Lunera', 'Plumita', 'Dehesa', 'Sol', 'Garzalia', 'Volandera'];
-  const LEMAS = ['Juntas y juntos volamos más alto', 'En mi cole, las alas son de todos', 'Cuidamos el nido entre todos', 'Igualdad en cada pluma',
-    'Compartir es volar', 'Del río al cole: alas para la igualdad', 'Si nos turnamos, todos crecemos', 'Respeto en la tierra, igualdad en el cielo',
-    'Mismas alas, mismos sueños', 'Una garza, mil colores', 'Cuidar es cosa de todas y todos', 'Brillamos juntos como estrellas'];
+  const LEMAS = ['Juntas y juntos volamos más alto', 'En mi cole, las alas son de todas y todos', 'Cuidamos el nido entre todas y todos', 'Igualdad en cada pluma',
+    'Compartir es volar', 'Del río al cole: alas para la igualdad', 'Si nos turnamos, crecemos todas y todos', 'Respeto en la tierra, igualdad en el cielo',
+    'Mismas alas, mismos sueños', 'Una garza, mil colores', 'Cuidar es cosa de todas y todos', 'Brillamos juntas y juntos como estrellas'];
   const HISTORIAS = [
     ['La garza que repartía las tareas', 'En la Dehesa de Abajo vivían dos garzas, Brisa y Junco. Cuando llegó la primavera decidieron construir un nido.\n\n—Tú traes ramitas y yo las coloco —dijo Brisa.\n—Y mañana cambiamos —respondió Junco.\n\nAsí, día tras día, las dos aprendieron a hacer de todo. Cuando nacieron sus crías, las dos sabían darles de comer, protegerlas de la lluvia y enseñarles a volar. Y las crías aprendieron que cuidar es cosa de todas y todos.'],
-    ['El nido de todos', 'Una tormenta rompió el nido de una garza joven. Las garzas vecinas, grandes y pequeñas, volaron a ayudarla. Unas trajeron juncos, otras barro, otras plumas suaves.\n\nAl final el nido quedó más bonito que nunca, porque estaba hecho con un poquito de cada una. Desde entonces, en la marisma dicen: «Ningún nido se construye con un solo pico».'],
-    ['Plumi y el río', 'Plumi era una garza que no sabía pescar. Sus compañeros no se rieron: le enseñaron, cada uno a su manera. Uno le mostró a esperar quieta, otra a mirar el reflejo del agua.\n\nCuando Plumi pescó su primer pez, lo compartió con todos. Aprendió que nadie sabe todo y que juntos sabemos mucho.'],
+    ['El nido de todas', 'Una tormenta rompió el nido de una garza joven. Las garzas vecinas, grandes y pequeñas, volaron a ayudarla. Unas trajeron juncos, otras barro, otras plumas suaves.\n\nAl final el nido quedó más bonito que nunca, porque estaba hecho con un poquito de cada una. Desde entonces, en la marisma dicen: «Ningún nido se construye con un solo pico».'],
+    ['Plumi y el río', 'Plumi era una garza que no sabía pescar. Sus compañeras y compañeros no se rieron: le enseñaron, cada cual a su manera. Una le mostró a esperar quieta, otro a mirar el reflejo del agua.\n\nCuando Plumi pescó su primer pez, lo compartió con toda la bandada. Aprendió que nadie lo sabe todo y que juntas y juntos sabemos mucho.'],
     ['El turno de la luna', 'Las garzas de Doñana se turnan para vigilar los huevos. Una noche, a Lunera le tocaba descansar, pero vio a su compañero muy cansado.\n\n—Hoy me quedo yo un ratito más —le dijo.\n\nAl día siguiente él hizo lo mismo por ella. Así descubrieron que la corresponsabilidad es cuidarse también el uno al otro.']
   ];
 
@@ -82,7 +82,7 @@ ${etiqueta ? `<text x="160" y="309" text-anchor="middle" font-family="Caveat,'Co
     const svg = `<svg xmlns="${SVGNS}" viewBox="0 0 330 160"><rect width="330" height="160" fill="#FBF6EA"/>
 ${panel(0, `<ellipse cx="55" cy="105" rx="34" ry="10" fill="#8B5E3C"/>${mini(34, 50, c)}${mini(76, 50, '#2F6C8F')}`, 'Hacemos el nido juntas')}
 ${panel(110, `<ellipse cx="55" cy="104" rx="30" ry="9" fill="#8B5E3C"/><ellipse cx="55" cy="90" rx="13" ry="16" fill="#F6F0E2" stroke="${INK}" stroke-width="2"/><path d="M55 40c-8-10-22 0 0 16 22-16 8-26 0-16z" fill="#D9534F"/>`, 'Nos turnamos para cuidar')}
-${panel(220, `<circle cx="80" cy="30" r="12" fill="#F2C46B"/>${mini(40, 52, c)}<path d="M70 92q10-12 20 0" stroke="${INK}" stroke-width="2" fill="none"/>`, '¡Y todos aprendemos a volar!')}
+${panel(220, `<circle cx="80" cy="30" r="12" fill="#F2C46B"/>${mini(40, 52, c)}<path d="M70 92q10-12 20 0" stroke="${INK}" stroke-width="2" fill="none"/>`, '¡Y aprendemos a volar!')}
 </svg>`;
     return svgURL(svg);
   }
