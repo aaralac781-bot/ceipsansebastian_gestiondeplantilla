@@ -233,10 +233,24 @@ const IMG = new Map(), IMGQ = new Map();
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const isRef = s => typeof s === 'string' && s.startsWith('drive:');
 const isNewImg = s => typeof s === 'string' && /^data:image\/(jpeg|png);base64,/.test(s);
+/* Las fotos de Drive se piden directamente a Google (la vista previa de Drive sirve un JPG que
+   cualquier navegador muestra). Si eso falla se prueban, por orden: otra dirección de Google,
+   la descarga a través de la app, un lienzo y, por último, un aviso visible. */
+const driveId = ref => ref.slice(6);
+const urlDrive = (ref, paso) => paso === 0 ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(driveId(ref))}&sz=w1600`
+  : `https://lh3.googleusercontent.com/d/${encodeURIComponent(driveId(ref))}=w1600`;
 function imgTag(ref, alt = '', attrs = '') {
   if (!isRef(ref)) return `<img src="${esc(ref)}" alt="${esc(alt)}" ${attrs}>`;
-  const src = IMG.get(ref);
-  return `<img src="${esc(src || BLANK)}" data-ref="${esc(ref)}" ${src ? 'data-ok="1"' : ''} alt="${esc(alt)}" ${attrs}>`;
+  const local = IMG.get(ref);
+  if (local) return `<img src="${esc(local)}" data-ref="${esc(ref)}" data-paso="2" data-ok="1" alt="${esc(alt)}" ${attrs}>`;
+  return `<img src="${esc(urlDrive(ref, 0))}" data-ref="${esc(ref)}" data-paso="0" referrerpolicy="no-referrer" alt="${esc(alt)}" ${attrs}>`;
+}
+/** Siguiente forma de cargar una foto de Drive cuando la anterior ha fallado. */
+function siguientePaso(img) {
+  const paso = +img.dataset.paso || 0, ref = img.dataset.ref;
+  if (paso === 0) { img.dataset.paso = '1'; img.src = urlDrive(ref, 1); return true; }
+  if (paso === 1) { img.dataset.paso = '2'; img.src = BLANK; delete img.dataset.ok; hydrateImgs(); return true; }
+  return false;
 }
 let imgActivas = 0; const imgEspera = [];
 function turnoImg(fn) {
@@ -278,14 +292,25 @@ async function rescatarImg(img) {
   } catch (e) {
     const aviso = document.createElement('div');
     aviso.className = 'img-rota'; aviso.setAttribute('role', 'img'); aviso.setAttribute('aria-label', alt);
-    aviso.innerHTML = '⚠️<b>Esta imagen no se puede mostrar</b>' + (isAdmin() ? '<span>Formato no compatible (¿foto HEIC de iPhone?). Vuelve a subirla en Carga rápida.</span>' : '');
+    let info = '';
+    try {
+      const tipo = (src.match(/^data:([^;]+)/) || [])[1] || '?', b64 = src.slice(src.indexOf(',') + 1);
+      const ini = atob(b64.slice(0, 16)), hex = [...ini].slice(0, 8).map(ch => ch.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+      info = `${tipo} · ${Math.round(b64.length * 0.75 / 1024)} KB · ${hex}`;
+    } catch (er) { /* sin datos */ }
+    aviso.innerHTML = '⚠️<b>Esta imagen no se puede mostrar</b>' + (isAdmin() ? `<span>Vuelve a subirla en Carga rápida.</span><small>${esc(info)}</small>` : '');
     img.replaceWith(aviso);
   }
 }
-document.addEventListener('error', e => { if (e.target?.tagName === 'IMG') rescatarImg(e.target); }, true);
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (img?.tagName !== 'IMG') return;
+  if (img.dataset.ref && siguientePaso(img)) return;
+  rescatarImg(img);
+}, true);
 
 function hydrateImgs() {
-  $$('img[data-ref]:not([data-ok])').forEach(img => {
+  $$('img[data-ref][data-paso="2"]:not([data-ok])').forEach(img => {
     img.dataset.ok = '0';
     const ref = img.dataset.ref;
     loadRef(ref).then(src => $$('img[data-ref]').filter(x => x.dataset.ref === ref).forEach(x => { ORIG.set(x, src); x.src = src; x.dataset.ok = '1'; }))
@@ -304,6 +329,8 @@ async function uploadPending(list, nombre = 'imagen') {
     n++; setBusy(`Subiendo imagen ${n} de ${total}…`);
     const r = await gsCall('mascApiSubirImagen', { dataUrl: src, nombre });
     if (!r.ref) throw new Error(r.error || 'No se ha podido subir la imagen.');
+    const esperado = Math.floor((src.length - src.indexOf(',') - 1) * 3 / 4) - (src.endsWith('==') ? 2 : src.endsWith('=') ? 1 : 0);
+    if (r.bytes && Math.abs(r.bytes - esperado) > 2) throw new Error(`la imagen llegó incompleta (${r.bytes} de ${esperado} bytes). Vuelve a intentarlo`);
     IMG.set(r.ref, src); Store.set('img:' + r.ref, src).catch(() => {});
     out.push(r.ref);
   }
@@ -2172,6 +2199,7 @@ async function bootRemote() {
     return;
   } finally { setBusy(''); }
   if (CLAVE && !r.user?.admin) guardarClave('');
+  if (r.user?.admin) gsCall('mascApiCompartirImagenes').catch(() => {});
   applyServer(r);
   setOnline(true);
   if (!r.state) {

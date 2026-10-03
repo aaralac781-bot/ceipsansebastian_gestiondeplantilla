@@ -351,8 +351,34 @@ function mascApiSubirImagen(json) {
   var m = /^data:(image\/[a-z+.-]+);base64,(.+)$/.exec(req.dataUrl || '');
   if (!m) return mascError_('Imagen no válida.');
   var nombre = String(req.nombre || 'imagen').replace(/[^\w.-]+/g, '_') + (m[1] === 'image/png' ? '.png' : '.jpg');
-  var f = mascCarpetaImagenes_().createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], nombre));
-  return JSON.stringify({ ref: 'drive:' + f.getId() });
+  var bytes = Utilities.base64Decode(m[2]);
+  var jpg = (bytes[0] & 255) === 0xFF && (bytes[1] & 255) === 0xD8, png = (bytes[0] & 255) === 0x89 && bytes[1] === 0x50;
+  if (!jpg && !png) return mascError_('El archivo recibido no es un JPG ni un PNG válido.');
+  var f = mascCarpetaImagenes_().createFile(Utilities.newBlob(bytes, jpg ? 'image/jpeg' : 'image/png', nombre));
+  mascCompartir_(f);
+  return JSON.stringify({ ref: 'drive:' + f.getId(), bytes: bytes.length });
+}
+
+/* Las fotos se comparten «con enlace, solo ver» para que el navegador las pida directamente a
+   Google Drive (más rápido y compatible con cualquier dispositivo). Sus enlaces no se pueden
+   adivinar y solo aparecen dentro de la app. Si el dominio no lo permite, se usa la descarga normal. */
+function mascCompartir_(f) {
+  try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); return 'enlace'; }
+  catch (e) {
+    try { f.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW); return 'dominio'; }
+    catch (e2) { return 'privado'; }
+  }
+}
+/** Comparte las fotos subidas antes de este cambio (se hace una sola vez). */
+function mascApiCompartirImagenes(json) {
+  mascReq_(json);
+  var p = mascProps_();
+  if (p.getProperty('MASC_COMPARTIDAS') === '1') return JSON.stringify({ ok: true, hecho: true });
+  if (!mascEsAdmin_(mascLeer_(), mascEmail_())) return mascError_('Solo la dirección.');
+  var it = mascCarpetaImagenes_().getFiles(), n = 0;
+  while (it.hasNext()) { mascCompartir_(it.next()); n++; }
+  p.setProperty('MASC_COMPARTIDAS', '1');
+  return JSON.stringify({ ok: true, n: n });
 }
 
 /** Devuelve una imagen de la carpeta del concurso (y solo de esa carpeta). */
