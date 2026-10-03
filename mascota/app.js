@@ -260,12 +260,36 @@ function loadRef(ref) {
   })().catch(e => { IMGQ.delete(ref); throw e; }));
   return IMGQ.get(ref);
 }
+/* Rescate de imágenes: si el navegador no muestra una imagen, se pinta en un lienzo;
+   si ni así es posible, se avisa en su lugar para poder volver a subirla. */
+const ORIG = new WeakMap();
+async function rescatarImg(img) {
+  const src = ORIG.get(img) || img.getAttribute('src') || '';
+  if (!src || src === BLANK || !src.startsWith('data:image/') || img.dataset.rescate) return;
+  img.dataset.rescate = '1';
+  const alt = img.getAttribute('alt') || '';
+  try {
+    const bm = await createImageBitmap(dataUrlToBlob(src));
+    const cv = document.createElement('canvas');
+    cv.width = bm.width; cv.height = bm.height; cv.getContext('2d').drawImage(bm, 0, 0);
+    cv.className = (img.className + ' img-rescate').trim(); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', alt);
+    if (img.dataset.ref) cv.dataset.ref = img.dataset.ref;
+    img.replaceWith(cv);
+  } catch (e) {
+    const aviso = document.createElement('div');
+    aviso.className = 'img-rota'; aviso.setAttribute('role', 'img'); aviso.setAttribute('aria-label', alt);
+    aviso.innerHTML = '⚠️<b>Esta imagen no se puede mostrar</b>' + (isAdmin() ? '<span>Formato no compatible (¿foto HEIC de iPhone?). Vuelve a subirla en Carga rápida.</span>' : '');
+    img.replaceWith(aviso);
+  }
+}
+document.addEventListener('error', e => { if (e.target?.tagName === 'IMG') rescatarImg(e.target); }, true);
+
 function hydrateImgs() {
   $$('img[data-ref]:not([data-ok])').forEach(img => {
     img.dataset.ok = '0';
     const ref = img.dataset.ref;
-    loadRef(ref).then(src => $$('img[data-ref]').filter(x => x.dataset.ref === ref).forEach(x => { x.src = src; x.dataset.ok = '1'; }))
-      .catch(() => { img.alt = 'No se ha podido cargar la imagen'; delete img.dataset.ok; });
+    loadRef(ref).then(src => $$('img[data-ref]').filter(x => x.dataset.ref === ref).forEach(x => { ORIG.set(x, src); x.src = src; x.dataset.ok = '1'; }))
+      .catch(e => { img.alt = 'No se ha podido cargar la imagen: ' + (e?.message || ''); img.title = img.alt; delete img.dataset.ok; });
   });
 }
 new MutationObserver(() => { cancelAnimationFrame(hydrateImgs.raf); hydrateImgs.raf = requestAnimationFrame(hydrateImgs); })
@@ -1562,15 +1586,39 @@ function lienzoDesde(img, max, girar = false) {
 function leerArchivo(file) {
   return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(fr.error || new Error('no se puede leer el archivo')); fr.readAsDataURL(file); });
 }
+/** Mira los primeros bytes: el nombre (.png, .jpg) puede engañar. */
+async function tipoReal(file) {
+  try {
+    const b = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    const txt = String.fromCharCode(...b);
+    if (txt.slice(4, 8) === 'ftyp' && /hei|hev|mif1|msf1|avif/.test(txt.slice(8, 12))) return 'heic';
+    if (txt.startsWith('%PDF')) return 'pdf';
+    if (b[0] === 0x89 && txt.slice(1, 4) === 'PNG') return 'png';
+    if (b[0] === 0xFF && b[1] === 0xD8) return 'jpg';
+    if (txt.startsWith('RIFF') && txt.slice(8, 12) === 'WEBP') return 'webp';
+    if (txt.startsWith('GIF8')) return 'gif';
+  } catch (e) { /* sin lectura parcial */ }
+  return 'otro';
+}
 async function fileToDataURL(file, max = 1400) {
-  if (/heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name)) throw new Error('es una foto HEIC de iPhone. En el iPhone: Ajustes → Cámara → Formatos → «Más compatible», o envíatela por WhatsApp y súbela desde ahí');
+  const tipo = await tipoReal(file);
+  if (tipo === 'heic' || /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name))
+    throw new Error('es una foto de iPhone en formato HEIC (aunque el nombre termine en .png o .jpg) y este navegador no sabe abrirla. Solución: súbela desde Safari, o envíatela por WhatsApp y súbela desde ahí, o en el iPhone: Ajustes → Cámara → Formatos → «Más compatible»');
+  if (tipo === 'pdf') throw new Error('es un PDF, no una foto. Haz una foto o captura de pantalla del dibujo');
   const fallos = [];
   try { return lienzoDesde(await abrirImagen(file), max); } catch (e) { fallos.push(e.message); }
   let datos = null;
-  try { datos = await leerArchivo(file); return lienzoDesde(await cargarImagen(datos), max); } catch (e) { fallos.push(e.message); }
-  // Último recurso: el archivo tal cual, sin reducir, si es JPG o PNG y no pesa demasiado.
-  if (datos && /^data:image\/(jpeg|png);base64,/.test(datos) && file.size < 8e6) return datos;
-  throw new Error(fallos.filter(Boolean).join(' · ') || 'formato no reconocido');
+  try { datos = await leerArchivo(file); } catch (e) { fallos.push(e.message); }
+  if (datos) {
+    let img = null;
+    try { img = await cargarImagen(datos); } catch (e) { fallos.push(e.message); }
+    if (img) {
+      try { return lienzoDesde(img, max); } catch (e) { fallos.push(e.message); }
+      // El navegador la abre pero no deja convertirla: se sube tal cual (solo si se puede ver).
+      if (/^data:image\/(jpeg|png);base64,/.test(datos) && file.size < 8e6) return datos;
+    }
+  }
+  throw new Error('este navegador no puede abrir el archivo (' + (fallos.filter(Boolean)[0] || 'formato no reconocido') + '). Prueba a hacerle una captura de pantalla y subir la captura');
 }
 
 /* --- Clases --- */
