@@ -69,7 +69,7 @@ Además de las clases (su voto vale **2 puntos**), pueden votar personas (**1 pu
 
 | Quién | Votación de ciclo | Votación de centro | Cómo se identifica |
 |---|---|---|---|
-| Docentes | En su ciclo | Sí | Cuenta educaand (si se escribe su correo) o código personal |
+| Docentes | En su ciclo (los del Aula de las Estrellas, en todos los ciclos) | Sí | Cuenta educaand (si se escribe su correo) o código personal |
 | Familias del Consejo Escolar | No | Sí | Código personal |
 | PAS | No | Sí | Código personal |
 

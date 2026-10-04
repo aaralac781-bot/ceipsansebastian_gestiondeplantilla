@@ -52,19 +52,21 @@ function mascValidarVoto(st, req, auth) {
     return a.persona ? 'El código personal no es correcto.' : 'El código de la clase no es correcto.';
   var choices = req.choices || {}, cats = Object.keys(choices);
   if (!cats.length) return 'No se ha elegido nada.';
-  var yaVotado = function (phase, cat) {
-    return st.votes.some(function (v) { return !v.annulled && v.phase === phase && v.cat === cat && (a.persona ? v.voterId === a.id : v.classId === a.id); });
+  var yaVotado = function (phase, cat, cid) {
+    return st.votes.some(function (v) { return !v.annulled && v.phase === phase && v.cat === cat && (!cid || v.cycleId === cid) && (a.persona ? v.voterId === a.id : v.classId === a.id); });
   };
   if (req.phase === 'ciclo') {
     if (a.persona && a.kind !== 'docente') return 'En la votación de ciclo votan las clases y el profesorado. Las familias del Consejo Escolar y el PAS votáis en la votación de centro.';
-    var c = mascFind(st.cycles, a.cycleId);
-    if (!c || c.direct) return a.persona ? 'Tu ciclo no tiene votación de ciclo: podrás votar en la votación de centro.' : 'Esta clase no participa en la votación de ciclo.';
+    // El profesorado vota en su ciclo; el del Aula de las Estrellas (finalista directa) vota en todos los ciclos.
+    var cid = req.cycleId || a.cycleId, c = mascFind(st.cycles, cid), propio = mascFind(st.cycles, a.cycleId);
+    if (!c || c.direct) return a.persona ? 'Elige en qué ciclo vas a votar.' : 'Esta clase no participa en la votación de ciclo.';
+    if (a.persona ? !(a.cycleId === cid || (propio && propio.direct)) : cid !== a.cycleId) return a.persona ? 'Solo puedes votar en la votación de tu ciclo.' : 'Una clase solo vota en su ciclo.';
     if (st.phase.ciclo !== 'open' || c.closed) return 'La votación de ' + c.name + ' está cerrada.';
     var validas = mascCycleCats(c);
     for (var i = 0; i < cats.length; i++) {
       var cat = cats[i];
       if (validas.indexOf(cat) < 0) return 'Categoría no válida.';
-      if (yaVotado('ciclo', cat)) return a.name + ' ya ha votado en «' + mascCatLabel(c, cat) + '».';
+      if (yaVotado('ciclo', cat, c.id)) return a.name + ' ya ha votado en «' + mascCatLabel(c, cat) + '».';
       var p = mascFind(st.proposals, choices[cat]);
       if (!p) return 'No se encuentra la propuesta elegida.';
       var pk = mascFind(st.classes, p.classId);
@@ -82,7 +84,7 @@ function mascValidarVoto(st, req, auth) {
 
 /** Añade los votos y sus entradas de historial. meta = {ts, by, uid: función} */
 function mascAplicarVoto(st, req, meta) {
-  var a = mascActor(st, req), c = mascFind(st.cycles, a.cycleId);
+  var a = mascActor(st, req), c = mascFind(st.cycles, req.phase === 'ciclo' ? (req.cycleId || a.cycleId) : a.cycleId);
   var quien = a.persona ? a.name + ' (' + (MASC_TIPO_PERSONA[a.kind] || a.kind) + ')' : a.name;
   Object.keys(req.choices).forEach(function (cat) {
     var target = req.choices[cat];
