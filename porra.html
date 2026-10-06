@@ -312,10 +312,6 @@ var FRASES = {
     'Pronóstico recibido. Estado: ⏳ esperando a que sueltes la moneda. No me hagas ir a buscarte al recreo.',
     '¡Eso es tener fe! Ahora ten también un euro, que si no, no cuenta. 😉'
   ],
-  cambioPagado: [
-    'Cambio apuntado. Y como ya has pagado, todo en regla. ¡Así me gusta, fiera! ✅',
-    'Cambiado. Pagado. Perfecto. Eres el alumno ejemplar de esta porra. 🏅'
-  ],
   betisPierde: [
     '¿El Betis perdiendo? Te lo apunto… pero que sepas que te estoy mirando. 👀',
     '¿Que pierde el Betis? Esto lo hablamos tú y yo en el recreo. 😤'
@@ -562,19 +558,22 @@ function pintarJornada() {
 
 function tarjetaJornadaAbierta(j) {
   var mio = j.pronosticos.filter(function (p) { return p.mio; })[0];
+  var bloq = mio && mio.pagado ? ' disabled' : '';
   var h = '<div class="card">' + cabJornada(j) + '<form data-j="' + j.id + '">';
   j.partidos.forEach(function (p, i) {
     var g = mio ? mio.goles[i] : ['', ''];
     h += '<div class="partido"><div class="ptag"><span>' + esc(etiquetaPartido(p, i)) + '</span><span>' + esc(p.cuando || '') + '</span></div>' +
       '<div class="marcador"><div class="eq">' + escudo(p.local) + '<span class="nm">' + esc(p.local) + '</span></div>' +
-      '<div class="goles"><input name="l' + i + '" inputmode="numeric" pattern="\\d{1,2}" maxlength="2" value="' + esc(g[0]) + '" aria-label="Goles ' + esc(p.local) + '" required>' +
-      '<span class="guion">–</span><input name="v' + i + '" inputmode="numeric" pattern="\\d{1,2}" maxlength="2" value="' + esc(g[1]) + '" aria-label="Goles ' + esc(p.visitante) + '" required></div>' +
+      '<div class="goles"><input name="l' + i + '" inputmode="numeric" pattern="\\d{1,2}" maxlength="2" value="' + esc(g[0]) + '" aria-label="Goles ' + esc(p.local) + '" required' + bloq + '>' +
+      '<span class="guion">–</span><input name="v' + i + '" inputmode="numeric" pattern="\\d{1,2}" maxlength="2" value="' + esc(g[1]) + '" aria-label="Goles ' + esc(p.visitante) + '" required' + bloq + '></div>' +
       '<div class="eq">' + escudo(p.visitante) + '<span class="nm">' + esc(p.visitante) + '</span></div></div></div>';
   });
-  h += '<button class="btn" type="submit" style="width:100%;margin-top:4px">' + (mio ? '✏️ Cambiar mi pronóstico' : '🎯 ¡Me mojo! Guardar pronóstico') + '</button></form>';
+  if (!bloq) h += '<button class="btn" type="submit" style="width:100%;margin-top:4px">' + (mio ? '✏️ Cambiar mi pronóstico' : '🎯 ¡Me mojo! Guardar pronóstico') + '</button>';
+  h += '</form>';
+  if (mio && !bloq) h += '<p class="muted">✏️ Puedes cambiar tu pronóstico hasta las 12:30 horas del viernes (si aún no has pagado).</p>';
   if (mio) {
     h += mio.pagado
-      ? '<div class="estado ok">✅ Pronóstico <b>VÁLIDO</b>: Antonio ya tiene tu euro. Ahora, a rezar.</div>'
+      ? '<div class="estado ok">✅ Pronóstico <b>VÁLIDO</b> y 🔒 bloqueado: Antonio ya tiene tu euro, así que ya no se puede cambiar. Ahora, a rezar.</div>'
       : '<div class="estado pend">⏳ Pronóstico <b>PENDIENTE DE PAGO</b>. Hasta que no le des 1 € a Antonio no vale. Tienes hasta el ' + esc(fecha(j.cierre)) + '.</div>';
   }
   h += '<h3>👥 Participantes de esta jornada (' + j.pronosticos.length + ')</h3>';
@@ -633,16 +632,17 @@ function enviarPronostico(e) {
   apiUser('pronosticar', { jornadaId: jid, goles: goles }).then(function (r) {
     if (!r.ok) {
       if (r.code === 'duplicado') return antonioDice('¡Copión!', '<p>' + esc(frase('duplicado')) + '</p>');
+      if (r.code === 'pagado') { refrescar(); return antonioDice('¡Quieto ahí!', '<p>' + esc(r.error) + '</p><p>Lo pagado, pagado está, fiera. 😎</p>'); }
       if (r.code === 'cerrada') { refrescar(); return antonioDice('Tarde, tarde…', '<p>' + esc(frase('cerrada')) + '</p>'); }
       return antonioDice('Uy…', '<p>' + esc(r.error) + '</p>');
     }
     S.datos = r; pintarApp();
     var j = r.jornadas.filter(function (x) { return x.id === jid; })[0];
     var extras = comentariosPronostico(j, goles);
-    var principal = r.guardado.pagado ? frase('cambioPagado') : frase('sinPagar');
-    antonioDice(r.guardado.pagado ? '¡Apuntado!' : '¡Gracias, fiera!',
+    var principal = frase('sinPagar');
+    antonioDice('¡Gracias, fiera!',
       '<p>' + esc(principal) + '</p>' + extras.map(function (x) { return '<p>' + esc(x) + '</p>'; }).join('') +
-      (r.guardado.pagado ? '' : '<p class="muted">💶 Recuerda: 1 € a Antonio antes del ' + esc(fecha(j.cierre)) + '. Sin pago no hay premio.</p>'));
+      '<p class="muted">💶 Recuerda: 1 € a Antonio antes del ' + esc(fecha(j.cierre)) + '. Sin pago no hay premio. Puedes cambiar tu pronóstico hasta las 12:30 horas del viernes (si aún no has pagado).</p>');
   });
 }
 function comentariosPronostico(j, goles) {
@@ -702,7 +702,7 @@ function pintarNormas() {
     '<h3>1. Objetivo de la porra</h3><p>Para conseguir el premio de la jornada será necesario acertar exactamente el resultado de los tres partidos propuestos.</p>' +
     '<h3>2. Aportación semanal</h3><p>Cada participante deberá aportar 1 € semanalmente, que será entregado al maestro Antonio, encargado de recoger las participaciones y gestionar el bote. <b>En esta app: si Antonio no marca tu pronóstico como pagado, no es válido y no puede optar a premio.</b></p>' +
     '<h3>3. Pronósticos</h3><p>No podrán repetirse exactamente los resultados de los tres partidos entre diferentes participantes. Como máximo, podrán coincidir dos de los tres resultados pronosticados. <b>(La app no te dejará guardar un pronóstico idéntico al de otra persona: quien llega primero, se lo queda.)</b></p>' +
-    '<h3>4. Plazo de participación</h3><p>El último momento para entregar el euro y formalizar el pronóstico de cada jornada será el <b>viernes a las 12:30 horas</b>. Una vez alcanzada dicha hora, la porra quedará oficialmente cerrada y no se admitirán nuevas participaciones ni modificaciones en los pronósticos.</p>' +
+    '<h3>4. Plazo de participación</h3><p>El último momento para entregar el euro y formalizar el pronóstico de cada jornada será el <b>viernes a las 12:30 horas</b>. Una vez alcanzada dicha hora, la porra quedará oficialmente cerrada y no se admitirán nuevas participaciones ni modificaciones en los pronósticos.</p><p><b>✏️ Puedes cambiar tu pronóstico hasta las 12:30 horas del viernes (si aún no has pagado).</b> Cuando Antonio lo marca como pagado, queda bloqueado.</p>' +
     '<h3>5. Bote semanal</h3><p>Cuando ningún participante consiga acertar los tres resultados de una jornada, el importe acumulado permanecerá en el bote, que continuará incrementándose con las aportaciones de las semanas posteriores.</p>' +
     '<h3>6. Premio final en caso de que nadie acierte durante el curso</h3><p>Si al finalizar el curso ningún participante hubiera conseguido acertar los tres partidos de una jornada, el bote acumulado se repartirá entre los tres participantes que hayan obtenido el mayor número de aciertos de partidos durante toda la temporada:</p>' +
     '<ul><li>🥇 Primer clasificado: 50 % del bote.</li><li>🥈 Segundo clasificado: 30 % del bote.</li><li>🥉 Tercer clasificado: 20 % del bote.</li></ul>' +

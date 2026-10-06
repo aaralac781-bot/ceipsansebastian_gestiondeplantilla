@@ -317,6 +317,7 @@ var PorraCore = (function () {
       }
       var mio = null;
       db.pronosticos.forEach(function (p) { if (p.jornadaId === j.id && p.participanteId === yo.id) mio = p; });
+      if (mio && mio.pagado) return fallo('Tu pronóstico ya está pagado y bloqueado. Solo se puede cambiar hasta las 12:30 horas del viernes si aún no has pagado.', 'pagado');
       var nuevo = !mio;
       if (mio) { mio.goles = goles; mio.fecha = now.toISOString(); }
       else {

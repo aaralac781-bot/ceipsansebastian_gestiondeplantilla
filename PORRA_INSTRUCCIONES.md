@@ -70,7 +70,7 @@ Antonio entra en **🔒 Zona privada de Antonio** (abajo del todo, o con `porra.
 1. Abren el enlace y meten la **contraseña de la porra**.
 2. La primera vez pulsan **"Apuntarme por primera vez"**, escriben su nombre e inventan un **PIN de 4 números**. Con ese PIN entran desde cualquier móvil, y nadie más puede tocar su pronóstico.
 3. Rellenan los tres resultados y pulsan **"¡Me mojo!"**. Antonio les contesta: *"¡Gracias, fiera! Pero hasta que no me pagues el euro…"* 😄
-4. Pueden cambiar su pronóstico hasta el cierre (viernes a las 12:30).
+4. **Pueden cambiar su pronóstico hasta las 12:30 horas del viernes (si aún no han pagado).** Cuando Antonio lo marca como pagado, queda bloqueado. Si hay que corregir uno ya pagado, Antonio puede hacerlo desde *Añadir pronóstico a mano*.
 5. Los pronósticos de los demás son **secretos hasta el cierre**. Solo se ve quién ha jugado y quién ha pagado (💶 o ⏳).
 6. Pestañas: **Jornada**, **Clasificación** (con el bote y el reparto final si el curso acabara hoy), **Historial** y **Normas**.
 
