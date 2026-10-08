@@ -9,21 +9,37 @@
 
 var TABLAS = ['participantes', 'jornadas', 'pronosticos'];
 
+// Abre la web de la porra (archivo Index.html de este mismo proyecto).
 function doGet() {
-  return json_({ ok: true, msg: 'Porra CEIP San Sebastián funcionando. ¡Mucho Betis! 💚' });
+  try {
+    return HtmlService.createHtmlOutputFromFile('Index')
+      .setTitle('Porra CEIP San Sebastián')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+  } catch (e) {
+    return json_({ ok: true, msg: 'Porra CEIP San Sebastián funcionando. ¡Mucho Betis! 💚' });
+  }
 }
 
+// Llamadas desde Index.html (google.script.run).
+function api(texto) {
+  return JSON.stringify(procesar_(JSON.parse(texto || '{}')));
+}
+
+// Llamadas desde porra.html alojada fuera de Google (fetch POST).
 function doPost(e) {
+  return json_(procesar_(JSON.parse((e && e.postData && e.postData.contents) || '{}')));
+}
+
+function procesar_(req) {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     var db = cargar_();
     var out = PorraCore.handle(db, req, new Date());
     if (out.changed) guardar_(db);
-    return json_(out.res);
+    return out.res;
   } catch (err) {
-    return json_({ ok: false, error: 'Error del servidor: ' + err });
+    return { ok: false, error: 'Error del servidor: ' + err };
   } finally {
     lock.releaseLock();
   }

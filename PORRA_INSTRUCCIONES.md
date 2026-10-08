@@ -2,57 +2,50 @@
 
 App de la **Tercera Porra del CEIP San Sebastián**, organizada por Antonio Jiménez. 💚🤍
 
-## Archivos
+## ✅ Forma fácil: todo dentro de Google (2 archivos)
 
-| Archivo | Para qué sirve |
+En la carpeta `apps_script/` hay **dos archivos listos para copiar y pegar**. No hace falta GitHub ni pegar ninguna URL.
+
+| En el editor de Apps Script… | …pega el contenido de |
 |---|---|
-| `porra.html` | La aplicación (lo que abre el claustro en el móvil). |
-| `porra_core.js` | Las reglas de la porra: bote, pagos, duplicados, cierre, clasificación y reparto. |
-| `porra_apps_script.gs` | El "servidor" gratuito en Google, que guarda los datos en una Hoja de cálculo. |
-| `antonio_porra.png` | La foto de Antonio con la capa del Betis, sin fondo. |
-| `manifest-porra.json` | Para instalar la porra en el móvil como si fuera una app. |
+| **`Código.gs`** | `apps_script/Codigo.gs` |
+| **`Index.html`** | `apps_script/Index.html` |
 
-Sin conectarla a Google, la app funciona en **modo prueba**: los datos se guardan solo en el móvil u ordenador donde se usa. Sirve para trastear, pero no para jugar con todo el claustro. Para eso hay que hacer los pasos de abajo, que se hacen una sola vez y llevan unos 10 minutos.
+> 💡 Mejor con una **cuenta personal de Gmail**. Las cuentas `@g.educaand.es` no suelen dejar entrar a gente sin iniciar sesión.
+
+1. Abre la Hoja de la porra → **Extensiones → Apps Script**. Si no tienes ninguna, crea una hoja en blanco en <https://sheets.google.com> y luego haz esto.
+2. A la izquierda pulsa **`Código.gs`**. Selecciona todo (Ctrl+A), bórralo y pega **todo** `apps_script/Codigo.gs`.
+3. Pulsa **`Index.html`**. Selecciona todo (Ctrl+A), bórralo y pega **todo** `apps_script/Index.html`.
+   - Si no existe `Index.html`: pulsa **＋ → HTML** y llámalo exactamente `Index`.
+   - Si tienes otros archivos que no sean estos dos, bórralos (⋮ → Eliminar).
+4. Guarda (💾).
+5. En la barra de arriba, en el desplegable que está al lado de *Depuración*, elige **`configurarPorra`** y pulsa **▶ Ejecutar**. Acepta los permisos: *Revisar permisos → tu cuenta → Configuración avanzada → Ir a… → Permitir*. En la hoja aparecerán las pestañas `participantes`, `jornadas`, `pronosticos`, `config` y `escudos`.
+6. **Implementar**:
+   - Si es la primera vez: **Implementar → Nueva implementación → ⚙️ Aplicación web**. *Ejecutar como:* **Yo**. *Quién tiene acceso:* **Cualquier usuario**. Pulsa **Implementar**.
+   - Si ya estaba implementada: **Implementar → Gestionar implementaciones → ✏️ → Versión: Nueva versión → Implementar**.
+7. Copia la **URL de la aplicación web** (termina en `/exec`). **Ese es el enlace de la porra** que se manda al claustro.
+
+Cada vez que haya una versión nueva, se repiten los pasos 2, 3, 4 y 6 (el 6 con «Nueva versión»). Los datos no se pierden.
 
 ---
 
-## Paso 1 · Crear la "base de datos" (una Hoja de Google)
+## Otra forma: web en GitHub + servidor en Google
 
-> 💡 Mejor con una **cuenta personal de Gmail** (de Antonio o tuya). Las cuentas `@g.educaand.es` no suelen permitir que entre gente de fuera del dominio, y entonces no podría entrar nadie sin iniciar sesión.
+Los archivos sueltos de la raíz son para alojar la web en GitHub Pages:
 
-1. Entra en <https://sheets.google.com> y crea una hoja en blanco. Llámala **Porra CEIP San Sebastián**.
-2. En el menú: **Extensiones → Apps Script**.
-3. Se abre el editor con un archivo `Código.gs`. Borra lo que tenga y pega **todo** el contenido de `porra_apps_script.gs`.
-4. Pulsa **＋ (Añadir archivo) → Secuencia de comandos**, llámalo `porra_core` y pega **todo** el contenido de `porra_core.js`.
-5. Guarda (💾).
-6. Arriba, en el desplegable de funciones, elige **`configurarPorra`** y pulsa **▶ Ejecutar**. Google te pedirá permisos: *Revisar permisos → tu cuenta → Configuración avanzada → Ir a … (no seguro) → Permitir*. Es normal, porque el script es tuyo.
-   Al terminar verás en la hoja las pestañas `participantes`, `jornadas`, `pronosticos`, `config` y `escudos`.
+| Archivo | Para qué sirve |
+|---|---|
+| `porra.html` | La aplicación. |
+| `porra_core.js` | Las reglas: bote, pagos, duplicados, cierre, clasificación y reparto. |
+| `porra_apps_script.gs` | El servidor en Google. |
+| `antonio_porra.png` | La foto de Antonio, sin fondo. |
+| `manifest-porra.json` | Para instalarla en el móvil como app. |
 
-## Paso 2 · Publicarlo
+Pasos: en Apps Script crea `porra_core` con el contenido de `porra_core.js` y `Código.gs` con el de `porra_apps_script.gs`. Ejecuta `configurarPorra` e implementa como en la forma fácil. Después pega la URL `/exec` en `porra.html`, en la línea `var PORRA_API = '';`.
 
-1. En el editor de Apps Script: **Implementar → Nueva implementación**.
-2. En el engranaje ⚙️, elige el tipo **Aplicación web**.
-3. Rellena así:
-   - **Ejecutar como:** *Yo*
-   - **Quién tiene acceso:** *Cualquier usuario*
-4. Pulsa **Implementar** y **copia la URL**, que termina en `/exec`.
+Si no se conecta a Google, `porra.html` funciona en **modo prueba**: los datos se quedan solo en ese dispositivo.
 
-## Paso 3 · Pegar la URL en la app
-
-1. Abre `porra.html` (en GitHub: botón ✏️ *Edit*).
-2. Busca esta línea, que está casi al principio del bloque `<script>`:
-   ```js
-   var PORRA_API = '';
-   ```
-3. Pega la URL entre las comillas:
-   ```js
-   var PORRA_API = 'https://script.google.com/macros/s/AKfy..../exec';
-   ```
-4. Guarda (*Commit changes*). El aviso amarillo de "Modo prueba" desaparecerá.
-
-La porra queda en la misma web que la app de gestión:
-`https://aaralac781-bot.github.io/ceipsansebastian_gestiondeplantilla/porra.html`
-(si GitHub Pages publica la rama `main`, estos archivos tienen que estar en `main`).
+Para regenerar los dos archivos de `apps_script/` después de cambiar el código: `python3 apps_script/construir.py`.
 
 ## Paso 4 · Contraseñas (¡cámbialas!)
 
@@ -61,7 +54,7 @@ La porra queda en la misma web que la app de gestión:
 | Contraseña de la porra (para el claustro) | `betis` |
 | Contraseña de Antonio (zona privada) | `antonio1907` |
 
-Antonio entra en **🔒 Zona privada de Antonio** (abajo del todo, o con `porra.html#antonio`), va a **⚙️ Ajustes** y las cambia.
+Antonio entra en **🔒 Zona privada de Antonio** (enlace abajo del todo de la porra), va a **⚙️ Ajustes** y las cambia.
 
 ---
 
@@ -98,6 +91,6 @@ Antonio entra en **🔒 Zona privada de Antonio** (abajo del todo, o con `porra.
 
 ## ❓ Problemas frecuentes
 
-- **"No hay conexión con el servidor"**: revisa que la URL pegada termina en `/exec` y que el acceso es *Cualquier usuario*.
+- **"No hay conexión con el servidor"** (solo en la versión GitHub): revisa que la URL pegada termina en `/exec` y que el acceso es *Cualquier usuario*.
 - **Cambié el código de Apps Script y no se nota**: hay que ir a *Implementar → Gestionar implementaciones → ✏️ → Versión: Nueva versión → Implementar*. La URL no cambia.
 - **Copia de seguridad**: todo está en la Hoja de Google. Basta con *Archivo → Hacer una copia*.
