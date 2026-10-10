@@ -220,7 +220,7 @@ function mascApiFamilias(json) {
   c.log = [];
   (c.classes || []).forEach(function (k) { delete k.code; delete k.tutors; });
   c.voters = (c.voters || []).map(function (v) { return { id: v.id, kind: v.kind }; });
-  c.config = { initials: true, allowOwnVotes: st.config.allowOwnVotes, liveResults: false, centroTieBody: st.config.centroTieBody, publicFamilias: true };
+  c.config = { initials: true, allowOwnVotes: st.config.allowOwnVotes, liveResults: false, centroTieBody: st.config.centroTieBody, publicFamilias: true, ocultarNombres: !!st.config.ocultarNombres, pesoClase: st.config.pesoClase, pesoPersona: st.config.pesoPersona };
   c.meta = { sample: false };
   (c.proposals || []).forEach(function (p) {
     p.authors = (p.authors || []).map(function (a) {

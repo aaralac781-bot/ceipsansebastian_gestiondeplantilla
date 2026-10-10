@@ -634,8 +634,8 @@ function finalistCard(f, opts = {}) {
   return `<article class="card finalista ${opts.winner ? 'ganadora' : ''} ${opts.cls || ''}" style="--c:${esc(c.color)}">
     <div class="row between"><span class="fin-ciclo">${esc(c.name)}${c.direct ? ' · finalista directa' : ''}</span>${opts.badge || ''}</div>
     <div class="img-wrap" ${opts.noLb ? '' : `data-act="lb" data-id="${d.id}" role="button" tabindex="0" aria-label="Ver dibujo a pantalla completa"`}>${imgTag(d.images[0], altOf(d))}</div>
-    <h3 class="fin-nombre">${esc(n.text)}</h3>${textoHtml}
-    ${opts.noAuthors ? '' : `<div class="autorias">${aut}</div>`}</article>`;
+    ${opts.sinNombre ? '<h3 class="fin-nombre" style="opacity:.7">🤫 ¿?</h3><p class="center small muted" style="margin:0">Nombre por desvelar</p>' : `<h3 class="fin-nombre">${esc(n.text)}</h3>${textoHtml}`}
+    ${opts.noAuthors || opts.sinNombre ? '' : `<div class="autorias">${aut}</div>`}</article>`;
 }
 
 /* ================= Router ================= */
@@ -1160,12 +1160,15 @@ function whoVotedTable(phase, ks, cats, c) {
 }
 
 /* ================= FINALISTAS ================= */
+/** Los nombres de las finalistas se pueden mantener en secreto hasta que se abre la votación de centro. */
+const ocultarNombres = () => !!S.config.ocultarNombres && S.phase.centro === 'prep';
 VIEWS.finalistas = () => {
   const fs = allFinalists();
   const res = mascotaResult();
   return `<div class="row between"><h1 style="margin:0">Las 5 finalistas</h1>${btnProyectar()}</div>
   <p class="mano no-proy">Una por ciclo y la del Aula de las Estrellas. La más votada en la votación de centro será la Mascota Oficial.</p>
-  <div class="proyectar"><div class="grid finalistas-grid g5" style="margin-top:1rem">${fs.map(f => finalistCard(f, { winner: res?.id === f.cycleId, badge: res ? (res.id === f.cycleId ? '<span class="chip ok">👑 Mascota Oficial</span>' : f.complete ? '<span class="chip">Pandilla</span>' : '') : '' })).join('')}</div></div>`;
+  ${ocultarNombres() ? '<p class="chip pend no-proy">🤫 Los nombres de las finalistas están ocultos hasta la votación de centro.</p>' : ''}
+  <div class="proyectar"><div class="grid finalistas-grid g5" style="margin-top:1rem">${fs.map(f => finalistCard(f, { sinNombre: ocultarNombres(), winner: res?.id === f.cycleId, badge: res ? (res.id === f.cycleId ? '<span class="chip ok">👑 Mascota Oficial</span>' : f.complete ? '<span class="chip">Pandilla</span>' : '') : '' })).join('')}</div></div>`;
 };
 
 /* ================= GRAN FINAL ================= */
@@ -1494,7 +1497,60 @@ PANEL.fases = () => {
     ${S.phase.centro === 'prep' ? `<button class="btn-primary btn-grande" data-act="centro-open" ${listas === fs.length ? '' : 'disabled'}>▶ Abrir la votación de centro</button>
       ${listas === fs.length ? '' : '<p class="small muted">Se podrá abrir cuando las cinco finalistas estén completas (ciclos cerrados y empates resueltos).</p>'}` : ''}
     ${S.phase.centro === 'open' ? `<p><span class="chip pend">Abierta</span> Han votado ${S.classes.filter(k => voteOf('centro', k.id, 'finalista')).length} de ${S.classes.length} clases.</p><button class="btn-primary btn-grande" data-act="centro-close">■ Cerrar la votación de centro</button>` : ''}
-    ${S.phase.centro === 'closed' ? `<p><span class="chip ok">Cerrada</span> ${fmtFecha(S.centroClosedTs)}</p><button class="btn-sm" data-act="centro-reopen">Reabrir votación de centro</button> <a class="btn btn-dorado" href="#/final">🏆 Gran final</a>` : ''}</div>`;
+    ${S.phase.centro === 'closed' ? `<p><span class="chip ok">Cerrada</span> ${fmtFecha(S.centroClosedTs)}</p><button class="btn-sm" data-act="centro-reopen">Reabrir votación de centro</button> <a class="btn btn-dorado" href="#/final">🏆 Gran final</a>` : ''}</div>
+  ${nombresFinalistasHtml()}`;
+};
+/* Nombres de las finalistas: se pueden retocar antes de la votación de centro para que no se parezcan. */
+const normNombre = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9ñ]/g, '');
+function distancia(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+function nombresParecidos(lista) {
+  const avisos = [];
+  for (let i = 0; i < lista.length; i++) for (let j = i + 1; j < lista.length; j++) {
+    const a = normNombre(lista[i]), b = normNombre(lista[j]);
+    if (!a || !b) continue;
+    if (a === b || a.includes(b) || b.includes(a) || (Math.min(a.length, b.length) >= 4 && distancia(a, b) <= 2)) avisos.push(`«${lista[i]}» y «${lista[j]}»`);
+  }
+  return avisos;
+}
+function nombresFinalistasHtml() {
+  const fs = allFinalists().filter(f => f.complete);
+  if (!fs.length) return '';
+  const nombres = fs.map(f => prop(f.parts.nombre)?.text || '');
+  const parecidos = nombresParecidos(nombres);
+  const editable = S.phase.centro === 'prep';
+  return `<div class="card" style="margin-top:1rem"><h2>✏️ Nombres de las finalistas</h2>
+    <p class="small">Cada finalista llega con el nombre más votado de su ciclo. Antes de abrir la votación de centro podéis retocarlo para que no haya nombres repetidos o muy parecidos. El nombre original queda anotado en el historial y en el acta.</p>
+    ${parecidos.length ? `<p class="chip err" style="white-space:normal">⚠️ Nombres muy parecidos: ${esc(parecidos.join(' · '))}</p>` : '<p class="chip ok">✔ Ningún nombre se parece a otro</p>'}
+    <form data-form="nombres-fin" class="stack" style="margin-top:.6rem">${fs.map(f => { const n = prop(f.parts.nombre), d = prop(f.parts.dibujo);
+      return `<div class="row" style="flex-wrap:nowrap">${d?.images[0] ? imgTag(d.images[0], '', 'class="mini"') : ''}
+        <div style="flex:1;min-width:0"><label for="fn-${n.id}" style="margin:0">${cycChip(cyc(f.cycleId))} <span class="small muted">${esc(n.code)}${n.textoOriginal && n.textoOriginal !== n.text ? ` · original: «${esc(n.textoOriginal)}»` : ''}</span></label>
+        <input id="fn-${n.id}" data-fn="${n.id}" value="${esc(n.text)}" maxlength="60" ${editable ? '' : 'disabled'} style="font-size:1.2rem;font-weight:800"></div></div>`; }).join('')}
+      ${editable ? '<button type="submit" class="btn-primary">💾 Guardar los nombres</button>' : '<p class="small muted">La votación de centro ya ha empezado: los nombres no se pueden cambiar.</p>'}</form>
+    <label class="check"><input type="checkbox" data-chg="cfg" data-f="ocultarNombres" ${S.config.ocultarNombres ? 'checked' : ''}> <span><b>Ocultar los nombres</b> en la pantalla Finalistas y en la página de familias hasta que se abra la votación de centro (para difundir solo los dibujos).</span></label></div>`;
+}
+FORMS['nombres-fin'] = async f => {
+  if (!needAdmin()) return;
+  if (S.phase.centro !== 'prep') return toast('La votación de centro ya ha empezado: no se pueden cambiar los nombres.', 'error');
+  const cambios = $$('[data-fn]', f).map(el => [el.dataset.fn, el.value.trim()]).filter(([id, v]) => v && prop(id) && prop(id).text !== v);
+  if ($$('[data-fn]', f).some(el => !el.value.trim())) return toast('Ningún nombre puede quedar vacío.', 'error');
+  if (!cambios.length) return toast('No hay cambios.');
+  const futuros = $$('[data-fn]', f).map(el => el.value.trim()), parecidos = nombresParecidos(futuros);
+  if (parecidos.length && !confirm(`Siguen quedando nombres muy parecidos: ${parecidos.join(' · ')}.\n\n¿Guardar igualmente?`)) return;
+  await commit(() => {
+    cambios.forEach(([id, v]) => {
+      const p = prop(id); if (!p) return;
+      if (!p.textoOriginal) p.textoOriginal = p.text;
+      addLog('finalistas', `Nombre de la finalista ${p.code} (${cyc(propCycleId(p))?.name}): «${p.text}» → «${v}»${p.textoOriginal !== p.text ? ` (original: «${p.textoOriginal}»)` : ''}.`);
+      p.text = v;
+    });
+  });
+  toast(`${plural(cambios.length, 'nombre guardado', 'nombres guardados')}.`);
 };
 ACT['ciclo-open'] = async () => {
   if (!needAdmin()) return;
@@ -1942,7 +1998,7 @@ FORMS.admins = async f => {
 CHG.cfg = async el => {
   if (!needAdmin()) return;
   const f = el.dataset.f, v = el.type === 'checkbox' ? el.checked : el.value;
-  const nombres = { publicFamilias: 'publicar la galería para familias', allowOwnVotes: 'votar propuestas propias', liveResults: 'recuento en directo', initials: 'mostrar solo iniciales', centroTieBody: 'quién desempata en la fase de centro' };
+  const nombres = { ocultarNombres: 'ocultar los nombres de las finalistas', publicFamilias: 'publicar la galería para familias', allowOwnVotes: 'votar propuestas propias', liveResults: 'recuento en directo', initials: 'mostrar solo iniciales', centroTieBody: 'quién desempata en la fase de centro' };
   await commit(() => { S.config[f] = v; addLog('ajuste', `Ajuste «${nombres[f]}»: ${v === true ? 'sí' : v === false ? 'no' : v}.`); });
   toast('Ajuste guardado.');
 };
@@ -1976,6 +2032,7 @@ PANEL.difundir = () => {
     ...S.cycles.map(c => ['dib|' + c.id, `🎨 Dibujos · ${c.name}`, proposalsOf(c.id, 'dibujo').some(p => p.images.length)]),
     ...S.cycles.map(c => ['txt|' + c.id, `🏷️ Nombres y lemas · ${c.name}`, proposalsOf(c.id, 'nombre').length + proposalsOf(c.id, 'texto').length > 0]),
     ['fin|', '⭐ Las finalistas', allFinalists().some(f => f.complete)],
+    ['fins|', '🤫 Finalistas: solo dibujos (sin nombres)', allFinalists().some(f => f.complete)],
     ['mas|', '👑 Mascota Oficial y Pandilla', !!mascotaResult()]
   ];
   return `<div class="grid g2">
@@ -2043,7 +2100,7 @@ ACT.cartel = async el => {
   setBusy('Preparando la imagen…');
   try {
     try { await Promise.all(['800 60px Newsreader', '600 40px Caveat', '700 30px Nunito'].map(f => document.fonts.load(f))); } catch (e) { /* tipografías del sistema */ }
-    const r = await (tipo === 'dib' ? cartelDibujos(id) : tipo === 'txt' ? cartelTextos(id) : tipo === 'fin' ? cartelFinalistas() : cartelMascota());
+    const r = await (tipo === 'dib' ? cartelDibujos(id) : tipo === 'txt' ? cartelTextos(id) : tipo === 'fin' ? cartelFinalistas() : tipo === 'fins' ? cartelFinalistas(true) : cartelMascota());
     const link = familiasUrl();
     r.texto += link && S.config.publicFamilias ? `\n\nTodas las propuestas: ${link}` : '';
     r.blob = await new Promise((res, rej) => r.cv.toBlob(b => b ? res(b) : rej(new Error('no se ha podido crear la imagen')), 'image/jpeg', 0.9));
@@ -2124,26 +2181,35 @@ async function cartelTextos(cycleId) {
   return { cv, titulo: `Nombres y lemas · ${cy.name}`, archivo: `nombres-${cy.short}.jpg`,
     texto: `🏷️ Alas de Igualdad · Estos son los nombres y ${catLabel(cy, 'texto', true).toLowerCase()} que propone ${cy.name} para nuestra mascota. ¿Cuál os gusta más? #AlasDeIgualdad #CEIPSanSebastián` };
 }
-async function fichaFinalista(c, f, x, y, w, h, grande) {
+/** Escribe un texto centrado reduciendo la letra si no cabe en el ancho. */
+function textoAjustado(c, txt, cx, y, maxW, peso, tam, familia) {
+  let t = tam;
+  do { c.font = `${peso} ${t}px ${familia}`; t -= 1; } while (c.measureText(txt).width > maxW && t > 10);
+  c.fillText(txt, cx, y);
+}
+async function fichaFinalista(c, f, x, y, w, h, grande, sinNombre = false) {
   const cy = cyc(f.cycleId), d = prop(f.parts.dibujo), n = prop(f.parts.nombre), t = f.parts.texto ? prop(f.parts.texto) : null;
   caja(c, x, y, w, h, 22);
   c.fillStyle = cy.color; c.fillRect(x + 3, y + 3, w - 6, 12);
-  const imgH = grande ? h - 300 : h - 150;
+  const imgH = grande ? h - 300 : sinNombre ? h - 90 : h - 150;
   try { encajar(c, await imgProp(d.images[0]), x + 16, y + 26, w - 32, imgH); } catch (e) { /* sin imagen */ }
-  c.textAlign = 'center'; c.fillStyle = '#26352C'; c.font = `800 ${grande ? 96 : 40}px ${F_TIT}`;
-  c.fillText(n.text, x + w / 2, y + imgH + (grande ? 120 : 76));
-  c.fillStyle = cy.color; c.font = `800 ${grande ? 30 : 22}px ${F_TXT}`; c.fillText(cy.name.toUpperCase(), x + w / 2, y + imgH + (grande ? 170 : 110));
+  c.textAlign = 'center';
+  if (sinNombre) { c.fillStyle = cy.color; textoAjustado(c, cy.name.toUpperCase(), x + w / 2, y + imgH + 64, w - 28, 800, 26, F_TXT); return; }
+  c.fillStyle = '#26352C'; textoAjustado(c, n.text, x + w / 2, y + imgH + (grande ? 120 : 76), w - 28, 800, grande ? 96 : 40, F_TIT);
+  c.fillStyle = cy.color; textoAjustado(c, cy.name.toUpperCase(), x + w / 2, y + imgH + (grande ? 170 : 110), w - 28, 800, grande ? 30 : 22, F_TXT);
   if (grande && t && t.type === 'lema') { c.fillStyle = '#7A4E8E'; c.font = `600 46px ${F_MANO}`; partir(c, `«${t.text}»`, w - 80).slice(0, 2).forEach((l, i) => c.fillText(l, x + w / 2, y + imgH + 228 + i * 50)); }
 }
-async function cartelFinalistas() {
+async function cartelFinalistas(sinNombre = false) {
   const fs = allFinalists().filter(f => f.complete);
-  const { cv, c } = cartelBase('¡Nuestras finalistas!', '#D89A3C');
+  const { cv, c } = cartelBase(sinNombre ? '¡Los dibujos finalistas!' : '¡Nuestras finalistas!', '#D89A3C');
   const g = 24, top = 220, w3 = (CW - 80 - 2 * g) / 3, h = (CH - 130 - top - g) / 2;
   for (let i = 0; i < fs.length; i++) {
     const fila = i < 3 ? 0 : 1, enFila = fila === 0 ? Math.min(3, fs.length) : fs.length - 3;
     const x0 = (CW - (enFila * w3 + (enFila - 1) * g)) / 2, col = fila === 0 ? i : i - 3;
-    await fichaFinalista(c, fs[i], x0 + col * (w3 + g), top + fila * (h + g), w3, h, false);
+    await fichaFinalista(c, fs[i], x0 + col * (w3 + g), top + fila * (h + g), w3, h, false, sinNombre);
   }
+  if (sinNombre) return { cv, titulo: 'Finalistas · solo dibujos', archivo: 'finalistas-dibujos.jpg',
+    texto: '⭐ ¡Estos son los dibujos finalistas de «Alas de Igualdad»! Muy pronto conoceremos sus nombres. El 13 y 14 de octubre vota todo el cole y el 15 de octubre descubriremos la Mascota Oficial. #AlasDeIgualdad #CEIPSanSebastián' };
   return { cv, titulo: 'Las finalistas', archivo: 'finalistas.jpg',
     texto: '⭐ ¡Ya tenemos las finalistas de «Alas de Igualdad»! El 13 y 14 de octubre votan todas las clases y el 15 de octubre conoceremos a la Mascota Oficial del cole. #AlasDeIgualdad #CEIPSanSebastián' };
 }
@@ -2332,7 +2398,7 @@ ACT['print-acta'] = () => {
   h += '<h2>2. Finalistas</h2>' + tbl(['Ciclo', 'Dibujo', 'Nombre', 'Lema / historia', 'Autorías'], allFinalists().map(f => {
     const c = cyc(f.cycleId); if (!f.complete) return [esc(c.name), '—', '—', '—', 'Pendiente'];
     const ps = ['dibujo', 'nombre', 'texto'].map(k => f.parts[k] && prop(f.parts[k]));
-    return [esc(c.name) + (c.direct ? ' (directa)' : ''), esc(ps[0].code), esc(ps[1].text), ps[2] ? esc(propTitle(ps[2])) : '—', ps.filter(Boolean).map(p => `${esc(p.code)}: ${esc(authorsText(p))}`).join('<br>')];
+    return [esc(c.name) + (c.direct ? ' (directa)' : ''), esc(ps[0].code), esc(ps[1].text) + (ps[1].textoOriginal && ps[1].textoOriginal !== ps[1].text ? ` (original: «${esc(ps[1].textoOriginal)}»)` : ''), ps[2] ? esc(propTitle(ps[2])) : '—', ps.filter(Boolean).map(p => `${esc(p.code)}: ${esc(authorsText(p))}`).join('<br>')];
   }));
   h += `<h2>3. Votación de centro (13 y 14 de octubre)</h2>`;
   if (S.phase.centro === 'prep') h += '<p>No iniciada.</p>';
