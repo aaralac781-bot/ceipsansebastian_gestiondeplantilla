@@ -468,6 +468,7 @@ function load(){
       if(!DB.hMat)DB.hMat=DEF().hMat;
       if(!DB.hCarga)DB.hCarga={};
       if(!DB.hHor)DB.hHor={};
+      if(!DB.bajas)DB.bajas=[];   // bajas de larga duracion: [{titularId,sustitutoId,desde,motivo,activa}]
       if(!DB.hJornada)DB.hJornada=DEF().hJornada;
       if(!DB.bojaHoras)DB.bojaHoras=DEF().bojaHoras;
       if(!DB.agenda)DB.agenda=[];
@@ -700,6 +701,7 @@ function _doEnviar(url){
     alumnos:DB.alumnos||[],
     ausencias:DB.ausencias||[],
     recreoSust:DB.recreoSust||[],
+    bajas:DB.bajas||[],
     sust:sust,
     _sync:firma
   };
@@ -780,6 +782,7 @@ function _aplicarDatos(data){
   if(data.alumnos&&data.alumnos.length>0)DB.alumnos=data.alumnos;
   if(data.ausencias)DB.ausencias=data.ausencias;
   if(data.recreoSust)DB.recreoSust=data.recreoSust;
+  if(data.bajas)DB.bajas=data.bajas;
   // Procesar hCarga (formato antiguo tabla)
   if(data.carga&&data.carga.length>1){
     DB.hCarga={};
@@ -2710,6 +2713,86 @@ function efImprimir(){
     '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},300);};</scr'+'ipt></body></html>';
   var w=window.open('','_blank'); w.document.write(html); w.document.close();
 }
+// ====== PANTALLA: BAJAS Y SUSTITUTOS (herencia de horario de larga duracion) ======
+function _bajasMaesSorted(){
+  return (DB.maestros||[]).filter(function(m){return m.n;}).slice()
+    .sort(function(a,b){return (a.n||'').localeCompare(b.n||'','es');});
+}
+function abrirBajas(){
+  var ov=document.getElementById('bajas-ov'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='bajas-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:#f1f5f9;overflow:auto;-webkit-overflow-scrolling:touch';
+  ov.innerHTML='<div style="position:sticky;top:0;z-index:3;background:#7f1d1d;color:#fff;padding:calc(env(safe-area-inset-top, 0px) + 12px) 14px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+    '<button onclick="document.getElementById(\'bajas-ov\').remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:800;border-radius:10px;padding:8px 12px;cursor:pointer">&#8592; Volver</button>'+
+    '<div style="font-size:1rem;font-weight:800;flex:1">&#127973; Bajas y sustitutos</div>'+
+    '</div><div id="bajas-body" style="padding:12px;max-width:780px;margin:0 auto"></div>';
+  document.body.appendChild(ov);
+  renderBajas();
+}
+function renderBajas(){
+  var body=document.getElementById('bajas-body'); if(!body) return;
+  var maes=_bajasMaesSorted();
+  var opts=maes.map(function(m){return '<option value="'+esc(String(m.id))+'">'+esc(m.n)+'</option>';}).join('');
+  var selOpts='<option value="">— elegir —</option>'+opts;
+  var h='';
+  h+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px;font-size:13px;color:#334155;line-height:1.55">'+
+     '<b style="color:#7f1d1d">Cómo funciona.</b> Cuando un maestro/a se pone de baja, asígnale aquí un sustituto/a. '+
+     'El sustituto/a <b>hereda automáticamente el horario</b> del titular (clases, grupos y tutoría); así aparece en el Cuaderno y en “Al día” de SSNET. '+
+     'El horario del titular <b>se conserva intacto</b>: cuando vuelva, pulsa <b>Dar de alta</b> y todo regresa a como estaba. '+
+     'No hace falta quitar ni reasignar la tutoría a mano.</div>';
+  h+='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px">'+
+     '<div style="font-weight:800;color:#0f172a;margin-bottom:10px">Nueva baja</div>'+
+     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'+
+       '<label style="flex:1;min-width:210px;font-size:12px;font-weight:700;color:#475569">Titular que se da de baja<br>'+
+         '<select id="baja-tit" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;margin-top:4px">'+selOpts+'</select></label>'+
+       '<label style="flex:1;min-width:210px;font-size:12px;font-weight:700;color:#475569">Sustituto/a que le cubre<br>'+
+         '<select id="baja-sus" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;margin-top:4px">'+selOpts+'</select></label>'+
+       '<button class="btn" style="background:#7f1d1d;color:#fff;padding:9px 16px;border-radius:8px" onclick="crearBaja()">Asignar sustituto</button>'+
+     '</div></div>';
+  var activas=(DB.bajas||[]).filter(function(b){return b&&b.activa!==false;});
+  h+='<div style="font-weight:800;color:#0f172a;margin:4px 0 8px">Bajas activas ('+activas.length+')</div>';
+  if(!activas.length){ h+='<div style="color:#94a3b8;font-size:13px;margin-bottom:10px">No hay bajas activas ahora mismo.</div>'; }
+  activas.forEach(function(b){
+    h+='<div style="background:#fff;border:1px solid #fecaca;border-left:5px solid #dc2626;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+       '<div style="flex:1;min-width:230px;font-size:14px;line-height:1.5">'+
+         '<b style="color:#b91c1c">'+esc(_nomDe(b.titularId))+'</b> está de baja'+(b.desde?(' <span style="color:#94a3b8">· desde '+esc(b.desde)+'</span>'):'')+'<br>'+
+         'le sustituye <b style="color:#15803d">'+esc(_nomDe(b.sustitutoId))+'</b>, que hereda su horario.'+
+       '</div>'+
+       '<button class="btn" style="background:#15803d;color:#fff;padding:8px 14px;border-radius:8px" onclick="altaBaja(\''+esc(String(b.titularId))+'\')">&#10003; Dar de alta</button>'+
+     '</div>';
+  });
+  if(activas.length){
+    h+='<div style="margin-top:10px;font-size:12px;color:#475569;background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:10px 12px">'+
+       '&#128228; Después de asignar o dar de alta, pulsa <b>“Exportar horarios a ClaritaNet”</b> en la pantalla de horarios para que SSNET (Cuaderno y “Al día”) se actualice.</div>';
+  }
+  body.innerHTML=h;
+}
+function crearBaja(){
+  var tSel=document.getElementById('baja-tit'), sSel=document.getElementById('baja-sus');
+  var tit=tSel?tSel.value:'', sus=sSel?sSel.value:'';
+  if(!tit||!sus){ alert('Elige el titular que se da de baja y el sustituto/a que le cubre.'); return; }
+  if(String(tit)===String(sus)){ alert('El titular y el sustituto no pueden ser la misma persona.'); return; }
+  if(!DB.bajas)DB.bajas=[];
+  var titV=isNaN(+tit)?tit:+tit, susV=isNaN(+sus)?sus:+sus;
+  var ya=null; DB.bajas.forEach(function(b){ if(b&&b.activa!==false&&String(b.titularId)===String(titV)) ya=b; });
+  if(ya){ ya.sustitutoId=susV; }
+  else { DB.bajas.push({titularId:titV, sustitutoId:susV, desde:new Date().toLocaleDateString('es-ES'), activa:true}); }
+  save();
+  if(typeof _autoSyncNube==='function')_autoSyncNube();
+  renderBajas();
+  alert('Hecho. '+_nomDe(susV)+' hereda el horario de '+_nomDe(titV)+'.\n\nPulsa “Exportar horarios a ClaritaNet” para que SSNET se actualice.');
+}
+function altaBaja(titId){
+  if(!DB.bajas)return;
+  var nom=_nomDe(titId);
+  if(!confirm('¿Dar de alta a '+nom+'? Su horario volverá a ser suyo y el sustituto dejará de heredarlo.')) return;
+  DB.bajas=DB.bajas.filter(function(b){ return !(b&&String(b.titularId)===String(titId)); });
+  save();
+  if(typeof _autoSyncNube==='function')_autoSyncNube();
+  renderBajas();
+  alert(nom+' dado/a de alta: su horario vuelve a ser suyo.\n\nPulsa “Exportar horarios a ClaritaNet” para actualizar SSNET.');
+}
+
 function abrirDisponibles(){
   var ov=document.getElementById('disp-ov'); if(ov) ov.remove();
   ov=document.createElement('div'); ov.id='disp-ov';
@@ -2826,7 +2909,8 @@ function exportarHorariosClaritaNet(){
         var t=(DB.tramos||[])[ti]; if(!t||t.r||slot.r) return;
         if(!slot.mId&&!(slot.tipo&&slot.tipo!=='clase')) return;
         var mat=slot.mId?DB.hMat.find(function(m){return m.id===slot.mId;}):null;
-        var prof=slot.pId?DB.maestros.find(function(m){return m.id===slot.pId;}):null;
+        var profId=_profVista(slot.pId);   // si el titular esta de baja, figura el sustituto
+        var prof=profId?DB.maestros.find(function(m){return String(m.id)===String(profId);}):null;
         var materia=mat?mat.n:(slot.txt||'');
         gruposData.push([g.n||'', d, tramoLabel(t), prof?prof.n:'', materia]);
       });
@@ -2851,7 +2935,7 @@ function exportarHorariosClaritaNet(){
         (DB.hGrupos||[]).some(function(g){
           var hor=(DB.hHor||{})[g.id];
           var slot=hor&&hor[d]&&hor[d][ti];
-          if(slot&&slot.pId===p.id&&slot.mId){ celda=slotTexto(slot,true,g); return true; }
+          if(slot&&String(_profVista(slot.pId))===String(p.id)&&slot.mId){ celda=slotTexto(slot,true,g); return true; }
           return false;
         });
         // Si no da clase, mostrar su horario propio (Direccion/Jefatura/Secretaria/Coord/RH/Luciernaga)
@@ -3647,14 +3731,43 @@ var SEL_MULTI=[];        // celdas seleccionadas [{key,eid,dia,ti,esGrupo}]
 
 
 
+// ====== BAJAS DE LARGA DURACION / SUSTITUTO QUE HEREDA EL HORARIO ======
+// Devuelve el id del sustituto activo de un titular, o null.
+function _sustitutoDeTitular(titId){
+  if(!DB.bajas||!DB.bajas.length||titId==null||titId==='') return null;
+  for(var i=0;i<DB.bajas.length;i++){
+    var b=DB.bajas[i];
+    if(b && b.activa!==false && String(b.titularId)===String(titId)) return b.sustitutoId;
+  }
+  return null;
+}
+// Dado el pId original de una celda, devuelve QUIEN debe figurar dandola:
+// si su titular esta de baja, el sustituto (siguiendo la cadena si el sustituto
+// tambien estuviera de baja). Si no hay baja, el propio pId.
+function _profVista(pid){
+  if(pid==null||pid==='') return pid;
+  var cur=pid, seen={};
+  seen[String(cur)]=1;
+  while(true){
+    var s=_sustitutoDeTitular(cur);
+    if(s==null||s===''||seen[String(s)]) break;
+    seen[String(s)]=1; cur=s;
+  }
+  return cur;
+}
+// true si el maestro mid esta de baja (es titular de una baja activa)
+function _estaDeBaja(mid){ return _sustitutoDeTitular(mid)!=null; }
+
 function getMaestroSlot(mid,dia,ti){
-  // Buscar slot del maestro: primero en grupos, luego en su horario propio
+  // Buscar slot del maestro: primero en grupos, luego en su horario propio.
+  // Si hay una baja activa, el sustituto HEREDA las clases del titular (y el
+  // titular deja de verlas), SIN tocar los datos guardados (al dar de alta vuelve todo).
   var enGrupo=null;
   DB.hGrupos.forEach(function(g){
     var hG=DB.hHor&&DB.hHor[g.id];
     if(!hG||!hG[dia]||!hG[dia][ti])return;
     var s=hG[dia][ti];
-    if(s&&String(s.pId)===String(mid)){
+    if(s&&String(_profVista(s.pId))===String(mid)){
       var mat=s.mId?DB.hMat.find(function(m){return m.id===s.mId;}):null;
       enGrupo={mId:s.mId,pId:s.pId,grupo:g.n,matNombre:mat?mat.n:'',tipo:(s.tipo==='tutoria'?'tutoria':'clase'),fij:s.fij};
     }
@@ -3750,6 +3863,7 @@ function rHHorario(){
   h+='<button class="btn bsm" style="background:#0e7490;color:#fff" onclick="document.getElementById(\'imp-horarios-xl\').click()">&#8679; Cargar Excel relleno</button>';
   h+='<input type="file" id="imp-horarios-xl" accept=".xlsx,.xls" style="display:none" onchange="cargarHorariosExcel(this)">';
   h+='<button class="btn bsm" style="background:#7c3aed;color:#fff" onclick="abrirDisponibles()">&#129513; Disponibles (sustituciones)</button>';
+  h+='<button class="btn bsm" style="background:#7f1d1d;color:#fff" onclick="abrirBajas()">&#127973; Bajas / sustituto</button>';
   h+='<button class="btn bsm" style="background:#0e7490;color:#fff" onclick="abrirEF()">&#127939; E.F. / Patio</button>';
   h+='<button class="btn" style="background:#0B132B;color:#fff;padding:5px 10px;font-size:11px;border-radius:6px" onclick="exportarHorariosClaritaNet()">Exportar horarios a ClaritaNet</button>';
   h+='<span style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">generador v36 · export horarios formato portal ClaritaNet</span>';
