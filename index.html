@@ -3002,10 +3002,42 @@ function exportarHorariosClaritaNet(){
     document.head.appendChild(s);
     setTimeout(function(){ if(window[cb]){ delete window[cb]; if(res){res.style.background='#fef3c7';res.style.color='#92400e';res.textContent='SSNet no respondio a tiempo. Reintenta en unos segundos.';} } }, 15000);
   } else {
-    var body='accion=publicarHorarios&datos='+payload;
-    fetch(ClaritaNet_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
-    .then(function(){ if(res){res.style.background='#d1fae5';res.style.color='#065f46';res.textContent=okMsg+'\n(Si no aparece, espera unos segundos y refresca SSNet.)';} })
-    .catch(function(e){ if(res){res.style.background='#fee2e2';res.style.color='#b91c1c';res.textContent='Error de conexion: '+e;} });
+    // Payload grande: envio por FORMULARIO oculto a un iframe. iOS Safari falla
+    // con fetch(no-cors) en cuerpos grandes ("Load failed"); el <form> POST aguanta.
+    _enviarHorariosForm(ClaritaNet_URL, JSON.stringify(datos), res, okMsg);
+  }
+}
+
+// Envio robusto de payloads GRANDES: <form> POST oculto hacia un iframe.
+// No depende de CORS ni de fetch (que peta en iPhone con paquetes grandes).
+function _enviarHorariosForm(url, datosRaw, res, okMsg){
+  try{
+    var name='_ssn_'+Date.now();
+    var ifr=document.createElement('iframe');
+    ifr.name=name; ifr.style.display='none';
+    document.body.appendChild(ifr);
+    var f=document.createElement('form');
+    f.method='POST'; f.action=url; f.target=name; f.acceptCharset='UTF-8';
+    f.enctype='application/x-www-form-urlencoded'; f.style.display='none';
+    function add(n,v){var i=document.createElement('input');i.type='hidden';i.name=n;i.value=v;f.appendChild(i);}
+    add('accion','publicarHorarios');
+    add('datos',datosRaw);
+    document.body.appendChild(f);
+    var hecho=false;
+    function fin(ok){
+      if(hecho)return; hecho=true;
+      if(res){
+        if(ok){ res.style.background='#d1fae5';res.style.color='#065f46';res.textContent=okMsg+'\n(Abre SSNet y refresca para verlo.)'; }
+        else  { res.style.background='#fef3c7';res.style.color='#92400e';res.textContent='Enviado a SSNet. Si no aparece, espera unos segundos y refresca; si sigue vacio, reintenta.'; }
+      }
+      try{ f.parentNode&&f.parentNode.removeChild(f); }catch(e){}
+      setTimeout(function(){ try{ ifr.parentNode&&ifr.parentNode.removeChild(ifr); }catch(e){} },2000);
+    }
+    ifr.onload=function(){ fin(true); };            // el servidor respondio (aunque no podamos leerlo)
+    setTimeout(function(){ fin(false); }, 12000);    // red de seguridad por si no dispara onload
+    f.submit();
+  }catch(e){
+    if(res){ res.style.background='#fee2e2';res.style.color='#b91c1c';res.textContent='No se pudo iniciar el envio: '+e; }
   }
 }
 
