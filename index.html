@@ -3929,6 +3929,20 @@ function rHHorario(){
     h+='</div>';
   }
 
+  // SECCION 4: Sustituciones por baja (el sustituto HEREDA el horario del titular)
+  var _bj=(DB.bajas||[]).filter(function(b){return b&&b.activa!==false&&b.sustitutoId!=null&&b.sustitutoId!=='';});
+  if(_bj.length){
+    h+='<div style="font-size:12px;font-weight:800;color:#7f1d1d;margin:10px 0 6px;padding-bottom:3px;border-bottom:2px solid #7f1d1d">&#127973; Sustituciones por baja</div>';
+    h+='<div style="font-size:10px;color:#64748b;margin-bottom:6px">Cada sustituto/a muestra el horario heredado del titular de baja. Es lo que se publicará en SSNet.</div>';
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
+    _bj.forEach(function(b){
+      var ms=DB.maestros.find(function(m){return String(m.id)===String(b.sustitutoId);});
+      if(!ms)return;
+      h+=renderTabla(ms.id, ms.n+' · sustituye a '+_nomDe(b.titularId), false, '#7f1d1d');
+    });
+    h+='</div>';
+  }
+
   h+='</div>'; // fin columna izquierda
 
   // PANEL EDITOR lateral: solo una pista; el editor real es un popup flotante (abajo)
