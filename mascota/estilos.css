@@ -264,3 +264,7 @@ canvas.img-rescate{width:100%;height:100%;object-fit:contain;display:block}
 .img-rota{width:100%;height:100%;min-height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;text-align:center;padding:.6rem;background:#FBE6E6;color:var(--error);font-size:.85rem;border-radius:10px}
 .img-rota b{font-size:.95rem}
 .img-rota small{font:600 .7rem ui-monospace,Menlo,Consolas,monospace;color:var(--tinta-suave);word-break:break-all}
+/* Ventanas de confirmación de la app */
+dialog.pregunta{max-width:min(520px,94vw)}
+.pregunta-txt{white-space:pre-wrap;font-size:1.05rem;margin:0}
+.pregunta-campo{font-size:1.2rem}

@@ -23,6 +23,29 @@ const NOTA_DESEMPATE_CICLO = 'Desempate decidido por el equipo docente del ciclo
 const ACT = {}, CHG = {}, FORMS = {};
 
 /* ================= Utilidades ================= */
+/* Ventanas de confirmación propias de la app. Las del navegador (confirm/prompt) se pueden
+   bloquear sin querer («Impedir que esta página cree más cuadros de diálogo») y entonces los
+   botones dejan de hacer nada; estas no. */
+function ventana(texto, { campo = false, aceptar = 'Aceptar' } = {}) {
+  return new Promise(res => {
+    const d = document.createElement('dialog');
+    d.className = 'pregunta'; d.setAttribute('aria-modal', 'true');
+    d.innerHTML = `<form method="dialog" class="stack"><p class="pregunta-txt"></p>
+      ${campo ? '<input class="pregunta-campo" autocomplete="off">' : ''}
+      <div class="row end"><button value="no" type="submit">Cancelar</button><button value="si" type="submit" class="btn-primary">${aceptar}</button></div></form>`;
+    d.querySelector('.pregunta-txt').textContent = texto;
+    document.body.appendChild(d);
+    d.addEventListener('close', () => {
+      const ok = d.returnValue === 'si', val = campo ? d.querySelector('.pregunta-campo').value : null;
+      d.remove(); res(campo ? (ok ? val : null) : ok);
+    });
+    d.showModal();
+    (d.querySelector('.pregunta-campo') || d.querySelector('[value=si]')).focus();
+  });
+}
+const confirmar = texto => ventana(texto);
+const pedirTexto = texto => ventana(texto, { campo: true });
+
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1091,7 +1114,7 @@ ACT['tb-save'] = async el => {
   const target = $(`[data-tb-select="${el.dataset.key}"]`).value;
   const r = result(phase, scope, cat);
   if (r.status !== 'empate' || !r.tied.includes(target)) return toast('El empate ya no está vigente.', 'error');
-  if (!confirm('¿Registrar este desempate? Quedará anotado en el historial.')) return;
+  if (!await confirmar('¿Registrar este desempate? Quedará anotado en el historial.')) return;
   await commit(() => {
     const note = tieNote(phase), r2 = result(phase, scope, cat);
     if (r2.status !== 'empate' || !r2.tied.includes(target)) return;
@@ -1104,7 +1127,7 @@ ACT['tb-save'] = async el => {
 ACT['tb-revoke'] = async el => {
   if (!isAdmin()) return;
   if ((phaseLockedForTb(el.dataset.id))) return toast('No se puede deshacer: la votación de centro ya ha empezado.', 'error');
-  if (!confirm('¿Deshacer este desempate?')) return;
+  if (!await confirmar('¿Deshacer este desempate?')) return;
   await commit(() => {
     const t = S.tiebreaks.find(x => x.id === el.dataset.id); t.revoked = true; t.revokedTs = nowISO();
     addLog('desempate', `Se deshace un desempate (${t.phase === 'ciclo' ? cyc(t.scope).name : 'centro'}).`);
@@ -1388,9 +1411,9 @@ function readCQ() {
 }
 document.addEventListener('input', e => { if (CQ && e.target.closest('[data-cq]')) CQ.dirty = true; });
 function redrawCQ() { readCQ(); rerender(); }
-ACT['cq-class'] = el => {
+ACT['cq-class'] = async el => {
   readCQ();
-  if (CQ?.dirty && CQ.classId !== el.dataset.id && !confirm('Hay cambios sin guardar en esta clase. ¿Cambiar de clase y perderlos?')) return;
+  if (CQ?.dirty && CQ.classId !== el.dataset.id && !await confirmar('Hay cambios sin guardar en esta clase. ¿Cambiar de clase y perderlos?')) return;
   CQ = buildCQ(el.dataset.id); rerender();
 };
 ACT['cq-add'] = el => {
@@ -1541,7 +1564,7 @@ FORMS['nombres-fin'] = async f => {
   if ($$('[data-fn]', f).some(el => !el.value.trim())) return toast('Ningún nombre puede quedar vacío.', 'error');
   if (!cambios.length) return toast('No hay cambios.');
   const futuros = $$('[data-fn]', f).map(el => el.value.trim()), parecidos = nombresParecidos(futuros);
-  if (parecidos.length && !confirm(`Siguen quedando nombres muy parecidos: ${parecidos.join(' · ')}.\n\n¿Guardar igualmente?`)) return;
+  if (parecidos.length && !await confirmar(`Siguen quedando nombres muy parecidos: ${parecidos.join(' · ')}.\n\n¿Guardar igualmente?`)) return;
   await commit(() => {
     cambios.forEach(([id, v]) => {
       const p = prop(id); if (!p) return;
@@ -1554,13 +1577,13 @@ FORMS['nombres-fin'] = async f => {
 };
 ACT['ciclo-open'] = async () => {
   if (!needAdmin()) return;
-  if (!confirm('¿Abrir la votación de ciclo? Las clases podrán empezar a votar.')) return;
+  if (!await confirmar('¿Abrir la votación de ciclo? Las clases podrán empezar a votar.')) return;
   await commit(() => { S.phase.ciclo = 'open'; addLog('fase', 'Se abre la votación de ciclo.'); });
 };
 ACT['cycle-close'] = async el => {
   if (!needAdmin()) return;
   const c = cyc(el.dataset.id), faltan = classesOf(c.id).filter(k => pendingCats(k.id).length);
-  if (!confirm(`¿Cerrar la votación de ${c.name}?${faltan.length ? `\n\nATENCIÓN: faltan por votar: ${faltan.map(k => k.name).join(', ')}.` : ''}\n\nSe mostrará el recuento.`)) return;
+  if (!await confirmar(`¿Cerrar la votación de ${c.name}?${faltan.length ? `\n\nATENCIÓN: faltan por votar: ${faltan.map(k => k.name).join(', ')}.` : ''}\n\nSe mostrará el recuento.`)) return;
   await commit(() => { const c = cyc(el.dataset.id); c.closed = true; c.closedTs = nowISO(); addLog('fase', `Se cierra la votación de ${c.name}.${faltan.length ? ' Clases sin votar del todo: ' + faltan.map(k => k.name).join(', ') + '.' : ''}`); });
   location.hash = '#/resultados/' + c.id;
 };
@@ -1568,13 +1591,13 @@ ACT['cycle-reopen'] = async el => {
   if (!needAdmin()) return;
   const c = cyc(el.dataset.id);
   if (S.phase.centro !== 'prep') return toast('No se puede reabrir: la votación de centro ya ha empezado.', 'error');
-  if (!confirm(`¿Reabrir la votación de ${c.name}? Quedará registrado.`)) return;
+  if (!await confirmar(`¿Reabrir la votación de ${c.name}? Quedará registrado.`)) return;
   await commit(() => { const c = cyc(el.dataset.id); c.closed = false; c.closedTs = null; addLog('fase', `Se reabre la votación de ${c.name}.`); });
 };
 ACT['centro-open'] = async () => {
   if (!needAdmin()) return;
   if (!allFinalists().every(f => f.complete)) return toast('Faltan finalistas por completar.', 'error');
-  if (!confirm('¿Abrir la votación de centro con las cinco finalistas?')) return;
+  if (!await confirmar('¿Abrir la votación de centro con las cinco finalistas?')) return;
   await commit(() => {
     S.centroCandidates = allFinalists().filter(f => f.complete).map(f => f.cycleId);
     S.phase.centro = 'open'; addLog('fase', 'Se abre la votación de centro.');
@@ -1583,13 +1606,13 @@ ACT['centro-open'] = async () => {
 ACT['centro-close'] = async () => {
   if (!needAdmin()) return;
   const faltan = S.classes.filter(k => !voteOf('centro', k.id, 'finalista'));
-  if (!confirm(`¿Cerrar la votación de centro?${faltan.length ? `\n\nATENCIÓN: faltan por votar: ${faltan.map(k => k.name).join(', ')}.` : ''}`)) return;
+  if (!await confirmar(`¿Cerrar la votación de centro?${faltan.length ? `\n\nATENCIÓN: faltan por votar: ${faltan.map(k => k.name).join(', ')}.` : ''}`)) return;
   await commit(() => { S.phase.centro = 'closed'; S.centroClosedTs = nowISO(); addLog('fase', 'Se cierra la votación de centro.'); });
   location.hash = '#/resultados/centro';
 };
 ACT['centro-reopen'] = async () => {
   if (!needAdmin()) return;
-  if (!confirm('¿Reabrir la votación de centro? Quedará registrado.')) return;
+  if (!await confirmar('¿Reabrir la votación de centro? Quedará registrado.')) return;
   await commit(() => { S.phase.centro = 'open'; S.centroClosedTs = null; addLog('fase', 'Se reabre la votación de centro.'); });
 };
 
@@ -1623,7 +1646,7 @@ ACT['prop-del'] = async el => {
   const p = prop(el.dataset.id);
   if (liveVotes().some(v => v.target === p.id)) return toast('Esta propuesta tiene votos. Anula antes esos votos en «Votos e historial».', 'error');
   if (Object.values(finalist(propCycleId(p)).parts).includes(p.id) && S.phase.centro !== 'prep') return toast('Es parte de una finalista: no se puede borrar.', 'error');
-  if (!confirm(`¿Borrar la propuesta ${p.code} («${propTitle(p)}»)?`)) return;
+  if (!await confirmar(`¿Borrar la propuesta ${p.code} («${propTitle(p)}»)?`)) return;
   await commit(() => { S.proposals = S.proposals.filter(x => x.id !== p.id); addLog('propuesta', `Se borra la propuesta ${p.code}.`); });
 };
 
@@ -1842,7 +1865,7 @@ CHG['cyc-f'] = async el => {
 };
 ACT['class-add'] = async () => {
   if (!needAdmin()) return;
-  const name = prompt('Nombre de la nueva clase (por ejemplo, 5.º C):'); if (!name?.trim()) return;
+  const name = await pedirTexto('Nombre de la nueva clase (por ejemplo, 5.º C):'); if (!name?.trim()) return;
   await commit(() => {
     const used = new Set(S.classes.map(k => k.code));
     S.classes.push({ id: 'k' + uid(), name: name.trim(), cycleId: S.cycles[0].id, quota: { dibujo: 2, nombre: 2, texto: 2 }, code: randomCode(used) });
@@ -1854,7 +1877,7 @@ ACT['class-del'] = async el => {
   const k = cls(el.dataset.id);
   if (S.proposals.some(p => p.classId === k.id)) return toast('Esta clase tiene propuestas. Bórralas o muévelas antes.', 'error');
   if (S.votes.some(v => v.classId === k.id)) return toast('Esta clase ya ha votado: no se puede borrar.', 'error');
-  if (!confirm(`¿Borrar la clase ${k.name}?`)) return;
+  if (!await confirmar(`¿Borrar la clase ${k.name}?`)) return;
   await commit(() => { S.classes = S.classes.filter(x => x.id !== k.id); addLog('clase', `Se borra la clase ${k.name}.`); });
 };
 ACT['print-codes'] = () => printHtml(`<h1>Códigos de voto · Alas de Igualdad</h1><p>Entregad cada tarjeta a la tutoría correspondiente. El código sirve para que solo esa clase registre su voto.</p>
@@ -1923,7 +1946,7 @@ CHG['vt-f'] = async el => {
 ACT['vt-del'] = async el => {
   const p = voter(el.dataset.id);
   if (S.votes.some(v => v.voterId === p.id && !v.annulled)) return toast('Esta persona ya ha votado. Anula antes su voto en «Votos e historial».', 'error');
-  if (!confirm(`¿Quitar a ${p.name} de la lista de votantes?`)) return;
+  if (!await confirmar(`¿Quitar a ${p.name} de la lista de votantes?`)) return;
   await commit(() => { S.voters = S.voters.filter(x => x.id !== el.dataset.id); addLog('votantes', `Se quita a ${p.name}.`); });
 };
 CHG['cfg-num'] = async el => {
@@ -1955,7 +1978,7 @@ PANEL.votos = () => {
 ACT['vote-annul'] = async el => {
   if (!needAdmin()) return;
   const v = S.votes.find(x => x.id === el.dataset.id);
-  const reason = prompt(`Anular el voto de ${actorName(v)}.\nEscribe el motivo (obligatorio):`);
+  const reason = await pedirTexto(`Anular el voto de ${actorName(v)}.\nEscribe el motivo (obligatorio):`);
   if (!reason?.trim()) return toast('Anulación cancelada: hace falta un motivo.');
   await commit(() => {
     const v = S.votes.find(x => x.id === el.dataset.id);
@@ -2280,13 +2303,13 @@ CHG.import = async el => {
   let data;
   try { data = JSON.parse(await file.text()); } catch (e) { return toast('El archivo no es una copia válida.', 'error'); }
   if (!data || !Array.isArray(data.classes) || !Array.isArray(data.votes) || !Array.isArray(data.proposals)) return toast('El archivo no es una copia de Alas de Igualdad.', 'error');
-  if (!confirm(`¿Restaurar esta copia? Sustituirá TODOS los datos actuales de este navegador.\n\n${data.proposals.length} propuestas · ${data.votes.length} votos`)) return;
+  if (!await confirmar(`¿Restaurar esta copia? Sustituirá TODOS los datos actuales de este navegador.\n\n${data.proposals.length} propuestas · ${data.votes.length} votos`)) return;
   await commit(() => { S = migrate(JSON.parse(JSON.stringify(data))); addLog('datos', `Se restaura una copia de seguridad (${file.name}).`); });
   toast('Copia restaurada.');
 };
 ACT.simulate = async () => {
   if (!needAdmin()) return;
-  if (!confirm('Se registrarán votos aleatorios (marcados como «prueba») para las clases que aún no han votado en la fase abierta. ¿Seguir?')) return;
+  if (!await confirmar('Se registrarán votos aleatorios (marcados como «prueba») para las clases que aún no han votado en la fase abierta. ¿Seguir?')) return;
   await commit(() => {
     const ts = nowISO(); let n = 0;
     if (centroOpen()) {
@@ -2328,19 +2351,19 @@ async function resetTo(sample, msg, borrarVotantes = false) {
 ACT['load-sample'] = async () => {
   if (!needAdmin()) return;
   if (!S.meta.sample && S.proposals.length) {
-    if (prompt(`ATENCIÓN: esto BORRA tus ${S.proposals.length} propuestas reales y sus fotos y pone datos inventados.\nPara ensayar con tus propuestas usa «Reiniciar la votación».\n\nSi de verdad quieres borrarlas, escribe BORRAR:`) !== 'BORRAR') return toast('No se ha borrado nada.');
-  } else if (!confirm('¿Cargar los datos de prueba? Se borrarán las propuestas y votos actuales.')) return;
+    if (await pedirTexto(`ATENCIÓN: esto BORRA tus ${S.proposals.length} propuestas reales y sus fotos y pone datos inventados.\nPara ensayar con tus propuestas usa «Reiniciar la votación».\n\nSi de verdad quieres borrarlas, escribe BORRAR:`) !== 'BORRAR') return toast('No se ha borrado nada.');
+  } else if (!await confirmar('¿Cargar los datos de prueba? Se borrarán las propuestas y votos actuales.')) return;
   await resetTo(true, 'Se cargan los datos de prueba.'); toast('Datos de prueba cargados.');
 };
 ACT['start-real'] = async () => {
   if (!needAdmin()) return;
-  if (!confirm('¿Borrar los datos de prueba (propuestas, votos e historial) y empezar con datos reales?\nSe conservan las clases, los códigos y los ajustes.')) return;
+  if (!await confirmar('¿Borrar los datos de prueba (propuestas, votos e historial) y empezar con datos reales?\nSe conservan las clases, los códigos y los ajustes.')) return;
   await resetTo(false, 'Se borran los datos de prueba y se empieza con datos reales.'); toast('Listo para dar de alta las propuestas reales.');
 };
 ACT['reset-votos'] = async () => {
   if (!needAdmin()) return;
   const n = S.votes.length;
-  if (prompt(`Se borrarán ${n} votos (y anulaciones), los desempates y los cierres, y todas las fases volverán a «sin abrir».\nSe conservan propuestas, fotos, clases, códigos y votantes.\n\nEscribe REINICIAR para confirmar:`) !== 'REINICIAR') return toast('No se ha borrado nada.');
+  if (await pedirTexto(`Se borrarán ${n} votos (y anulaciones), los desempates y los cierres, y todas las fases volverán a «sin abrir».\nSe conservan propuestas, fotos, clases, códigos y votantes.\n\nEscribe REINICIAR para confirmar:`) !== 'REINICIAR') return toast('No se ha borrado nada.');
   await commit(() => {
     S.votes = []; S.tiebreaks = [];
     S.phase = { ciclo: 'prep', centro: 'prep' }; S.centroClosedTs = null; delete S.centroCandidates;
@@ -2352,7 +2375,7 @@ ACT['reset-votos'] = async () => {
 };
 ACT.wipe = async () => {
   if (!needAdmin()) return;
-  const t = prompt('Esto borra TODAS las propuestas, imágenes, autorías, votos e historial del concurso.\nNo se puede deshacer.\n\nEscribe BORRAR para confirmar:');
+  const t = await pedirTexto('Esto borra TODAS las propuestas, imágenes, autorías, votos e historial del concurso.\nNo se puede deshacer.\n\nEscribe BORRAR para confirmar:');
   if (t !== 'BORRAR') return toast('No se ha borrado nada.');
   await resetTo(false, 'Se borran todos los datos del concurso.', true); toast('Datos borrados.');
 };
