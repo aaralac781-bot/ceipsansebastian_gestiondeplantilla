@@ -1294,22 +1294,26 @@ function renderRecreoCard(e){
   if(!row) row=f[1];
 
   function _n(x){return (x||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
-  var me=_n(USER.name||'');
+  function _na(x){return _n((x||'').toString().replace(/m\.?ª\s*/gi,'maria '));}
+  var me=_na(USER.name);
   var meToks=me.split(' ').filter(Boolean);
   var meBig=meToks.filter(function(w){return w.length>=3;});
+  var me0=meToks[0]||'';
   // Coincidencia por PALABRAS COMPLETAS (no por subcadena), para que "Toñi"(toni)
   // no coincida dentro de "Antonio", ni "Ángel" dentro de "Ángela", etc.
   function _match(cell){
     if(!meToks.length) return false;
     return (cell||'').toString().split(/[,\/+·;]/).some(function(p){
-      var np=_n(p); if(!np) return false;
+      var np=_na(p); if(!np) return false;
       if(np===me) return true;                                   // nombre idéntico
       var pt=np.split(' ').filter(Boolean);
       var big=pt.filter(function(w){return w.length>=3;});        // nombre/apellidos
       var ini=pt.filter(function(w){return w.length<=2;});        // iniciales (C., M., Mª)
       // Todas las palabras de la celda están como palabra COMPLETA en mi nombre
       // y cada inicial coincide con el principio de alguna palabra mía.
-      if(big.length){
+      if(big.length===1 && ini.length===0){
+        if(big[0]===me0) return true;              // nombre de pila suelto = mi primer nombre
+      } else if(big.length){
         var okBig=big.every(function(t){return meToks.indexOf(t)>=0;});
         var okIni=ini.every(function(c){return meToks.some(function(t){return t.charAt(0)===c.charAt(0);});});
         if(okBig&&okIni) return true;
