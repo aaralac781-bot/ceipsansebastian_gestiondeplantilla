@@ -297,7 +297,7 @@ function openEmbedEnc(el){
   if(url.indexOf('meet.google.com') >= 0 ||
      url.indexOf('drive.google.com/drive') >= 0 ||
      url.indexOf('profes.tv') >= 0 ||
-     false){
+     (/^https?:\/\//i.test(url) && !/google\.com/i.test(url))){   // webs externas (no Google) no se pueden incrustar -> pestaña nueva
     window.open(url, '_blank');
     return;
   }
