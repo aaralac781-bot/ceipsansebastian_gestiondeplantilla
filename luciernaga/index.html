@@ -73,21 +73,16 @@
 
   if (!ID) {
     pedirDireccion();
-  } else if (standalone && android) {
-    /* APP EN ANDROID: elige directamente la cuenta del cole (@g.educaand.es) */
-    location.replace(ELEGIR);
   } else if (standalone) {
-    /* APP EN iPHONE / iPAD: la app a pantalla completa, sin barras del navegador */
-    var fr = $('appframe'), cargada = false;
-    fr.onload = function () { cargada = true; };
-    fr.src = URL_PUB; fr.style.display = 'block';
-    setTimeout(function () {
-      if (!cargada) { fr.style.display = 'none'; $('nota').textContent = 'No se ha podido abrir aquí. Pulsa «Entrar» para abrirla en el navegador.'; }
-    }, 9000);
-    $('entrar').href = URL_DOM;
+    /* APP INSTALADA (iPhone, iPad o Android): se abre la app directamente, eligiendo la cuenta del cole.
+       No se usa un marco interno porque, con acceso solo para @g.educaand.es, el iPhone bloquea
+       la sesión de Google dentro del marco y aparece el error 401. */
+    $('nota').textContent = 'Abriendo la app…';
+    $('entrar').href = ELEGIR;
+    location.replace(ELEGIR);
   } else {
     /* EN EL NAVEGADOR: portada fija (sin saltar) para poder instalarla con calma */
-    $('entrar').href = URL_DOM;
+    $('entrar').href = ELEGIR;
     $('nota').innerHTML = '📱 <b>Instálala como app:</b><br>· iPhone/iPad (Safari): <b>Compartir</b> → <b>Añadir a pantalla de inicio</b><br>· Android (Chrome): <b>⋮</b> → <b>Instalar aplicación</b>';
   }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
