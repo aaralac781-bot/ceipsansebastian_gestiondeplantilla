@@ -83,7 +83,10 @@
   } else {
     /* EN EL NAVEGADOR: portada fija (sin saltar) para poder instalarla con calma */
     $('entrar').href = ELEGIR;
-    $('nota').innerHTML = '📱 <b>Instálala como app:</b><br>· iPhone/iPad (Safari): <b>Compartir</b> → <b>Añadir a pantalla de inicio</b><br>· Android (Chrome): <b>⋮</b> → <b>Instalar aplicación</b>';
+    var ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    $('nota').innerHTML = ios
+      ? '📱 <b>Para tenerla a pantalla completa en iPhone o iPad:</b><br>1. Pulsa <b>Entrar</b> y elige tu cuenta @g.educaand.es.<br>2. Ya dentro de la app, pulsa <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>.<br>3. Deja activado <b>«Abrir como app web»</b> y pulsa <b>Añadir</b>.'
+      : '📱 <b>Instálala como app:</b><br>1. Pulsa <b>Entrar</b> y elige tu cuenta @g.educaand.es.<br>2. Ya dentro de la app, pulsa <b>⋮</b> → <b>Añadir a pantalla de inicio</b>.';
   }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 </script>
