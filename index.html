@@ -5186,6 +5186,8 @@ function rHResumen(){
 // SUSTITUCIONES
 var RECREO_MES_ACTUAL = '';
 var RECREO_VISTA_ACTUAL = 'turnos';
+var REC_TIPO = 'A';   // Tipo de semana activo en el cuadrante (A / B)
+function setRecTipo(t){ REC_TIPO = (t==='B'?'B':'A'); renderRecreo(); }
 
 
 function setVistaRecreo(el){
@@ -5671,7 +5673,117 @@ function initCuadrante(){
   if(!DB.recreo.cuad||!DB.recreo.cuad.meses||!DB.recreo.cuad.infantil){
     DB.recreo.cuad=_recCuadSeed(); save();
   }
+  if(!DB.recreo.cuad.ab){
+    DB.recreo.cuad.ab={
+     A:{prim:{nota:'Recreo 12:00-12:30. Cuadrante fijo del curso que alterna Tipo A / Tipo B por semana. Pistas: Antonio M., Antonio F. o Jose. Paula libra martes y viernes. Aliquindoi = comodín para bajas.',puestos:['Aula de la Naturaleza 1','Aula de la Naturaleza 2','La Aldea de los Cuentos','Pistas deportivas','Baño y porche','Merenderos J. de Mesa','Acompaña a Antonella','Acompaña a Tadeo','Aliquindoi'],filas:{
+      'Aula de la Naturaleza 1':['Antonio C.','Ángel','Ángel','Gabriel','Ángel'],
+      'Aula de la Naturaleza 2':['Paula','Inmaculada','Antonio C.','Aurora','Gabriel'],
+      'La Aldea de los Cuentos':['Inmaculada','Aurora','Patricia','Paula','Inmaculada'],
+      'Pistas deportivas':['Antonio M.','Antonio F.','Jose','Antonio F.','Antonio M.'],
+      'Baño y porche':['Vanessa','Chelo','MªJosé','Chelo','MªJosé'],
+      'Merenderos J. de Mesa':['Patricia','Mariló','Paula','Jose','Jose'],
+      'Acompaña a Antonella':['Carmen Miranda','Carmen Miranda','Toñi','Carmen Miranda','Ángela C.'],
+      'Acompaña a Tadeo':['Ángela C.','Toñi','Vanessa','Mariló','Vanessa'],
+      'Aliquindoi':['Chelo','Patricia','Aurora','','']
+    }},inf:{nota:'Recreo 12:00-12:30. Cuatro vigilantes (Cuidado 1-3 + Psicomotricidad) y Acompaña a Alma (PTIS). Alterna Tipo A / Tipo B por semana.',puestos:['Cuidado 1','Cuidado 2','Cuidado 3','Aula de Psicomotricidad','Acompaña a Alma'],filas:{
+      'Cuidado 1':['Manuela','Francis','Francis','Lara','MªCarmenLópez'],
+      'Cuidado 2':['Lola','M.ª Carmen Torres','M.ª Carmen Torres','Manuela','M.ª Carmen Torres'],
+      'Cuidado 3':['MªCarmenLópez','Cristina','Manuela','Nati','Lola'],
+      'Aula de Psicomotricidad':['Nati','Lara','Cristina','Cristina','Francis'],
+      'Acompaña a Alma':['Toñi','Alba','Carmen Miranda','Alba','Carmen Miranda']
+    }}},
+     B:{prim:{nota:'Recreo 12:00-12:30. Cuadrante fijo del curso que alterna Tipo A / Tipo B por semana. Pistas: Antonio M., Antonio F. o Jose. Paula libra martes y viernes. Aliquindoi = comodín para bajas.',puestos:['Aula de la Naturaleza 1','Aula de la Naturaleza 2','La Aldea de los Cuentos','Pistas deportivas','Baño y porche','Merenderos J. de Mesa','Acompaña a Antonella','Acompaña a Tadeo','Aliquindoi'],filas:{
+      'Aula de la Naturaleza 1':['Antonio C.','Ángel','Ángel','Gabriel','Antonio C.'],
+      'Aula de la Naturaleza 2':['Paula','Gabriel','Antonio C.','Aurora','Gabriel'],
+      'La Aldea de los Cuentos':['Inmaculada','Aurora','Patricia','Paula','Inmaculada'],
+      'Pistas deportivas':['Antonio M.','Antonio F.','Jose','Antonio F.','Antonio M.'],
+      'Baño y porche':['Mariló','Chelo','MªJosé','Chelo','MªJosé'],
+      'Merenderos J. de Mesa':['Patricia','Mariló','Antonio F.','Antonio M.','Jose'],
+      'Acompaña a Antonella':['Carmen Miranda','Carmen Miranda','Toñi','Ángela C.','Ángela C.'],
+      'Acompaña a Tadeo':['Ángela C.','MªJosé','Vanessa','Mariló','Vanessa'],
+      'Aliquindoi':['','','Aurora','','']
+    }},inf:{nota:'Recreo 12:00-12:30. Cuatro vigilantes (Cuidado 1-3 + Psicomotricidad) y Acompaña a Alma (PTIS). Alterna Tipo A / Tipo B por semana.',puestos:['Cuidado 1','Cuidado 2','Cuidado 3','Aula de Psicomotricidad','Acompaña a Alma'],filas:{
+      'Cuidado 1':['Manuela','Francis','Lara','Lara','MªCarmenLópez'],
+      'Cuidado 2':['Lola','M.ª Carmen Torres','Lola','MªCarmenLópez','M.ª Carmen Torres'],
+      'Cuidado 3':['MªCarmenLópez','Nati','Manuela','Nati','Lola'],
+      'Aula de Psicomotricidad':['Nati','Lara','Cristina','Cristina','Francis'],
+      'Acompaña a Alma':['Toñi','Alba','Carmen Miranda','Alba','Carmen Miranda']
+    }}}
+    };
+    save();
+  }
+  if(!DB.recreo.cuad.cal){
+    DB.recreo.cuad.cal={ini:'2026-11-16',iniTipo:'A',fin:'2026-12-23'};
+    save();
+  }
   if(!Array.isArray(DB.recreo.ptis))DB.recreo.ptis=[];
+}
+// ── Tipos A/B de semana + reconocimiento de FECHAS ──────────────────────────
+function _recCalInfo(){ return (DB.recreo&&DB.recreo.cuad&&DB.recreo.cuad.cal)||{ini:'2026-11-16',iniTipo:'A',fin:'2026-12-23'}; }
+function _recParseISO(s){ var p=(s||'').split('-'); return new Date(+p[0],(+p[1])-1,+p[2]); }
+function _recMondayOf(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); var dow=(x.getDay()+6)%7; x.setDate(x.getDate()-dow); return x; }
+function _recISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// Tipo (A/B) de la semana de una fecha ISO: alterna desde el lunes de inicio (prevalece el lunes).
+function _recTipoFecha(iso){
+  var c=_recCalInfo();
+  var ini=_recMondayOf(_recParseISO(c.ini));
+  var mon=_recMondayOf(_recParseISO(iso));
+  var wk=Math.round((mon-ini)/604800000);           // semanas completas de diferencia
+  var base=(c.iniTipo==='B')?1:0;
+  return ((((wk+base)%2)+2)%2)===0 ? 'A' : 'B';
+}
+// Semanas de un mes (por su lunes) dentro del trimestre: [{l,lm,v,vm,tipo}]
+function _recLeyendaMes(mes){
+  var c=_recCalInfo();
+  var pp=mes.split('-'), y=+pp[0], m=(+pp[1])-1;
+  var iniT=_recMondayOf(_recParseISO(c.ini)), finT=_recParseISO(c.fin);
+  var out=[], mon=_recMondayOf(new Date(y,m,1));
+  for(var k=0;k<7;k++){
+    if(mon.getMonth()===m && mon.getFullYear()===y && mon>=iniT && mon<=finT){
+      var vie=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4);
+      if(vie>finT) vie=new Date(finT.getFullYear(),finT.getMonth(),finT.getDate());  // recorta al último día lectivo
+      out.push({l:mon.getDate(),lm:mon.getMonth()+1,v:vie.getDate(),vm:vie.getMonth()+1,tipo:_recTipoFecha(_recISO(mon))});
+    }
+    mon=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+7);
+  }
+  return out;
+}
+// Texto corto de leyenda para notas / publicación
+function _recLeyendaTexto(mes){
+  var L=_recLeyendaMes(mes);
+  if(!L.length) return '';
+  return 'Semanas de '+getMesLabel2(mes)+': '+L.map(function(s){
+    return String(s.l).padStart(2,'0')+'/'+String(s.lm).padStart(2,'0')+'–'+String(s.v).padStart(2,'0')+'/'+String(s.vm).padStart(2,'0')+' = Tipo '+s.tipo;
+  }).join(' · ');
+}
+// Barra con el selector Tipo A / Tipo B y la leyenda de fechas del mes.
+function _recTipoBarHTML(mes){
+  if(!(DB.recreo&&DB.recreo.cuad&&DB.recreo.cuad.ab)) return '';
+  var L=_recLeyendaMes(mes);
+  var h='<div style="margin-bottom:10px">';
+  h+='<div style="display:flex;gap:6px;margin-bottom:6px">';
+  ['A','B'].forEach(function(t){
+    var on=REC_TIPO===t;
+    h+='<button onclick="setRecTipo(\''+t+'\')" style="flex:1;padding:8px;border-radius:8px;border:2px solid '+(on?'#15803d':'#e2e8f0')+';background:'+(on?'#15803d':'#fff')+';color:'+(on?'#fff':'#475569')+';font-weight:800;font-size:13px;cursor:pointer">Semana Tipo '+t+'</button>';
+  });
+  h+='</div>';
+  if(L.length){
+    h+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px;font-size:11px;color:#166534">';
+    h+='<b>Fechas de '+getMesLabel2(mes)+'</b> — la app aplica cada semana por su <b>lunes</b>:<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">';
+    L.forEach(function(s){
+      var act=s.tipo===REC_TIPO;
+      h+='<div style="display:flex;align-items:center;gap:6px">'
+        +'<span style="display:inline-block;min-width:96px">'+String(s.l).padStart(2,'0')+'/'+String(s.lm).padStart(2,'0')+' – '+String(s.v).padStart(2,'0')+'/'+String(s.vm).padStart(2,'0')+'</span>'
+        +'<span style="background:'+(s.tipo==='A'?'#15803d':'#b45309')+';color:#fff;border-radius:5px;padding:1px 7px;font-weight:700;font-size:10px">Tipo '+s.tipo+'</span>'
+        +(act?' <span style="color:#15803d;font-size:10px">◀ viendo</span>':'')
+        +'</div>';
+    });
+    h+='</div></div>';
+  } else {
+    h+='<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;font-size:11px;color:#9a3412">Este mes no tiene semanas dentro del trimestre ('+_recCalInfo().ini+' → '+_recCalInfo().fin+'). Cambia de mes con las flechas.</div>';
+  }
+  h+='</div>';
+  return h;
 }
 // Conjunto de personas disponibles para el recreo: plantilla + PTIS (no docentes).
 function _recPersonas(){
@@ -5797,7 +5909,7 @@ function _recShowModal(inner){
 function recuentoRecreoBtn(){
   var mes=RECREO_MES_ACTUAL;
   initCuadrante();
-  var prim=_recNodo('prim',mes), inf=DB.recreo.cuad.infantil;
+  var prim=_recNodo('prim',mes), inf=_recNodo('inf',mes);
   var counts={}, totalTurnos=0;
   function add(node){
     if(!node||!node.puestos)return;
@@ -5872,6 +5984,7 @@ function recuentoRecreoBtn(){
 }
 function _recNodo(amb,mes){
   var c=DB.recreo.cuad;
+  if(c.ab&&c.ab[REC_TIPO]){ return amb==='inf'?c.ab[REC_TIPO].inf:c.ab[REC_TIPO].prim; }
   if(amb==='inf')return c.infantil;
   if(!c.meses[mes]){
     var esSep=/-09$/.test(mes);
@@ -5936,6 +6049,7 @@ function renderCuadrante(){
   h+='<span style="font-size:14px;font-weight:800;flex:1;text-align:center">'+getMesLabel2(mes)+'</span>';
   h+='<button class="btn bgy bsm" onclick="cambiarMesRecreo(1)">&#8594;</button>';
   h+='</div>';
+  h+=_recTipoBarHTML(mes);
   h+='<div class="al i" style="margin-bottom:8px"><span>i</span><span>Toca <b>＋</b> en cada casilla y elige al maestro/a de la lista (no se escribe a mano). Si un puesto lo cubren varias personas, añade cada una con ＋; cada nombre lleva una × para quitarlo. Como los nombres salen de la plantilla, SSNet siempre los reconoce. '+(esSep?'Septiembre: recreo libre, sin zonas de alumnado.':'Desde octubre: ocho puestos y rotación del alumnado por zonas.')+'</span></div>';
   h+=_recGridHTML('prim',mes);
   h+=_recGridHTML('inf',mes);
@@ -5963,7 +6077,7 @@ function _recPtisHTML(){
 function ptisAdd(){ if(!DB.recreo.ptis)DB.recreo.ptis=[]; DB.recreo.ptis.push(''); save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); renderRecreo(); }
 function ptisSet(el){ var i=+el.getAttribute('data-i'); DB.recreo.ptis[i]=el.value.trim(); save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); }
 function ptisDel(i){ DB.recreo.ptis.splice(i,1); save(); if(typeof _autoSyncNube==='function')_autoSyncNube(); renderRecreo(); }
-function _recNodoRef(amb,mes){return amb==='inf'?DB.recreo.cuad.infantil:_recNodo('prim',mes);}
+function _recNodoRef(amb,mes){return _recNodo(amb,mes);}
 function cuadSet(el){
   var n=_recNodoRef(el.getAttribute('data-amb'),el.getAttribute('data-mes'));
   var pi=+el.getAttribute('data-pi'),di=+el.getAttribute('data-di');
@@ -6005,7 +6119,10 @@ function publicarCuadranteSSN(){
   if(!url){alert('Configura la URL del script en Config.');return;}
   initCuadrante(); _recBuildOpts();
   var mes=RECREO_MES_ACTUAL;
-  var prim=_recNodo('prim',mes), inf=DB.recreo.cuad.infantil;
+  var prim=_recNodo('prim',mes), inf=_recNodo('inf',mes);
+  var _ab=DB.recreo.cuad.ab;   // plantillas A/B para publicar cada fecha con su Tipo
+  var _abPrim=_ab?{A:_ab.A.prim,B:_ab.B.prim}:{A:prim,B:prim};
+  var _abInf=_ab?{A:_ab.A.inf,B:_ab.B.inf}:{A:inf,B:inf};
 
   // Nombres CORTOS para el Cuaderno de horarios de SSNet (que no salga enorme en
   // el móvil): solo nombre de pila, con inicial de apellido si se repite. Los
@@ -6042,9 +6159,11 @@ function publicarCuadranteSSN(){
   }
 
   // 1) REJILLA para el Cuaderno de horarios (igual para todos), con nombres CORTOS.
-  var grid={mes:mes, mesLabel:getMesLabel2(mes),
-    primaria:{puestos:prim.puestos, filas:_filasCortas(prim), nota:prim.nota||''},
-    infantil:{puestos:inf.puestos, filas:_filasCortas(inf), nota:inf.nota||''}};
+  var _ley=(typeof _recLeyendaTexto==='function')?_recLeyendaTexto(mes):'';
+  var _notaLey=_ley?(' · Cuadrante Tipo '+REC_TIPO+'. '+_ley):'';
+  var grid={mes:mes, mesLabel:getMesLabel2(mes), tipo:REC_TIPO,
+    primaria:{puestos:prim.puestos, filas:_filasCortas(prim), nota:(prim.nota||'')+_notaLey},
+    infantil:{puestos:inf.puestos, filas:_filasCortas(inf), nota:(inf.nota||'')+_notaLey}};
 
   // 2) Eventos por FECHA (turno de hoy en Al Día): una fila por día laborable del mes,
   //    columnas por puesto, nombres enlazados con la plantilla (_recCellNames).
@@ -6058,9 +6177,11 @@ function publicarCuadranteSSN(){
     if(dow>=1&&dow<=5){
       var di=dow-1;
       var fecha=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      var _tp=(typeof _recTipoFecha==='function')?_recTipoFecha(fecha):'A';
+      var _pN=_abPrim[_tp]||prim, _iN=_abInf[_tp]||inf;
       var row=[fecha, diasNom[dow]];
-      prim.puestos.forEach(function(p){ row.push(_recCellNames((prim.filas[p]||[])[di]||'')); });
-      inf.puestos.forEach(function(p){ row.push(_recCellNames((inf.filas[p]||[])[di]||'')); });
+      prim.puestos.forEach(function(p){ row.push(_recCellNames((_pN.filas[p]||[])[di]||'')); });
+      inf.puestos.forEach(function(p){ row.push(_recCellNames((_iN.filas[p]||[])[di]||'')); });
       filas.push(row);
     }
     d.setDate(d.getDate()+1);
