@@ -5854,7 +5854,11 @@ function _recBuildOpts(){
 function _recShortOf(full){
   var k=_recNorm(full);
   if(_REC_SHORT[k])return _REC_SHORT[k];
-  var s=_recSplitName(full);   // valor antiguo/corto no de plantilla: nombre de pila
+  var s=_recSplitName(full);   // valor no de plantilla: nombre de pila + inicial del 1er apellido
+  if(s.given && s.ap){
+    var ini=/^[a-zñ]\.?$/i.test(s.ap) ? s.ap.replace(/\.*$/,'')+'.' : (s.ap.charAt(0).toUpperCase()+'.');
+    return s.given+' '+ini;   // "Antonio C.", "Carmen M.", "M.ª Carmen T."
+  }
   return s.given||full;
 }
 function _recCellChips(v){
