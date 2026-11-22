@@ -2322,7 +2322,7 @@ function renderReservasEspacios(){
   var tramos=(DB.tramos||[]).filter(function(t){return !t.r;});
   var cont=document.getElementById('s-reservas'); if(!cont) return;
   var h='<div class="mhero" style="background:linear-gradient(135deg,#0d9488,#0f766e)"><h2>🔑 Reservas de espacios</h2><p>Define los espacios reservables. Marca en amarillo los tramos fijos de Luciernaga: quedaran bloqueados y nadie podra reservarlos.</p></div>';
-  h+='<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;align-items:center"><input class="fi" id="rn-nuevo" placeholder="Nombre del espacio (Aula STEAM, Biblioteca, SUM...)" style="flex:1"><button onclick="addEspacioReserva()" style="background:#0d9488;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-weight:800;cursor:pointer;white-space:nowrap">+ Anadir</button></div><div style="font-size:11px;color:#64748b;margin-top:6px">Pulsa una celda para marcarla/desmarcarla como <b>Luciernaga</b> (bloqueada).</div></div>';
+  h+='<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;align-items:center"><input class="fi" id="rn-nuevo" placeholder="Nombre del espacio (Aula STEAM, Gimnasio, SUM...)" style="flex:1"><button onclick="addEspacioReserva()" style="background:#0d9488;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-weight:800;cursor:pointer;white-space:nowrap">+ Anadir</button></div><div style="font-size:11px;color:#64748b;margin-top:6px">Pulsa una celda para marcarla/desmarcarla como <b>Luciernaga</b> (bloqueada).</div></div>';
   if(!DB.reservasEspacios.length){
     h+='<div class="card" style="text-align:center;color:#94a3b8;padding:20px">Aun no hay espacios. Anade el primero arriba.</div>';
   }

@@ -293,7 +293,6 @@ function buildUtils(){
              ['INFANTIL','🧸','Infantil'],['CICLO1','1️⃣','Primer ciclo'],
              ['CICLO2','2️⃣','Segundo ciclo'],['CICLO3','3️⃣','Tercer ciclo'],['ORIENTACION','🧩','Orientación']];
   var anyMeet = meets.some(function(m){ return M[m[0]]; });
-  items.push(util('📚','Aula del Presente: Biblioteca',"window.open('https://aaralac781-bot.github.io/ceipsansebastian_gestiondeplantilla/biblioteca/','_blank')"));
   if(anyMeet) items.push(util('🎥','Salas Meet','openSalas()'));
   items.push(util('📸','Subir fotos','openPanel(\'fotos\')'));
   items.push(util('🖼️','Galería','openPanel(\'galeria\')'));
