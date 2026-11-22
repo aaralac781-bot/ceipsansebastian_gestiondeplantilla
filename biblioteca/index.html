@@ -43,7 +43,7 @@
   </div>
 <script>
   /* ⬇⬇ DIRECCIÓN DE LA APP (termina en /exec). Si se deja vacía, la pide la primera vez ⬇⬇ */
-  var APP = '';
+  var APP = 'https://script.google.com/a/macros/g.educaand.es/s/AKfycbyI5BE8WgiqUaffSX284OabmL7iZqdXpg67ek5l9mJVC_XfqwH2lLjKJ2Gdqiv76N1H/exec';
   /* ⬆⬆ ----------------------------------------------------------------------- ⬆⬆ */
   var guardada = ''; try { guardada = localStorage.getItem('bibliotecaApp') || ''; } catch (e) {}
   var m = String(APP || guardada).match(/\/s\/([\w-]{20,})\/exec/), ID = m ? m[1] : '';
