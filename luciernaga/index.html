@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alma de Luciérnaga</title>
+<meta name="theme-color" content="#0B5C2C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Luciérnaga">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;
+    background:radial-gradient(ellipse at 50% 35%,#2E8B3E 0%,#0B5C2C 45%,#063A1C 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;
+    padding-top:max(24px,env(safe-area-inset-top));padding-bottom:max(24px,env(safe-area-inset-bottom))}
+  .logo{width:132px;height:132px;border-radius:30px;box-shadow:0 10px 40px rgba(249,226,0,.35);animation:luz 2.4s ease-in-out infinite}
+  @keyframes luz{0%,100%{box-shadow:0 10px 30px rgba(249,226,0,.25)}50%{box-shadow:0 10px 55px rgba(249,226,0,.6)}}
+  h1{font-size:30px;margin:22px 0 4px;letter-spacing:.3px}
+  h1 span{color:#F9E200}
+  p.sub{opacity:.85;font-size:15px}
+  .btn{display:inline-block;margin-top:28px;background:#F9E200;color:#0B5C2C;font-weight:800;font-size:18px;padding:14px 34px;border-radius:40px;text-decoration:none;border:0;cursor:pointer}
+  .nota{margin-top:16px;font-size:13px;opacity:.75;max-width:340px;line-height:1.4}
+  .cfg{display:none;margin-top:24px;width:100%;max-width:380px}
+  .cfg input{width:100%;padding:12px;border-radius:12px;border:0;font-size:15px}
+  .cfg .btn{margin-top:12px;font-size:16px;padding:11px 26px}
+  .pie{position:fixed;bottom:max(14px,env(safe-area-inset-bottom));font-size:12px;opacity:.6}
+</style>
+</head>
+<body>
+  <img class="logo" src="logo-redondo.png" alt="Alma de Luciérnaga">
+  <h1>Alma de <span>Luciérnaga</span></h1>
+  <p class="sub">CEIP San Sebastián · La Puebla del Río</p>
+  <a class="btn" id="entrar" href="#">Entrar</a>
+  <p class="nota" id="nota">Entra con tu cuenta @g.educaand.es.</p>
+  <div class="cfg" id="cfg">
+    <p class="nota" style="opacity:.9">Pega aquí la dirección de la app (la que termina en <b>/exec</b>). Solo hay que hacerlo una vez.</p>
+    <input id="url" type="url" placeholder="https://script.google.com/macros/s/…/exec">
+    <button class="btn" id="guardar">Guardar y entrar</button>
+  </div>
+  <div class="pie">Cada niño y cada niña tiene una luz</div>
+<iframe id="appframe" style="display:none;position:fixed;inset:0;width:100%;height:100%;border:0;background:#0B5C2C" allow="autoplay;fullscreen;camera;microphone"></iframe>
+<script>
+  /* ⬇⬇ DIRECCIÓN DE LA APP (termina en /exec). Si se deja vacía, la pide la primera vez ⬇⬇ */
+  var APP = 'https://script.google.com/a/macros/g.educaand.es/s/AKfycbzS7xZOKyk_78th5Ab53seaPMmrbJdUIa9oswzHCZg_pOdAhKNWUN456PPsmiHdUUtb/exec';
+  /* ⬆⬆ ---------------------------------------------------------------------------- ⬆⬆ */
+
+  var guardada = ''; try { guardada = localStorage.getItem('luciernagaApp') || ''; } catch (e) {}
+  var destino = APP || guardada;
+  var m = String(destino).match(/\/s\/([\w-]{20,})\/exec/);
+  var ID = m ? m[1] : '';
+  var URL_PUB = ID ? 'https://script.google.com/macros/s/' + ID + '/exec' : '';
+  var URL_DOM = ID ? 'https://script.google.com/a/macros/g.educaand.es/s/' + ID + '/exec' : '';
+  var ELEGIR = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(URL_DOM) + '&hd=g.educaand.es';
+  var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  var android = /Android/i.test(navigator.userAgent);
+  var $ = function (id) { return document.getElementById(id); };
+
+  function pedirDireccion() {
+    $('entrar').style.display = 'none'; $('nota').style.display = 'none'; $('cfg').style.display = 'block';
+    $('guardar').onclick = function () {
+      var u = $('url').value.trim();
+      if (!/^https:\/\/script\.google\.com\/.+\/s\/[\w-]{20,}\/exec/.test(u)) { alert('Esa dirección no parece la de la app. Debe empezar por https://script.google.com/ y terminar en /exec'); return; }
+      try { localStorage.setItem('luciernagaApp', u); } catch (e) {}
+      location.reload();
+    };
+  }
+
+  if (!ID) {
+    pedirDireccion();
+  } else if (standalone) {
+    /* APP INSTALADA (iPhone, iPad o Android): se abre la app directamente, eligiendo la cuenta del cole.
+       No se usa un marco interno porque, con acceso solo para @g.educaand.es, el iPhone bloquea
+       la sesión de Google dentro del marco y aparece el error 401. */
+    $('nota').textContent = 'Abriendo la app…';
+    $('entrar').href = ELEGIR;
+    location.replace(ELEGIR);
+  } else {
+    /* EN EL NAVEGADOR: portada fija (sin saltar) para poder instalarla con calma */
+    $('entrar').href = ELEGIR;
+    var ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    $('nota').innerHTML = ios
+      ? '📱 <b>Para tenerla a pantalla completa en iPhone o iPad:</b><br>1. Pulsa <b>Entrar</b> y elige tu cuenta @g.educaand.es.<br>2. Ya dentro de la app, pulsa <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>.<br>3. Deja activado <b>«Abrir como app web»</b> y pulsa <b>Añadir</b>.'
+      : '📱 <b>Instálala como app:</b><br>1. Pulsa <b>Entrar</b> y elige tu cuenta @g.educaand.es.<br>2. Ya dentro de la app, pulsa <b>⋮</b> → <b>Añadir a pantalla de inicio</b>.';
+  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+</script>
+</body>
+</html>
