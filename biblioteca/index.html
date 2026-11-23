@@ -51,7 +51,10 @@
   var URL_DOM = 'https://script.google.com/a/macros/g.educaand.es/s/' + ID + '/exec';
   var ELEGIR = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(URL_DOM) + '&hd=g.educaand.es';
   var $ = function (id) { return document.getElementById(id); };
-  if (!ID) {
+  // Enlaces directos para familias: ?abrir=colaborar · ?abrir=cuento · ?abrir=novedades (van sin cuenta al formulario)
+  var ABRIR = (location.search.match(/[?&]abrir=(colaborar|cuento|novedades)/) || [])[1];
+  if (ID && ABRIR) { $('nota').textContent = 'Abriendo el formulario…'; location.replace(URL_PUB + '?vista=publica&abrir=' + ABRIR); }
+  else if (!ID) {
     $('entrar').style.display = 'none'; $('publica').style.display = 'none'; $('nota').style.display = 'none'; $('cfg').style.display = 'block';
     $('guardar').onclick = function () {
       var u = $('url').value.trim();
